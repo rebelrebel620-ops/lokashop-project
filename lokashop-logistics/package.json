@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"build":"vite build","dev":"vite --host 127.0.0.1"},"devDependencies":{"vite":"^6.0.0","laravel-vite-plugin":"^1.2.0"}}
