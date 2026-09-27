@@ -12,18 +12,19 @@ img.logo{width:90px}
 </div>
 <img class="logo" src="/logo.jpg">
 <h1>LokaShop</h1>
-<h2>{{$parcel->tracking_code}}</h2>
-<p>Order #{{$order->id}}</p>
-<p>To: {{$address->recipient}} · {{$address->phone}}</p>
-<p>{{$address->street}}, {{$address->barangay}}, {{$address->city}}, {{$address->province}} {{$address->postal_code}}</p>
+<h2><?php echo e($parcel->tracking_code); ?></h2>
+<p>Order #<?php echo e($order->id); ?></p>
+<p>To: <?php echo e($address->recipient); ?> · <?php echo e($address->phone); ?></p>
+<p><?php echo e($address->street); ?>, <?php echo e($address->barangay); ?>, <?php echo e($address->city); ?>, <?php echo e($address->province); ?> <?php echo e($address->postal_code); ?></p>
 <button onclick="print()">Print</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 new QRCode(document.getElementById('qr'), {
-  text: @json($trackUrl),
+  text: <?php echo json_encode($trackUrl, 15, 512) ?>,
   width: 110,
   height: 110,
   correctLevel: QRCode.CorrectLevel.M
 });
 </script>
+<?php /**PATH C:\Users\Administrator\Documents\LokaShop-all-in-one-v1\lokashop-ecommerce\resources\views/label.blade.php ENDPATH**/ ?>

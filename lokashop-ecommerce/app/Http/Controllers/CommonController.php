@@ -7,6 +7,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 class CommonController extends Controller {
+ public function track(string $code){
+  $parcel=DB::table('parcels')->where('tracking_code',$code)->first();
+  abort_unless($parcel,404);
+  $order=DB::table('orders')->where('id',$parcel->order_id)->first();
+  abort_unless($order,404);
+  $address=DB::table('addresses')->find($order->address_id);
+  $buyer=DB::table('users')->find($order->buyer_id);
+  $seller=DB::table('users')->find($order->seller_id);
+  $items=DB::table('order_items')->where('order_id',$order->id)->get();
+  $payment=DB::table('payments')->where('order_id',$order->id)->orderByDesc('id')->first();
+  return view('track',['parcel'=>$parcel,'order'=>$order,'address'=>$address,'buyer'=>$buyer,'seller'=>$seller,'items'=>$items,'payment'=>$payment]);
+ }
  public function authForm(Request $r){return view('auth',['register'=>$r->is('register'),'roles'=>str_contains(config('app.name'),'Logistics')?['sorting_center','rider']:['buyer','seller']]);}
  public function register(Request $r){
   $roles=str_contains(config('app.name'),'Logistics')?['sorting_center','rider']:['buyer','seller'];
