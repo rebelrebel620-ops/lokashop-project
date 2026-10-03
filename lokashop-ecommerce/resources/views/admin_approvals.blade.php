@@ -1,7 +1,7 @@
 @extends('app')
 @section('title','Approvals - Admin')
 @section('content')
-<div class="page-head"><div><h1>Pending registrations</h1><p>Review identity and permit documents before approving new accounts.</p></div></div>
+<div class="page-head"><div><h1>Pending seller registrations</h1><p>Review identity and permit documents before approving sellers. Buyers do not need approval.</p></div></div>
 
 @forelse($users as $u)
 <div class="section-card">

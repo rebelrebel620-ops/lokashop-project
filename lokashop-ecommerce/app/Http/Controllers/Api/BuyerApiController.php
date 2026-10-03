@@ -27,7 +27,7 @@ class BuyerApiController extends Controller
             $id = DB::table('users')->insertGetId([
                 'name' => $v['name'], 'phone' => $v['phone'], 'email' => $v['email'],
                 'password' => Hash::make($v['password']), 'role' => 'buyer',
-                'approval_status' => 'pending', 'active' => 1,
+                'approval_status' => 'approved', 'active' => 1,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             if ($r->hasFile('id_document')) {
@@ -40,7 +40,7 @@ class BuyerApiController extends Controller
             return $id;
         });
 
-        return response()->json(['message' => 'Registration submitted. Please wait for admin approval before logging in.', 'user_id' => $id]);
+        return response()->json(['message' => 'Account created. You can log in now.', 'user_id' => $id]);
     }
 
     public function login(Request $r)

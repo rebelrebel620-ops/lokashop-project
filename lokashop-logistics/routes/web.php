@@ -1,8 +1,17 @@
 <?php
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{CommonController as C,LogisticsController as L};
+use App\Http\Controllers\{CommonController as C,LogisticsController as L,LogisticsAdminController as A};
 Route::get('/',[L::class,'landing']);Route::get('/track',[L::class,'track']);
 Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login']);Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register']);
-Route::middleware('auth')->group(function(){Route::post('/logout',[C::class,'logout']);Route::get('/dashboard',[C::class,'dashboard']);Route::get('/profile',[C::class,'profile']);Route::post('/profile',[C::class,'updateProfile']);Route::get('/messages',[C::class,'messages']);Route::post('/messages',[C::class,'sendMessage']);});
-Route::middleware(['auth','role:sorting_center'])->prefix('center')->group(function(){Route::get('/approvals',[L::class,'approvals']);Route::get('/documents/{id}',[L::class,'document']);Route::post('/approvals/{id}',[L::class,'approve']);Route::get('/areas',[L::class,'areas']);Route::post('/areas',[L::class,'area']);Route::get('/pickups',[L::class,'pickups']);Route::post('/pickups/{id}/verify',[L::class,'verifyPickup']);Route::get('/parcels',[L::class,'parcels']);Route::post('/parcels/{id}/receive',[L::class,'receive']);Route::post('/parcels/{id}/sort',[L::class,'sort']);Route::post('/parcels/{id}/assign',[L::class,'assign']);Route::post('/parcels/{id}/return',[L::class,'returned']);Route::get('/reports',[L::class,'report']);});
+Route::post('/logout',[C::class,'logout'])->middleware('auth');
+Route::middleware(['auth','role:sorting_center|rider|logistics_admin'])->group(function(){Route::get('/dashboard',[C::class,'dashboard']);Route::get('/profile',[C::class,'profile']);Route::post('/profile',[C::class,'updateProfile']);Route::get('/messages',[C::class,'messages']);Route::post('/messages',[C::class,'sendMessage']);});
+Route::middleware(['auth','role:sorting_center'])->prefix('center')->group(function(){Route::get('/areas',[L::class,'areas']);Route::post('/areas',[L::class,'area']);Route::get('/pickups',[L::class,'pickups']);Route::post('/pickups/{id}/verify',[L::class,'verifyPickup']);Route::get('/parcels',[L::class,'parcels']);Route::post('/parcels/{id}/receive',[L::class,'receive']);Route::post('/parcels/{id}/sort',[L::class,'sort']);Route::post('/parcels/{id}/assign',[L::class,'assign']);Route::post('/parcels/{id}/return',[L::class,'returned']);Route::get('/reports',[L::class,'report']);});
 Route::middleware(['auth','role:rider'])->prefix('rider')->group(function(){Route::get('/assignments',[L::class,'assignments']);Route::post('/assignments/{id}/accept',[L::class,'accept']);Route::post('/parcels/{id}/status',[L::class,'riderStep']);Route::get('/earnings',[L::class,'earnings']);});
+
+Route::middleware(['auth','role:logistics_admin'])->prefix('admin')->group(function(){
+ Route::get('/approvals',[A::class,'approvals']);
+ Route::get('/documents/{id}',[A::class,'document']);
+ Route::post('/approvals/{id}',[A::class,'approve']);
+ Route::get('/users',[A::class,'users']);
+ Route::post('/users/{id}/toggle',[A::class,'toggle']);
+});
