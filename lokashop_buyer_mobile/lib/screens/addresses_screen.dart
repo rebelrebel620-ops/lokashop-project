@@ -28,7 +28,8 @@ class _AddressesScreenState extends State<AddressesScreen> {
       final res = await context.read<AppState>().api.get('/addresses');
       setState(() => addresses = List.from(res));
     } catch (_) {
-      if (mounted) AppSnack.show(context, 'Could not load addresses.', error: true);
+      if (mounted)
+        AppSnack.show(context, 'Could not load addresses.', error: true);
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -48,9 +49,14 @@ class _AddressesScreenState extends State<AddressesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Delivery addresses')),
       body: loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary))
           : addresses.isEmpty
-              ? const EmptyState(icon: Icons.location_on_outlined, title: 'No addresses saved', subtitle: 'Add one during checkout, or with the button below.')
+              ? const EmptyState(
+                  icon: Icons.location_on_outlined,
+                  title: 'No addresses saved',
+                  subtitle:
+                      'Add one during checkout, or with the button below.')
               : RefreshIndicator(
                   onRefresh: _load,
                   color: AppColors.primary,
@@ -60,10 +66,14 @@ class _AddressesScreenState extends State<AddressesScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) {
                       final a = addresses[i];
-                      final isDefault = a['is_default'] == true || a['is_default'] == 1;
+                      final isDefault =
+                          a['is_default'] == true || a['is_default'] == 1;
                       return Container(
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.line)),
+                        decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.line)),
                         child: Row(
                           children: [
                             Expanded(
@@ -71,24 +81,44 @@ class _AddressesScreenState extends State<AddressesScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(children: [
-                                    Text('${a['recipient']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    Text('${a['recipient']}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w700)),
                                     if (isDefault) ...[
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(color: AppColors.primary.withOpacity(.1), borderRadius: BorderRadius.circular(20)),
-                                        child: const Text('Default', style: TextStyle(color: AppColors.primary, fontSize: 10.5, fontWeight: FontWeight.w700)),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                            color: AppColors.primary
+                                                .withValues(alpha: .1),
+                                            borderRadius:
+                                                BorderRadius.circular(20)),
+                                        child: const Text('Default',
+                                            style: TextStyle(
+                                                color: AppColors.primary,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700)),
                                       ),
                                     ],
                                   ]),
                                   const SizedBox(height: 2),
-                                  Text('${a['phone']}', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                                  Text('${a['street']}, ${a['barangay']}, ${a['city']}, ${a['province']}', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                                  Text('${a['phone']}',
+                                      style: const TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12.5)),
+                                  Text(
+                                      '${a['street']}, ${a['barangay']}, ${a['city']}, ${a['province']}',
+                                      style: const TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12.5)),
                                 ],
                               ),
                             ),
                             if (!isDefault)
-                              TextButton(onPressed: () => _setDefault(a['id']), child: const Text('Set default')),
+                              TextButton(
+                                  onPressed: () => _setDefault(a['id']),
+                                  child: const Text('Set default')),
                           ],
                         ),
                       );
