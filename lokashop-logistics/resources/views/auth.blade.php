@@ -33,7 +33,7 @@
         <label>Identification document</label>
         <input type="file" name="id_document" required>
 
-        <label>Permit / OR-CR (seller, center, rider)</label>
+        <label>Permit / OR-CR</label>
         <input type="file" name="permit_document">
       @endif
 
