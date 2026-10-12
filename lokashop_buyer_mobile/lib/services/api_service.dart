@@ -7,7 +7,8 @@ import 'session.dart';
 class ApiException implements Exception {
   final String message;
   final Map<String, dynamic>? errors;
-  ApiException(this.message, {this.errors});
+  final Map<String, dynamic>? data;
+  ApiException(this.message, {this.errors, this.data});
 
   /// Flattens Laravel's `{"errors": {"field": ["msg"]}}` validation shape
   /// into one readable string.
@@ -19,7 +20,7 @@ class ApiException implements Exception {
       return ApiException(msg, errors: errors);
     }
     if (body is Map && body['message'] != null) {
-      return ApiException(body['message'].toString());
+      return ApiException(body['message'].toString(), data: Map<String,dynamic>.from(body));
     }
     return ApiException('Something went wrong (HTTP $status).');
   }

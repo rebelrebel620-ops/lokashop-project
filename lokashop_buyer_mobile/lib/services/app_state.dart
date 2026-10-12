@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 import 'session.dart';
@@ -45,22 +44,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String> register({
-    required String name,
-    required String phone,
-    required String email,
-    required String password,
-    required String passwordConfirmation,
-    required File idDocument,
-  }) async {
-    final res = await api.postMultipart('/register', {
-      'name': name,
-      'phone': phone,
-      'email': email,
-      'password': password,
-      'password_confirmation': passwordConfirmation,
-    }, file: idDocument);
-    return res['message'] ?? 'Registration submitted.';
+  Future<Map<String, dynamic>> register(Map<String, dynamic> fields) async {
+    final res = await api.post('/register', fields);
+    return Map<String, dynamic>.from(res as Map);
   }
 
   Future<void> logout() async {

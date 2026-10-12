@@ -3,8 +3,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BuyerApiController as B;
 
 // Public
-Route::post('/register', [B::class, 'register']);
-Route::post('/login', [B::class, 'login']);
+Route::post('/register', [B::class, 'register'])->middleware('throttle:5,1');
+Route::post('/registration/verify', [\App\Http\Controllers\Api\BuyerVerificationController::class, 'verify'])->middleware('throttle:10,1');
+Route::post('/registration/resend', [\App\Http\Controllers\Api\BuyerVerificationController::class, 'resend'])->middleware('throttle:5,1');
+Route::post('/login', [B::class, 'login'])->middleware('throttle:10,1');
 Route::get('/categories', [B::class, 'categories']);
 Route::get('/products', [B::class, 'products']);
 Route::get('/products/{id}', [B::class, 'product']);

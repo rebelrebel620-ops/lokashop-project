@@ -1,4 +1,7 @@
-@extends('layout')
+@extends(auth()->check() && auth()->user()->role === 'buyer' ? 'app' : 'layout')
+@php
+ $links = auth()->check() && auth()->user()->role === 'buyer' ? app(\App\Http\Controllers\CommonController::class)->links() : [];
+@endphp
 @section('title','Shop - LokaShop')
 @section('content')
 <div class="page-head"><div><h1>Shop local with LokaShop</h1><p>Browse approved products from verified local sellers.</p></div></div>

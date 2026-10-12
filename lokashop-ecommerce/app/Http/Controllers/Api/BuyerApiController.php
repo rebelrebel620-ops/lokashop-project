@@ -15,36 +15,14 @@ class BuyerApiController extends Controller
 
     public function register(Request $r)
     {
-        $v = $r->validate([
-            'name' => 'required|string|max:150',
-            'phone' => 'required|string|max:40',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:8|confirmed',
-            'id_document' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
-        ]);
-
-        $id = DB::transaction(function () use ($r, $v) {
-            $id = DB::table('users')->insertGetId([
-                'name' => $v['name'], 'phone' => $v['phone'], 'email' => $v['email'],
-                'password' => Hash::make($v['password']), 'role' => 'buyer',
-                'approval_status' => 'approved', 'active' => 1,
-                'created_at' => now(), 'updated_at' => now(),
-            ]);
-            if ($r->hasFile('id_document')) {
-                DB::table('registration_documents')->insert([
-                    'user_id' => $id, 'kind' => 'id',
-                    'path' => $r->file('id_document')->store('documents'),
-                    'created_at' => now(), 'updated_at' => now(),
-                ]);
-            }
-            return $id;
-        });
-
-        return response()->json(['message' => 'Account created. You can log in now.', 'user_id' => $id]);
+        $r->merge(['role'=>'buyer']);
+        $id=\App\Services\Registration::create($r);
+        return response()->json(['message'=>'Check your email for a verification code.','verification_token'=>BuyerVerificationController::token($id),'email'=>DB::table('users')->where('id',$id)->value('email'),'retry_after'=>60],201);
     }
 
     public function login(Request $r)
     {
+        $r->merge(['email'=>mb_strtolower(trim((string)$r->input('email')))]);
         $v = $r->validate(['email' => 'required|email', 'password' => 'required']);
         $user = DB::table('users')->where('email', $v['email'])->first();
 
@@ -54,8 +32,11 @@ class BuyerApiController extends Controller
         if ($user->role !== 'buyer') {
             throw ValidationException::withMessages(['email' => 'This account is not a buyer account.']);
         }
-        if ($user->approval_status !== 'approved' || !$user->active) {
-            throw ValidationException::withMessages(['email' => 'Account waiting for approval or inactive.']);
+        if ($user->active && $user->approval_status==='unverified' && ($user->verification_required ?? false)) {
+            return response()->json(['message'=>'Verify your email before logging in.','verification_required'=>true,'verification_token'=>BuyerVerificationController::token($user->id),'email'=>$user->email],403);
+        }
+        if ($user->approval_status !== 'approved' || !$user->active || (($user->verification_required ?? false) && !$user->email_verified_at)) {
+            throw ValidationException::withMessages(['email' => 'Your account is inactive or unavailable. Contact LokaShop support.']);
         }
 
         $token = Str::random(60);

@@ -3,7 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{CommonController as C,ShopController as S,SellerController as V,AdminController as A};
 Route::get('/',[S::class,'landing']);Route::get('/shop',[S::class,'home']);Route::get('/product/{id}',[S::class,'product']);
 Route::get('/track/{code}',[C::class,'track']);
-Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login']);Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register']);
+Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login']);Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register'])->middleware('throttle:5,1');
 Route::post('/logout',[C::class,'logout'])->middleware('auth');
 Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){Route::get('/dashboard',[C::class,'dashboard']);Route::get('/profile',[C::class,'profile']);Route::post('/profile',[C::class,'updateProfile']);Route::get('/messages',[C::class,'messages']);Route::post('/messages',[C::class,'sendMessage']);});
 Route::middleware(['auth','role:buyer'])->group(function(){Route::get('/cart',[S::class,'cart']);Route::post('/cart',[S::class,'add']);Route::post('/addresses',[S::class,'address']);Route::post('/checkout',[S::class,'checkout']);Route::get('/orders',[S::class,'orders']);Route::post('/orders/{id}/confirm',[S::class,'confirm']);Route::post('/orders/{id}/rating',[S::class,'rating']);});
@@ -11,3 +11,8 @@ Route::middleware(['auth','role:seller'])->prefix('seller')->group(function(){Ro
 Route::middleware(['auth','role:admin'])->prefix('admin')->group(function(){Route::get('/approvals',[A::class,'approvals']);Route::get('/documents/{id}',[A::class,'document']);Route::post('/approvals/{id}',[A::class,'approve']);Route::get('/users',[A::class,'users']);Route::post('/users/{id}/toggle',[A::class,'toggle']);Route::get('/products',[A::class,'products']);Route::post('/products/{id}',[A::class,'productDecision']);Route::get('/reports',[A::class,'report']);Route::get('/announcements',[A::class,'announcements']);Route::post('/announcements',[A::class,'announcement']);Route::get('/complaints',[A::class,'complaints']);Route::post('/complaints/{id}',[A::class,'resolve']);});
 
 Route::middleware(['auth','role:buyer'])->group(function(){Route::get('/complaints',fn()=>view('complaints',['links'=>app(C::class)->links(),'complaints'=>\Illuminate\Support\Facades\DB::table('complaints')->where('user_id',auth()->id())->get()]));Route::post('/complaints',function(\Illuminate\Http\Request $r){$v=$r->validate(['order_id'=>'required|integer','description'=>'required|string|max:3000']);abort_unless(\Illuminate\Support\Facades\DB::table('orders')->where('id',$v['order_id'])->where('buyer_id',auth()->id())->exists(),403);\Illuminate\Support\Facades\DB::table('complaints')->insert($v+['user_id'=>auth()->id(),'status'=>'open','created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Complaint sent.');});});
+
+Route::get('/verify-email',[\App\Http\Controllers\VerificationController::class,'form']);
+Route::post('/verify-email',[\App\Http\Controllers\VerificationController::class,'verify'])->middleware('throttle:10,1');
+Route::post('/verify-email/resend',[\App\Http\Controllers\VerificationController::class,'resend'])->middleware('throttle:3,1');
+Route::get('/terms',fn()=>view('terms'));

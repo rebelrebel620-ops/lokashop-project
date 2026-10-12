@@ -21,14 +21,23 @@ class CommonController extends Controller {
  }
  public function authForm(Request $r){return view('auth',['register'=>$r->is('register'),'roles'=>['buyer','seller']]);}
  public function register(Request $r){
-  $roles=['buyer','seller'];
-  $v=$r->validate(['role'=>['required',Rule::in($roles)],'name'=>'required|string|max:150','phone'=>'required|string|max:40','email'=>'required|email|unique:users,email','password'=>'required|min:8|confirmed','business_name'=>'required_if:role,seller,sorting_center|nullable|string|max:180','vehicle'=>'required_if:role,rider|nullable|string|max:120','id_document'=>'required|file|mimes:pdf,jpg,jpeg,png|max:5120','permit_document'=>'required_if:role,seller,sorting_center,rider|nullable|file|mimes:pdf,jpg,jpeg,png|max:5120']);
-  DB::transaction(function()use($r,$v){$id=DB::table('users')->insertGetId(['name'=>$v['name'],'phone'=>$v['phone'],'email'=>$v['email'],'password'=>Hash::make($v['password']),'role'=>$v['role'],'vehicle'=>$v['vehicle']??null,'approval_status'=>$v['role']==='buyer'?'approved':'pending','active'=>1,'created_at'=>now(),'updated_at'=>now()]);
-   foreach(['id_document'=>'id','permit_document'=>'permit'] as $key=>$kind)if($r->hasFile($key)) DB::table('registration_documents')->insert(['user_id'=>$id,'kind'=>$kind,'path'=>$r->file($key)->store('documents'),'created_at'=>now(),'updated_at'=>now()]);
-   if($v['role']==='seller')DB::table('seller_businesses')->insert(['user_id'=>$id,'name'=>$v['business_name'],'created_at'=>now(),'updated_at'=>now()]);
-   if($v['role']==='sorting_center')DB::table('sorting_centers')->insert(['user_id'=>$id,'name'=>$v['business_name'],'created_at'=>now(),'updated_at'=>now()]);
-  });return redirect('/login')->with('success',$v['role']==='buyer'?'Account created. You can log in now.':'Seller registration sent for approval.'); }
- public function login(Request $r){$v=$r->validate(['email'=>'required|email','password'=>'required']);if(!Auth::attempt($v))return back()->withErrors(['email'=>'Incorrect login details.']);$r->session()->regenerate();$u=Auth::user();if($u->approval_status!=='approved'||!$u->active){Auth::logout();return back()->withErrors(['email'=>'Account waiting for approval or inactive.']);}$roles=['buyer','seller','admin'];if(!in_array($u->role,$roles,true)){Auth::logout();return back()->withErrors(['email'=>'Use the correct LokaShop website for this role.']);}return redirect('/dashboard');}
+  $id=\App\Services\Registration::create($r);
+  $r->session()->regenerate(); $r->session()->put('registration_user_id',$id);
+  return redirect('/verify-email')->with('success','Account created. Check your email for the verification code.');
+ }
+ public function login(Request $r){
+  $r->merge(['email'=>mb_strtolower(trim((string)$r->input('email')))]);
+  $v=$r->validate(['email'=>'required|email','password'=>'required']);
+  $candidate=DB::table('users')->whereRaw('LOWER(TRIM(email)) = ?',[$v['email']])->first();
+  if(!$candidate || !Hash::check($v['password'],$candidate->password))return back()->withErrors(['email'=>'Incorrect login details.'])->withInput($r->only('email'));
+  if(!in_array($candidate->role,['buyer','seller','admin'],true))return back()->withErrors(['email'=>'Use the correct LokaShop website for this role.']);
+  if($candidate->approval_status==='unverified'){
+   $r->session()->regenerate();$r->session()->put('registration_user_id',$candidate->id);
+   return redirect('/verify-email')->with('success','Verify your email before logging in. You can request a new code here.');
+  }
+  if($candidate->approval_status!=='approved'||!$candidate->active)return back()->withErrors(['email'=>'Account waiting for approval, rejected or inactive.']);
+  Auth::loginUsingId($candidate->id);$r->session()->regenerate();return redirect('/dashboard');
+ }
  public function logout(Request $r){Auth::logout();$r->session()->invalidate();$r->session()->regenerateToken();return redirect('/login');}
  public function dashboard(){return view('dashboard',['links'=>$this->links()]+$this->dashboardData());}
  private function dashboardData(){

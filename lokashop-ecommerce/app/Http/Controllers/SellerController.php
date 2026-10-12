@@ -6,7 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 class SellerController extends Controller {
  private function list($title,$query){return view('list',['title'=>$title,'links'=>app(CommonController::class)->links(),'records'=>$query->orderByDesc('id')->paginate(20)]);}
- public function products(){return view('seller_products',['links'=>app(CommonController::class)->links(),'products'=>DB::table('products')->where('seller_id',auth()->id())->orderByDesc('id')->paginate(20),'categories'=>DB::table('categories')->get()]);}
+ public function products(){
+  $categories=DB::table('categories')->orderBy('name')->get();
+  $shopCategory=DB::table('seller_businesses')->where('user_id',auth()->id())->value('category');
+  $defaultCategory=$categories->first(fn($c)=>mb_strtolower($c->name)===mb_strtolower((string)$shopCategory));
+  return view('seller_products',['links'=>app(CommonController::class)->links(),'products'=>DB::table('products')->where('seller_id',auth()->id())->orderByDesc('id')->paginate(20),'categories'=>$categories,'shopCategory'=>$shopCategory,'defaultCategoryId'=>$defaultCategory?->id]);
+ }
+
  public function addProduct(Request $r){$v=$r->validate(['name'=>'required|max:180','description'=>'nullable|string','category_id'=>'required|exists:categories,id','price'=>'required|numeric|min:0.01','discount_percent'=>'required|numeric|between:0,100','stock'=>'required|integer|min:0']);DB::table('products')->insert($v+['seller_id'=>auth()->id(),'approved'=>0,'active'=>1,'created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Product submitted for review.');}
  public function updateProduct(Request $r,int $id){$v=$r->validate(['name'=>'required|max:180','price'=>'required|numeric|min:0.01','stock'=>'required|integer|min:0','discount_percent'=>'required|numeric|between:0,100']);abort_unless(DB::table('products')->where('id',$id)->where('seller_id',auth()->id())->exists(),403);DB::table('products')->where('id',$id)->update($v+['approved'=>0,'updated_at'=>now()]);return back()->with('success','Updated; awaiting review.');}
  public function addVariation(Request $r,int $id){$v=$r->validate(['name'=>'required|max:120','price_adjustment'=>'required|numeric','stock'=>'required|integer|min:0']);abort_unless(DB::table('products')->where('id',$id)->where('seller_id',auth()->id())->exists(),403);DB::table('product_variations')->insert($v+['product_id'=>$id,'created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Variation added.');}

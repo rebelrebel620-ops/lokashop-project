@@ -43,12 +43,15 @@
   <div class="form-card">
    <h3>Add product</h3>
    <form method="post" action="/seller/products">@csrf
-    <input name="name" placeholder="Product name" required>
-    <textarea name="description" placeholder="Description"></textarea>
-    <label>Category<select name="category_id">@foreach($categories as $c)<option value="{{$c->id}}">{{$c->name}}</option>@endforeach</select></label>
-    <input name="price" type="number" step="0.01" min="0.01" placeholder="Price" required>
-    <input name="discount_percent" type="number" step="0.01" min="0" max="100" value="0" required>
-    <input name="stock" type="number" min="0" placeholder="Stock" required>
+    <label>Product name<input name="name" placeholder="e.g. Reusable shopping bag" value="{{old('name')}}" required></label>
+    <label>Product description<textarea name="description" placeholder="Describe the material, size, color, and what is included.">{{old('description')}}</textarea></label>
+    <label>Product category<select name="category_id" required><option value="">Choose a product category</option>@foreach($categories as $c)<option value="{{$c->id}}" @selected((string)old('category_id',$defaultCategoryId)===(string)$c->id)>{{$c->name}}</option>@endforeach</select></label>
+    <p><small>@if($defaultCategoryId)Your shop category, {{$shopCategory}}, is selected by default. Change it if this product belongs to another category.@else Choose the category that best describes this product.@endif</small></p>
+    <label>Price (₱)<input name="price" type="number" step="0.01" min="0.01" placeholder="e.g. 199.00" value="{{old('price')}}" required></label>
+    <label>Discount (%)<input name="discount_percent" type="number" step="0.01" min="0" max="100" value="{{old('discount_percent',0)}}" required></label>
+    <p><small>Enter 0 for no discount. For example, 10 gives buyers 10% off the listed price.</small></p>
+    <label>Stock quantity (units)<input name="stock" type="number" min="0" step="1" placeholder="e.g. 25" value="{{old('stock')}}" required></label>
+    <p><small>Enter the number of units available to sell. Use 0 if the product is out of stock.</small></p>
     <button class="btn" style="width:100%">Submit for admin review</button>
    </form>
   </div>

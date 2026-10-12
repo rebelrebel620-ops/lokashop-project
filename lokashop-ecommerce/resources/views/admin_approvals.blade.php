@@ -7,6 +7,9 @@
 <div class="section-card">
  <div class="shead"><h3>{{$u->name}}</h3><span class="badge blue">{{ucfirst(str_replace('_',' ',$u->role))}}</span></div>
  <p><small>{{$u->email}} &middot; {{$u->phone}}</small></p>
+ @if(isset($businesses[$u->id]))<p>Shop: {{$businesses[$u->id]->name}} · Category: {{$businesses[$u->id]->category}}</p>@endif
+ <p>Seller type: {{$u->seller_type ?? 'Not recorded'}} · TIN: {{$u->tin ?? 'Not recorded'}}</p>
+ @if(isset($addresses[$u->id]))<p>Address: {{$addresses[$u->id]->street}}, {{$addresses[$u->id]->barangay}}, {{$addresses[$u->id]->city}}, {{$addresses[$u->id]->province}} {{$addresses[$u->id]->postal_code}}</p>@endif
  <div class="inline-form">
   @foreach($docs[$u->id]??[] as $doc)<a class="btn sm alt" href="/admin/documents/{{$doc->id}}" target="_blank">View {{$doc->kind}} document</a>@endforeach
  </div>

@@ -17,7 +17,7 @@ class ApiBuyerAuth
 
         $user = DB::table('users')->where('remember_token', $token)->first();
 
-        if (!$user || $user->role !== 'buyer' || $user->approval_status !== 'approved' || !$user->active) {
+        if (!$user || $user->role !== 'buyer' || $user->approval_status !== 'approved' || !$user->active || (($user->verification_required ?? false) && !$user->email_verified_at)) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 

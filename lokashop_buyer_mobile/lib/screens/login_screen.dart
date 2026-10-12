@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import 'home_shell.dart';
 import 'register_screen.dart';
+import 'verify_email_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,7 +29,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const HomeShell()), (r) => false);
     } on ApiException catch (e) {
-      if (mounted) AppSnack.show(context, e.message, error: true);
+      if (!mounted) return;
+      if (e.data?['verification_required'] == true) {
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => VerifyEmailScreen(
+          token: e.data!['verification_token'] as String,
+          email: e.data!['email'] as String,
+        )));
+      } else {
+        AppSnack.show(context, e.message, error: true);
+      }
     } catch (e) {
       if (mounted) AppSnack.show(context, 'Could not reach the server. Check your connection.', error: true);
     } finally {
