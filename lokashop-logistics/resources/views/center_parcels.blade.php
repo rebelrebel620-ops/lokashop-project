@@ -1,5 +1,5 @@
 @extends('dashboard')
-@section('title','Sorting center overview')
+@section('title','Parcels')
 @section('panel')
 @php
   $items = $parcels->getCollection();
@@ -10,7 +10,7 @@
 @endphp
 
 <div class="page-head">
-  <div><h1>Sorting center overview</h1><p>Keep pickups moving and every parcel in the right hands.</p></div>
+  <div><h1>Parcels</h1><p>Keep pickups moving and every parcel in the right hands.</p></div>
 </div>
 
 <div class="stat-grid">

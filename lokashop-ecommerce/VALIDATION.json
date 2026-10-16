@@ -1,0 +1,6 @@
+{
+  "php_grammar_syntax": "passed",
+  "laravel_tests": "not run: PHP runtime unavailable",
+  "browser_checks": "not run",
+  "database_changed_in_editing_environment": false
+}

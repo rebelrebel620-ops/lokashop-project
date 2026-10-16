@@ -21,7 +21,7 @@
         </a>
       @endforeach
       <form method="post" action="/admin/approvals/{{ $u->id }}" style="margin-top:10px">
-        @csrf
+        @csrf <input name="reason" placeholder="Reason for rejection (10–300 characters)" minlength="10" maxlength="300">
         <button name="decision" value="approved" class="sm"><x-icon name="check" size="15"/> Approve</button>
         <button name="decision" value="rejected" class="sm danger">Reject</button>
       </form>

@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>@yield('title','LokaShop Logistics')</title>
-<link rel="icon" href="/favicon.jpg">
+<link rel="icon" type="image/png" href="{{ asset('images/logistics-logo.png') }}">
 @vite('resources/css/app.css')
+@yield('page-styles')
 </head>
 <body class="logi">
 <header class="m-header">
   <a class="brand" href="/">
-    <span class="logo">L</span>
+    <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="44" height="44" style="width:44px;height:44px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
     LokaShop <small>Logistics</small>
   </a>
   <nav class="m-nav">
@@ -53,5 +54,6 @@
   </div>
   <small class="bottom">&copy; {{ date('Y') }} LokaShop. All rights reserved.</small>
 </footer>
+<script>document.querySelectorAll('form[method="post"]').forEach(f=>{if(!f.querySelector('[name="_request_key"]')){const k=document.createElement('input');k.type='hidden';k.name='_request_key';k.value=crypto.randomUUID();f.appendChild(k);}f.addEventListener('submit',e=>{if(f.dataset.submitted){e.preventDefault();return;}f.dataset.submitted='1';setTimeout(()=>f.querySelectorAll('button[type="submit"],button:not([type])').forEach(b=>b.disabled=true),0);});});</script>@include('shared-interactions')
 </body>
 </html>

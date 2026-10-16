@@ -147,8 +147,11 @@ class _CartRow extends StatelessWidget {
                 Row(
                   children: [
                     _stepperButton(context, Icons.remove_rounded, () {
-                      if (qty > 1) context.read<AppState>().updateCartQty(item['id'], qty - 1);
-                      else _remove(context);
+                      if (qty > 1) {
+                        context.read<AppState>().updateCartQty(item['id'], qty - 1);
+                      } else {
+                        _remove(context);
+                      }
                     }),
                     Container(
                       width: 34,
@@ -189,7 +192,7 @@ class _CartRow extends StatelessWidget {
         width: 28,
         height: 28,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.line)),
-        child: Icon(icon, size: 16, color: onTap == null ? AppColors.muted.withOpacity(.4) : AppColors.ink),
+        child: Icon(icon, size: 16, color: onTap == null ? AppColors.muted.withValues(alpha: .4) : AppColors.ink),
       ),
     );
   }

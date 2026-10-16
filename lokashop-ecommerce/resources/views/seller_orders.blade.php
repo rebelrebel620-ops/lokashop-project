@@ -9,6 +9,7 @@
   <div><h3>Order #{{$o->id}}</h3><small>Parcel #{{$o->parcel_id}} &middot; Total ₱{{number_format($o->total,2)}}</small></div>
   <span class="badge {{ in_array($o->status,['DELIVERED','COMPLETED']) ? 'green' : (in_array($o->status,['PLACED','CONFIRMED','PREPARING']) ? 'orange' : 'blue') }}">{{ucfirst(strtolower(str_replace('_',' ',$o->status)))}}</span>
  </div>
+ <ul>@foreach(\Illuminate\Support\Facades\DB::table('order_items')->where('order_id',$o->id)->get() as $item)<li><b>{{$item->name}}</b> × {{$item->quantity}}</li>@endforeach</ul>
  <div class="inline-form">
   <a class="btn sm alt" href="/seller/orders/{{$o->id}}/label" target="_blank">Print shipping label</a>
   @foreach(['PLACED'=>'CONFIRMED','CONFIRMED'=>'PREPARING','PREPARING'=>'READY_FOR_PICKUP'] as $from=>$to)
@@ -23,6 +24,7 @@
   </form>
   @endif
  </div>
+ @if(in_array($o->status,['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP']))<form method="post" action="/seller/orders/{{$o->id}}/cancel">@csrf<input name="reason" minlength="10" maxlength="300" placeholder="Cancellation reason" required><button>Cancel order</button></form>@endif
 </div>
 @empty
 <div class="section-card empty">No orders yet.</div>

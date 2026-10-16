@@ -1,0 +1,1 @@
+Address snapshot retrieved from https://psgc.gitlab.io/api/ on 2026-10-15. This bundled snapshot works offline; it is not guaranteed to contain the latest administrative changes. Original API documentation: https://psgc.gitlab.io/api/ .

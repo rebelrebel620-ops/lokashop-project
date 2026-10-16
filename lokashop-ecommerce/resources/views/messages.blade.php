@@ -14,9 +14,9 @@
  </div>
  <div class="form-card">
   <h3>Send a message</h3>
-  <form action="/messages" method="post">@csrf
+  <form action="/messages" method="post" enctype="multipart/form-data">@csrf
    <label>To<select name="recipient_id">@foreach($users as $u)<option value="{{$u->id}}">{{$u->name}} ({{$u->role}})</option>@endforeach</select></label>
-   <label>Message<textarea name="body" required maxlength="2000"></textarea></label>
+   <label>Message<textarea name="body" maxlength="1000" required maxlength="2000"></textarea><input type="file" name="attachment" accept=".jpg,.jpeg,.png"></label>
    <button class="btn" style="width:100%">Send</button>
   </form>
  </div>

@@ -112,7 +112,7 @@ class EmptyState extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(.08), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: .08), shape: BoxShape.circle),
               child: Icon(icon, size: 40, color: AppColors.primary),
             ),
             const SizedBox(height: 18),
@@ -180,7 +180,7 @@ class ProductArt extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight)),
         child: Center(
-          child: Icon(Icons.storefront_rounded, color: Colors.white.withOpacity(.85), size: 34),
+          child: Icon(Icons.storefront_rounded, color: Colors.white.withValues(alpha: .85), size: 34),
         ),
       ),
     );

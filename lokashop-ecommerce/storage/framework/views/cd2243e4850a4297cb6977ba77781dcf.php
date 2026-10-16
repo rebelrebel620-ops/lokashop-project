@@ -1,5 +1,6 @@
+<?php $__env->startSection('page-styles'); ?><link rel="stylesheet" href="<?php echo e(asset('css/landing-background.css')); ?>"><link rel="stylesheet" href="<?php echo e(asset('css/landing-responsive.css')); ?>"><?php $__env->stopSection(); ?>
 <?php $__env->startSection('hero'); ?>
-<section class="hero">
+<section class="hero photo-hero">
  <div class="hero-in">
   <div>
    <h1>Your everyday finds, delivered with care.</h1>
@@ -18,12 +19,7 @@
     <div><b><?php echo e($stats['orders']); ?></b><span>Orders delivered</span></div>
    </div>
   </div>
-  <div class="hero-visual">
-   <div class="vc"><div class="em">&#127911;</div>Electronics</div>
-   <div class="vc"><div class="em">&#128092;</div>Fashion</div>
-   <div class="vc"><div class="em">&#129530;</div>Beauty</div>
-   <div class="vc wide"><span>&#128230; Support local sellers &middot; Go further together</span><span>&#128994;</span></div>
-  </div>
+
  </div>
 </section>
 <?php $__env->stopSection(); ?>
@@ -43,7 +39,7 @@
  <h2>Shop by category</h2>
  <div class="cat-grid">
   <?php $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $c): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-  <a class="cat-card" href="/shop?category=<?php echo e($c->id); ?>"><div class="ic"><?php echo e(['Electronics'=>'💻','Fashion'=>'👕','Home & Living'=>'🛋️','Beauty'=>'🧴','Groceries'=>'🛒'][$c->name] ?? '🏷️'); ?></div><?php echo e($c->name); ?></a>
+  <a class="cat-card" href="<?php echo e(url('/shop').'?'.http_build_query(['main_category'=>$c->name])); ?>"><div class="ic"><?php echo e(['Pet Supplies'=>'🐾','Electronics and Gadgets'=>'💻','Women’s Apparel'=>'👗','Men’s Apparel'=>'👔','Kids and Baby'=>'🧸','Home and Garden'=>'🏡','Sports and Outdoors'=>'⚽','Health and Beauty'=>'🧴','Books and Media'=>'📚','Food and Gourmet'=>'🛒','Furniture and Office Equipment'=>'🪑','Jewelry and Watches'=>'⌚'][$c->name] ?? '🏷️'); ?></div><?php echo e($c->name); ?></a>
   <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
   <a class="cat-card" href="/shop"><div class="ic">&#8734;</div>All products</a>
  </div>
@@ -55,7 +51,7 @@
  <div class="grid">
   <?php $__empty_1 = true; $__currentLoopData = $featured; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $p): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
   <div class="card">
-   <div class="product" style="--h:<?php echo e(($p->category_id*47)%360); ?>"><?php echo e(mb_strtoupper(mb_substr($p->name,0,1))); ?></div>
+   <?php echo $__env->make('product-photo',['photoProduct'=>$p], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
    <span class="tag"><?php echo e($p->category); ?></span>
    <?php if($p->discount_percent>0): ?><span class="tag off"><?php echo e(rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')); ?>% OFF</span><?php endif; ?>
    <h3><?php echo e($p->name); ?></h3>

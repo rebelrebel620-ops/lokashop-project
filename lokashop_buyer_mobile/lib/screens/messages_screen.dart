@@ -62,7 +62,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 20,
-                                backgroundColor: AppColors.primary.withOpacity(.12),
+                                backgroundColor: AppColors.primary.withValues(alpha: .12),
                                 child: Text(
                                   ('${c['name']}').isNotEmpty ? c['name'][0].toUpperCase() : '?',
                                   style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800),
@@ -74,7 +74,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                                    Text('${c['role'] == 'admin' ? 'LokaShop support' : 'Seller'}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                                    Text(c['role'] == 'admin' ? 'LokaShop support' : 'Seller', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                                   ],
                                 ),
                               ),

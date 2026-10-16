@@ -1,7 +1,8 @@
 @extends('layout')
+@section('page-styles')<link rel="stylesheet" href="{{ asset('css/landing-background.css') }}"><link rel="stylesheet" href="{{ asset('css/landing-responsive.css') }}">@endsection
 
 @section('hero')
-<section class="hero">
+<section class="hero photo-hero">
   <div class="hero-in">
     <div class="hero-copy">
       <h1>Moving every order forward.</h1>
@@ -12,26 +13,11 @@
           <button class="lime">Track parcel</button>
         </form>
       </div>
-      <a class="btn alt" href="/register" style="background:#ffffff1a;color:#fff;border-color:#ffffff33">
+      <a class="btn alt" href="/register/courier">
         <x-icon name="truck" size="18"/> Join as a rider
       </a>
     </div>
-    <div class="hero-visual">
-      <div class="panel">
-        <div class="rider-chip">
-          <span class="ico"><x-icon name="truck"/></span>
-          <div><b>Out for delivery</b><br><small>LKS-1024 &middot; Santa Cruz, Laguna</small></div>
-        </div>
-        <div class="rider-chip">
-          <span class="ico"><x-icon name="building"/></span>
-          <div><b>Sorted at center</b><br><small>Routed to the right delivery area</small></div>
-        </div>
-        <div class="route-track">
-          <span class="dot"></span><span class="ln"></span><span class="dot"></span><span class="ln"></span><span class="dot"></span>
-        </div>
-        <small style="opacity:.8">Pickup &rarr; Sorting center &rarr; Doorstep</small>
-      </div>
-    </div>
+
   </div>
   <div class="stat-strip">
     <div class="row">

@@ -1,0 +1,23 @@
+/* Public CSS: works immediately without a Vite rebuild. */
+.photo-hero{background-color:#edf7ef;background-image:url('../images/logistics-bg.webp');background-size:cover;background-position:center center;background-repeat:no-repeat;color:#153d2d;padding:58px 4% 68px;min-height:460px;box-sizing:border-box}
+.photo-hero .hero-in{display:block;max-width:1320px;margin:0 auto;padding-bottom:0}
+.photo-hero .hero-in>div:first-child{width:43%;max-width:550px}
+.photo-hero h1,.photo-hero .hero-copy h1{color:#073b23;font-size:clamp(2rem,3.5vw,3.5rem);line-height:1.08;margin:0 0 18px;letter-spacing:-.035em}
+.photo-hero p,.photo-hero .hero-copy p{color:#40524a;opacity:1;font-size:1.05rem;line-height:1.55;margin:0 0 20px;max-width:470px}
+.photo-hero .btn,.photo-hero button{background:#087b2b;color:#fff;border:1px solid #087b2b;white-space:nowrap}
+.photo-hero .btn.alt,.photo-hero .btnrow .btn.alt{background:#ffffffdd!important;color:#073b23!important;border:1px solid #087b2b!important}
+.photo-hero .stats{gap:26px;margin-top:24px}.photo-hero .stats b{color:#086b2b}.photo-hero .stats span{color:#40524a;opacity:1}
+.photo-hero form{display:flex;gap:8px;align-items:center;max-width:100%;margin:18px 0}.photo-hero input{width:0;min-width:0!important;flex:1;border:1px solid #bad5c0!important;background:#fff;color:#153d2d;border-radius:9px;padding:12px!important;margin:0}
+.photo-hero button{margin:0;padding:12px 16px}.photo-hero .cta-row{display:block;margin:16px 0}.photo-hero .cta-row form{width:100%;display:flex}
+@media(min-width:1600px){.photo-hero{min-height:510px}}
+@media(max-width:900px){.photo-hero{background-position:58% center;background-image:linear-gradient(90deg,rgba(247,252,248,.96),rgba(247,252,248,.88) 48%,rgba(247,252,248,.05)),url('../images/logistics-bg.webp');padding:42px 5% 56px}.photo-hero .hero-in>div:first-child{width:58%}.photo-hero h1,.photo-hero .hero-copy h1{font-size:2.4rem}}
+@media(max-width:600px){.photo-hero{background-position:65% center;min-height:0;background-image:linear-gradient(90deg,rgba(247,252,248,.97),rgba(247,252,248,.92) 60%,rgba(247,252,248,.65)),url('../images/logistics-bg.webp');padding:38px 6% 60px}.photo-hero .hero-in>div:first-child{width:100%;max-width:440px}.photo-hero h1,.photo-hero .hero-copy h1{font-size:2.2rem}.photo-hero .stats{gap:20px}.photo-hero .btnrow{gap:8px}.photo-hero .btn.lg{padding:12px 15px}.photo-hero .stat-strip{padding:0;transform:translateY(30px)}}
+
+/* Fluid landing layout: match section edges to the navigation padding. */
+.photo-hero .hero-in{max-width:none;width:100%;box-sizing:border-box}
+.photo-hero+.wrap{max-width:none;width:100%;box-sizing:border-box;margin:32px auto;padding:0 4%;min-width:0}
+.photo-hero+.wrap .featbar{margin:0 0 36px!important;width:100%;box-sizing:border-box}
+.photo-hero+.wrap .featbar .in{max-width:none;padding:18px 20px;box-sizing:border-box}
+.photo-hero .stat-strip{max-width:none;width:100%;padding:0;box-sizing:border-box}
+.photo-hero+.wrap>.sec:first-of-type{margin-top:0!important}
+@media(max-width:600px){.photo-hero+.wrap{padding:0 6%;margin-top:24px}}

@@ -40,19 +40,20 @@ class LogisticsAdminController extends Controller
         $document = DB::table('registration_documents as d')->join('users as u', 'u.id', '=', 'd.user_id')
             ->where('d.id', $id)->whereIn('u.role', ['sorting_center', 'rider'])->select('d.*')->first();
         abort_unless($document, 404);
-        return response()->file(storage_path('app/private/'.$document->path));
+        return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($document->path));
     }
 
     public function users()
     {
         return view('admin_users', [
             'links' => app(CommonController::class)->links(),
-            'users' => $this->accounts()->select('id', 'name', 'email', 'role', 'approval_status', 'active')->orderByDesc('id')->paginate(30),
+            'users' => $this->accounts()->select('id', 'name', 'email', 'role', 'approval_status', 'active', 'account_status', 'courier_type')->orderByDesc('id')->paginate(30),
         ]);
     }
 
     public function toggle(int $id)
     {
+        \App\Services\Support::fail('status','Use the account status menu and provide a reason.');
         $user = $this->accounts()->where('id', $id)->first();
         abort_unless($user, 404);
         $this->accounts()->where('id', $id)->update(['active' => !$user->active, 'updated_at' => now()]);

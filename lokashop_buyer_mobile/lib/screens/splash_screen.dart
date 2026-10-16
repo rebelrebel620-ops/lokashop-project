@@ -39,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 18),
             const Text('LokaShop', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            Text('local shops, delivered', style: TextStyle(color: Colors.white.withOpacity(.7), fontSize: 13)),
+            Text('local shops, delivered', style: TextStyle(color: Colors.white.withValues(alpha: .7), fontSize: 13)),
             const SizedBox(height: 28),
             const SizedBox(
               width: 26,

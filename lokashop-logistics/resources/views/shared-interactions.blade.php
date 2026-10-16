@@ -1,0 +1,2 @@
+<dialog id="logout-confirm" aria-labelledby="logout-title" style="border:0;border-radius:14px;padding:28px;max-width:360px"><h2 id="logout-title">Do you want to log out?</h2><div style="display:flex;gap:12px"><button type="button" id="logout-yes" class="btn">Yes, log out</button><button type="button" id="logout-no" class="btn alt">No, go back</button></div></dialog>
+<script src="/js/usability.js" defer></script>

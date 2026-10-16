@@ -39,7 +39,7 @@ td.label{color:#666;width:40%}
   <table class="items">
     @foreach($items as $item)
     <tr>
-      <td>{{$item->name}} <span style="color:#888">× {{$item->quantity}}</span></td>
+      <td>Item #{{$item->id}} — {{$item->name}} <span style="color:#888">× {{$item->quantity}}</span></td>
       <td style="text-align:right">₱{{ number_format($item->unit_price * $item->quantity, 2) }}</td>
     </tr>
     @endforeach

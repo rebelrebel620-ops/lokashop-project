@@ -77,7 +77,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                                 Text('Order #${c['order_id']}', style: const TextStyle(fontWeight: FontWeight.w800)),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
+                                  decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(20)),
                                   child: Text('${c['status']}', style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 11.5)),
                                 ),
                               ],

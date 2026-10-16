@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>@yield('title','LokaShop Logistics')</title>
-<link rel="icon" href="/favicon.jpg">
+<link rel="icon" type="image/png" href="{{ asset('images/logistics-logo.png') }}">
 @vite('resources/css/app.css')
 </head>
 <body class="logi">
 @php
-  $roleLabel = ucfirst(str_replace('_',' ',auth()->user()->role));
+  $roleLabel = auth()->user()->role==='rider'?'Logistics '.ucfirst(auth()->user()->courier_type):ucfirst(str_replace('_',' ',auth()->user()->role));
   $initials = collect(explode(' ', auth()->user()->name))->map(fn($p)=>mb_substr($p,0,1))->join('');
   $iconFor = function(string $label) {
     $l = strtolower($label);
@@ -28,7 +28,7 @@
 <div class="app-shell">
   <aside class="sidebar">
     <a class="brand" href="/dashboard">
-      <span class="logo">L</span>
+      <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="44" height="44" style="width:44px;height:44px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
       <span>LokaShop<br><small>{{ $roleLabel }} portal</small></span>
     </a>
     <nav>
@@ -94,5 +94,6 @@
     </div>
   </div>
 </div>
+<script>document.querySelectorAll('form[method="post"]').forEach(f=>{if(!f.querySelector('[name="_request_key"]')){const k=document.createElement('input');k.type='hidden';k.name='_request_key';k.value=crypto.randomUUID();f.appendChild(k);}f.addEventListener('submit',e=>{if(f.dataset.submitted){e.preventDefault();return;}f.dataset.submitted='1';setTimeout(()=>f.querySelectorAll('button[type="submit"],button:not([type])').forEach(b=>b.disabled=true),0);});});</script>@include('shared-interactions')
 </body>
 </html>

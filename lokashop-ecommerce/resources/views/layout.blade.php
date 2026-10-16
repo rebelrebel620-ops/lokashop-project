@@ -5,6 +5,7 @@
 <title>@yield('title','LokaShop Marketplace')</title>
 <link rel="icon" href="/favicon.jpg">
 @vite('resources/css/app.css')
+@yield('page-styles')
 </head>
 <body>
 <div class="topribbon">&#128666; Free delivery on selected orders &middot; Shop local, live better.</div>
@@ -40,5 +41,6 @@
  </div>
  <small>&copy; {{date('Y')}} LokaShop. All rights reserved.</small>
 </footer>
+<script>document.querySelectorAll('form[method="post"]').forEach(f=>{if(!f.querySelector('[name="_request_key"]')){const k=document.createElement('input');k.type='hidden';k.name='_request_key';k.value=crypto.randomUUID();f.appendChild(k);}f.addEventListener('submit',e=>{if(f.dataset.submitted){e.preventDefault();return;}f.dataset.submitted='1';setTimeout(()=>f.querySelectorAll('button[type="submit"],button:not([type])').forEach(b=>b.disabled=true),0);});});</script>@include('shared-interactions')
 </body>
 </html>

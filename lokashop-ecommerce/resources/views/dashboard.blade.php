@@ -35,7 +35,7 @@
     <div class="grid">
      @forelse($recommended as $p)
      <div class="card">
-      <div class="product" style="--h:{{($p->id*47)%360}}">{{mb_strtoupper(mb_substr($p->name,0,1))}}</div>
+      @include('product-photo',['photoProduct'=>$p])
       @if($p->discount_percent>0)<span class="tag off">{{rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')}}% OFF</span>@endif
       <h3>{{$p->name}}</h3>
       <p class="price">₱{{number_format($p->price*(1-$p->discount_percent/100),2)}}@if($p->discount_percent>0)<span class="price strike">₱{{number_format($p->price,2)}}</span>@endif</p>

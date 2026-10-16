@@ -6,14 +6,14 @@
 <div class="msg-layout">
   <div class="form-card">
     <h2><x-icon name="send" size="17"/> Send message</h2>
-    <form action="/messages" method="post">
+    <form action="/messages" method="post" enctype="multipart/form-data">
       @csrf
       <label>Recipient</label>
       <select name="recipient_id">
         @foreach($users as $u)<option value="{{ $u->id }}">{{ $u->name }} ({{ $u->role }})</option>@endforeach
       </select>
       <label>Message</label>
-      <textarea name="body" required maxlength="2000"></textarea>
+      <textarea name="body" maxlength="1000" required maxlength="2000"></textarea><input type="file" name="attachment" accept=".jpg,.jpeg,.png">
       <button class="block">Send</button>
     </form>
   </div>

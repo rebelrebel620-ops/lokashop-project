@@ -81,8 +81,9 @@ class _ProfileTabState extends State<ProfileTab> {
                       });
                       if (ctx.mounted) Navigator.of(ctx).pop(true);
                     } on ApiException catch (e) {
-                      if (ctx.mounted)
+                      if (ctx.mounted) {
                         AppSnack.show(ctx, e.message, error: true);
+                      }
                     }
                   },
                   child: const Text('Save'),
@@ -139,7 +140,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor: Colors.white.withOpacity(.2),
+                        backgroundColor: Colors.white.withValues(alpha: .2),
                         child: Text(
                           (me?['name'] ?? '?').toString().isNotEmpty
                               ? me!['name'][0].toUpperCase()
@@ -163,12 +164,12 @@ class _ProfileTabState extends State<ProfileTab> {
                             const SizedBox(height: 2),
                             Text('${me?['email'] ?? ''}',
                                 style: TextStyle(
-                                    color: Colors.white.withOpacity(.8),
+                                    color: Colors.white.withValues(alpha: .8),
                                     fontSize: 12.5)),
                             if (me?['phone'] != null)
                               Text('${me?['phone']}',
                                   style: TextStyle(
-                                      color: Colors.white.withOpacity(.8),
+                                      color: Colors.white.withValues(alpha: .8),
                                       fontSize: 12.5)),
                           ],
                         ),
@@ -243,7 +244,7 @@ class _ProfileTabState extends State<ProfileTab> {
                           fontWeight: FontWeight.w700,
                           color: danger ? AppColors.danger : AppColors.ink))),
               Icon(Icons.chevron_right_rounded,
-                  color: AppColors.muted.withOpacity(.6)),
+                  color: AppColors.muted.withValues(alpha: .6)),
             ],
           ),
         ),

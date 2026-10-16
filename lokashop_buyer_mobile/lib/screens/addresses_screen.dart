@@ -28,8 +28,9 @@ class _AddressesScreenState extends State<AddressesScreen> {
       final res = await context.read<AppState>().api.get('/addresses');
       setState(() => addresses = List.from(res));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         AppSnack.show(context, 'Could not load addresses.', error: true);
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }

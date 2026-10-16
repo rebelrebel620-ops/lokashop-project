@@ -18,3 +18,14 @@ Route::prefix('rider')->group(function () {
         Route::get('/earnings', [R::class, 'earnings']);
     });
 });
+
+Route::middleware('rider.api')->prefix('rider')->group(function(){
+ foreach(['availability'=>'availability','decline'=>'decline','remit'=>'remit','vehicle'=>'vehicle'] as $path=>$action)Route::post('/'.$path,[\App\Http\Controllers\OperationsController::class,$action]);
+ Route::post('/logout',function(){\Illuminate\Support\Facades\DB::table('users')->where('id',auth()->id())->update(['online'=>0,'remember_token'=>null,'last_seen_at'=>now()->subMinutes(31)]);return response()->json(['message'=>'Logged out.']);});
+});
+
+Route::middleware('rider.api')->post('/rider/location',[\App\Http\Controllers\OperationsController::class,'location']);
+
+Route::middleware('rider.api')->post('/rider/remit/topup',[\App\Http\Controllers\OperationsController::class,'topup']);
+
+Route::middleware('rider.api')->post('/rider/transfers/{id}/depart',[\App\Http\Controllers\TransferController::class,'depart']);

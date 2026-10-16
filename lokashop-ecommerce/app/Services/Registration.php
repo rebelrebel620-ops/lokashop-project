@@ -67,10 +67,11 @@ class Registration
             'postal_code.regex'=>'Postal code must contain exactly four digits.',
             'tin.regex'=>'Enter the TIN in the format 000-000-000-000.',
         ]);
+        Geography::validate($v);
         $paths = [];
         try {
             return DB::transaction(function() use($r,$v,$seller,&$paths){
-                $id = DB::table('users')->insertGetId([
+                $id = \App\Services\PendingRegistration::user([
                     'name'=>$v['first_name'].' '.$v['last_name'], 'first_name'=>$v['first_name'], 'last_name'=>$v['last_name'],
                     'email'=>$v['email'], 'phone'=>$v['phone'], 'phone_normalized'=>$v['phone'],
                     'date_of_birth'=>$v['date_of_birth']??null, 'password'=>Hash::make($v['password']),
@@ -79,23 +80,23 @@ class Registration
                     'tin'=>$v['tin']??null, 'seller_type'=>$v['seller_type']??null, 'region'=>$v['region'],
                     'created_at'=>now(), 'updated_at'=>now(),
                 ]);
-                DB::table('addresses')->insert(['user_id'=>$id,'recipient'=>$v['first_name'].' '.$v['last_name'],
+                \App\Services\PendingRegistration::related('addresses',['user_id'=>$id,'recipient'=>$v['first_name'].' '.$v['last_name'],
                     'phone'=>$v['phone'],'street'=>$v['street'],'province'=>$v['province'],'city'=>$v['city'],
                     'barangay'=>$v['barangay'],'postal_code'=>$v['postal_code'],'is_default'=>true,'created_at'=>now(),'updated_at'=>now()]);
                 if($seller) {
-                    DB::table('seller_businesses')->insert(['user_id'=>$id,'name'=>$v['business_name'],
+                    \App\Services\PendingRegistration::related('seller_businesses',['user_id'=>$id,'name'=>$v['business_name'],
                         'name_normalized'=>mb_strtolower($v['business_name']),'category'=>$v['shop_category'],'created_at'=>now(),'updated_at'=>now()]);
                     foreach(['id_document'=>'id','dti_document'=>'dti','sec_document'=>'sec','bir_document'=>'bir'] as $field=>$kind){
                         if(!$r->hasFile($field)) continue;
-                        $path=$r->file($field)->store('documents'); $paths[]=$path;
-                        DB::table('registration_documents')->insert(['user_id'=>$id,'kind'=>$kind,'path'=>$path,'created_at'=>now(),'updated_at'=>now()]);
+                        $path=$r->file($field)->store('documents','local'); $paths[]=$path;
+                        \App\Services\PendingRegistration::related('registration_documents',['user_id'=>$id,'kind'=>$kind,'path'=>$path,'created_at'=>now(),'updated_at'=>now()]);
                     }
                 }
                 self::issueOtp($id, $v['email']);
                 return $id;
             });
         } catch(\Throwable $e) {
-            foreach($paths as $path) \Illuminate\Support\Facades\Storage::delete($path);
+            foreach($paths as $path) \Illuminate\Support\Facades\Storage::disk('local')->delete($path);
             if($e instanceof \Illuminate\Database\UniqueConstraintViolationException)
                 throw ValidationException::withMessages(['email'=>'An account with these email, mobile, shop or TIN details already exists.']);
             throw $e;
@@ -104,12 +105,6 @@ class Registration
 
     public static function issueOtp(int $id, string $email): void
     {
-        $previous = DB::table('registration_otps')->where('user_id',$id)->first();
-        do { $code = (string)random_int(100000,999999); }
-        while ($previous && Hash::check($code,$previous->code_hash));
-        DB::table('registration_otps')->updateOrInsert(['user_id'=>$id], [
-            'code_hash'=>Hash::make($code), 'expires_at'=>now()->addMinutes(5), 'attempts'=>0, 'sent_at'=>now()]);
-        Mail::raw("Your LokaShop verification code is {$code}. It expires in 5 minutes. Do not share it.",
-            function($message)use($email){$message->to($email)->subject('Verify your LokaShop email');});
+        PendingRegistration::issueOtp($id,$email);
     }
 }

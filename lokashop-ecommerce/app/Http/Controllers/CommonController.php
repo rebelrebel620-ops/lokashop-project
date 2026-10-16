@@ -10,9 +10,10 @@ class CommonController extends Controller {
  public function track(string $code){
   $parcel=DB::table('parcels')->where('tracking_code',$code)->first();
   abort_unless($parcel,404);
+  if(!auth()->check() || !DB::table('orders')->where('id',$parcel->order_id)->where(fn($q)=>$q->where('buyer_id',auth()->id())->orWhere('seller_id',auth()->id()))->exists())return view('public-track',['parcel'=>$parcel]);
   $order=DB::table('orders')->where('id',$parcel->order_id)->first();
   abort_unless($order,404);
-  $address=DB::table('addresses')->find($order->address_id);
+  $address=$order->address_snapshot?json_decode($order->address_snapshot):DB::table('addresses')->find($order->address_id);
   $buyer=DB::table('users')->find($order->buyer_id);
   $seller=DB::table('users')->find($order->seller_id);
   $items=DB::table('order_items')->where('order_id',$order->id)->get();
@@ -22,8 +23,8 @@ class CommonController extends Controller {
  public function authForm(Request $r){return view('auth',['register'=>$r->is('register'),'roles'=>['buyer','seller']]);}
  public function register(Request $r){
   $id=\App\Services\Registration::create($r);
-  $r->session()->regenerate(); $r->session()->put('registration_user_id',$id);
-  return redirect('/verify-email')->with('success','Account created. Check your email for the verification code.');
+  $r->session()->regenerate(); $r->session()->put('pending_registration_id',$id);
+  return redirect('/verify-email')->with('success','Check your email for the verification code.');
  }
  public function login(Request $r){
   $r->merge(['email'=>mb_strtolower(trim((string)$r->input('email')))]);
@@ -31,14 +32,17 @@ class CommonController extends Controller {
   $candidate=DB::table('users')->whereRaw('LOWER(TRIM(email)) = ?',[$v['email']])->first();
   if(!$candidate || !Hash::check($v['password'],$candidate->password))return back()->withErrors(['email'=>'Incorrect login details.'])->withInput($r->only('email'));
   if(!in_array($candidate->role,['buyer','seller','admin'],true))return back()->withErrors(['email'=>'Use the correct LokaShop website for this role.']);
-  if($candidate->approval_status==='unverified'){
-   $r->session()->regenerate();$r->session()->put('registration_user_id',$candidate->id);
+  if($candidate->account_status==='suspended'){Auth::loginUsingId($candidate->id);$r->session()->regenerate();return redirect('/appeal');}
+  if($candidate->account_status==='banned')return back()->withErrors(['email'=>'This account is permanently banned. Appeals are unavailable.']);
+  if($candidate->approval_status==='unverified'&&$candidate->account_status==='active'){
+   $r->session()->regenerate();$r->session()->put('pending_registration_id',\App\Services\PendingRegistration::resumeLegacy($candidate->id));
    return redirect('/verify-email')->with('success','Verify your email before logging in. You can request a new code here.');
   }
-  if($candidate->approval_status!=='approved'||!$candidate->active)return back()->withErrors(['email'=>'Account waiting for approval, rejected or inactive.']);
-  Auth::loginUsingId($candidate->id);$r->session()->regenerate();return redirect('/dashboard');
+  if($candidate->role==='seller'&&$candidate->approval_status==='pending'&&$candidate->active&&$candidate->account_status==='active'){Auth::loginUsingId($candidate->id);$r->session()->regenerate();DB::table('users')->where('id',$candidate->id)->update(['last_seen_at'=>now()]);return redirect('/application/drafts');}
+  if($candidate->approval_status!=='approved'||!$candidate->active||$candidate->account_status!=='active')return back()->withErrors(['email'=>'Account waiting for approval or inactive. '.($candidate->rejection_reason??'')]);
+  Auth::loginUsingId($candidate->id);DB::table('users')->where('id',auth()->id())->update(['last_seen_at'=>now()]);$r->session()->regenerate();return redirect('/dashboard');
  }
- public function logout(Request $r){Auth::logout();$r->session()->invalidate();$r->session()->regenerateToken();return redirect('/login');}
+ public function logout(Request $r){DB::table('users')->where('id',auth()->id())->update(['online'=>0,'last_seen_at'=>null]);Auth::logout();$r->session()->invalidate();$r->session()->regenerateToken();return redirect('/login');}
  public function dashboard(){return view('dashboard',['links'=>$this->links()]+$this->dashboardData());}
  private function dashboardData(){
   $u=auth()->user();
@@ -66,7 +70,7 @@ class CommonController extends Controller {
   $salesToday=(clone $orders)->whereDate('created_at',now()->toDateString())->sum('total');
   $toPrepare=(clone $orders)->whereIn('status',['PLACED','CONFIRMED','PREPARING'])->count();
   $ready=(clone $orders)->where('status','READY_FOR_PICKUP')->count();
-  $rating=DB::table('ratings')->join('orders','orders.id','=','ratings.order_id')->where('orders.seller_id',$id);
+  $rating=DB::table('item_reviews')->where('seller_id',$id);
   $recent=DB::table('orders as o')->join('users as b','b.id','=','o.buyer_id')->join('parcels as p','p.order_id','=','o.id')->join('order_items as oi','oi.order_id','=','o.id')->where('o.seller_id',$id)->groupBy('o.id','b.name','o.total','o.status','p.id')->orderByDesc('o.id')->limit(5)->select('o.id','o.total','o.status','b.name as buyer','p.id as parcel_id',DB::raw('COUNT(oi.id) as items'))->get();
   $days=collect(range(6,0))->map(fn($d)=>now()->subDays($d)->toDateString());
   $byDay=(clone $orders)->whereDate('created_at','>=',now()->subDays(6)->toDateString())->selectRaw('DATE(created_at) d,SUM(total) t')->groupBy('d')->pluck('t','d');
@@ -99,9 +103,9 @@ class CommonController extends Controller {
    'pending_users'=>(clone $pending)->orderByDesc('created_at')->limit(3)->get(),
    'chart'=>$chart,'activity'=>$activity];
  }
- public function links(){return match(auth()->user()->role){'buyer'=>['Shop'=>'/shop','Cart'=>'/cart','My orders'=>'/orders','Complaints'=>'/complaints'],'seller'=>['Products'=>'/seller/products','Orders'=>'/seller/orders','Sales'=>'/seller/reports','Messages'=>'/messages'],'admin'=>['Approvals'=>'/admin/approvals','Users'=>'/admin/users','Products'=>'/admin/products','Complaints'=>'/complaints','Reports'=>'/admin/reports','Announcements'=>'/admin/announcements'],'sorting_center'=>['Applications'=>'/center/approvals','Pickups'=>'/center/pickups','Parcels'=>'/center/parcels','Areas'=>'/center/areas','Reports'=>'/center/reports'],'rider'=>['Assignments'=>'/rider/assignments','Earnings'=>'/rider/earnings'],default=>[]};}
+ public function links(){return match(auth()->user()->role){'buyer'=>['Shop'=>'/shop','Cart'=>'/cart','Notifications'=>'/notifications','My orders'=>'/orders','Addresses'=>'/addresses','Wishlist'=>'/tools/wishlist','Vouchers'=>'/tools/vouchers','Returns'=>'/tools/returns','Reviews'=>'/ratings','Complaints'=>'/complaints'],'seller'=>['Products'=>'/seller/products','Orders'=>'/seller/orders','Sales'=>'/seller/reports','Store'=>'/tools/store','Addresses'=>'/seller/address','Promotions'=>'/tools/promotions','Vouchers'=>'/tools/vouchers','Returns'=>'/tools/returns','Earnings'=>'/tools/earnings','Reviews'=>'/ratings','Messages'=>'/messages'],'admin'=>['Approvals'=>'/admin/approvals','Users'=>'/admin/users','Appeals'=>'/admin/appeals','Products'=>'/admin/products','Complaints'=>'/admin/complaints','Reports'=>'/admin/reports','Announcements'=>'/admin/announcements','Payments'=>'/tools/payments','Platform vouchers'=>'/tools/platform'],'sorting_center'=>['Applications'=>'/center/approvals','Pickups'=>'/center/pickups','Parcels'=>'/center/parcels','Areas'=>'/center/areas','Reports'=>'/center/reports'],'rider'=>['Assignments'=>'/rider/assignments','Earnings'=>'/rider/earnings'],default=>[]};}
  public function profile(){return view('profile',['links'=>$this->links(),'user'=>auth()->user(),'notifications'=>DB::table('notifications')->where('user_id',auth()->id())->orderByDesc('id')->limit(20)->get()]);}
- public function updateProfile(Request $r){$v=$r->validate(['name'=>'required|string|max:150','phone'=>'required|string|max:40']);DB::table('users')->where('id',auth()->id())->update($v+['updated_at'=>now()]);return back()->with('success','Profile saved.');}
+ public function updateProfile(Request $r){\App\Services\Cart::profile($r);return back()->with('success','Profile saved.');}
  public function messages(){return view('messages',['links'=>$this->links(),'users'=>DB::table('users')->where('active',1)->where('approval_status','approved')->where('id','!=',auth()->id())->when(auth()->user()->role==='admin',fn($q)=>$q->whereIn('role',['buyer','seller']))->get(),'messages'=>DB::table('messages')->where('sender_id',auth()->id())->orWhere('recipient_id',auth()->id())->orderByDesc('id')->limit(50)->get()]);}
- public function sendMessage(Request $r){$v=$r->validate(['recipient_id'=>'required|exists:users,id|different:sender_id','body'=>'required|string|max:2000']);abort_if((int)$v['recipient_id']===auth()->id(),422);if(auth()->user()->role==='admin')abort_unless(DB::table('users')->where('id',$v['recipient_id'])->whereIn('role',['buyer','seller'])->exists(),403);DB::table('messages')->insert($v+['sender_id'=>auth()->id(),'created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Sent.');}
+ public function sendMessage(Request $r){$v=$r->validate(['recipient_id'=>'required|integer|exists:users,id','body'=>'required|string|max:1000','attachment'=>'nullable|file|mimes:jpg,jpeg,png|extensions:jpg,jpeg,png|max:5120']);$u=auth()->user();abort_if($v['recipient_id']==$u->id,422);$recipient=DB::table('users')->find($v['recipient_id']);abort_unless($recipient->active&&$recipient->approval_status==='approved',403);$roles=match($u->role){'buyer'=>['seller','admin'],'seller'=>['buyer','admin'],'admin'=>['buyer','seller'],'rider'=>['sorting_center'],'sorting_center'=>['rider','logistics_admin'],'logistics_admin'=>['sorting_center']};abort_unless(in_array($recipient->role,$roles,true),403);if($u->role==='rider')abort_unless($u->company_id==$recipient->id,403);if($u->role==='sorting_center'&&$recipient->role==='rider')abort_unless($recipient->company_id==$u->id,403);unset($v['attachment']);if($r->hasFile('attachment'))$v['attachment']=$r->file('attachment')->store('chat','local');DB::table('messages')->insert($v+['sender_id'=>$u->id,'created_at'=>now(),'updated_at'=>now()]);return $r->expectsJson()?response()->json(['message'=>'Sent.']):back()->with('success','Sent.');}
 }

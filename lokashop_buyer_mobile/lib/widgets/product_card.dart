@@ -46,7 +46,7 @@ class ProductCard extends StatelessWidget {
                   if (outOfStock)
                     Positioned.fill(
                       child: Container(
-                        color: Colors.black.withOpacity(.45),
+                        color: Colors.black.withValues(alpha: .45),
                         alignment: Alignment.center,
                         child: const Text('Out of stock',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),

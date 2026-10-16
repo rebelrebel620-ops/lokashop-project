@@ -1,0 +1,13 @@
+[
+  "LANDING_PAGE_UPDATE.md",
+  "routes/web.php",
+  "app/Http/Controllers/CommonController.php",
+  "public/images/landing-bg.webp",
+  "public/css/landing-background.css",
+  "public/css/account-cart-fixes.css",
+  "resources/views/landing.blade.php",
+  "resources/views/seller-address.blade.php",
+  "resources/views/cart.blade.php",
+  "resources/views/app.blade.php",
+  "resources/views/layout.blade.php"
+]

@@ -3,7 +3,7 @@
 @section('content')
 <div class="auth-wrap">
   <div class="auth-card">
-    <div class="logo">L</div>
+    <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="64" height="64" style="width:64px;height:64px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
     <h1>{{ $register ? 'Create your partner account' : 'Welcome back' }}</h1>
     <p class="switch">
       {{ $register ? 'Register as a rider or sorting center.' : 'Log in to manage pickups, parcels and deliveries.' }}

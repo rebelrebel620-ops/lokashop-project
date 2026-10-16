@@ -17,7 +17,7 @@ class BuyerApiController extends Controller
     {
         $r->merge(['role'=>'buyer']);
         $id=\App\Services\Registration::create($r);
-        return response()->json(['message'=>'Check your email for a verification code.','verification_token'=>BuyerVerificationController::token($id),'email'=>DB::table('users')->where('id',$id)->value('email'),'retry_after'=>60],201);
+        return response()->json(['message'=>'Check your email for a verification code.','verification_token'=>BuyerVerificationController::token($id),'email'=>$r->input('email'),'retry_after'=>60],202);
     }
 
     public function login(Request $r)
@@ -32,19 +32,22 @@ class BuyerApiController extends Controller
         if ($user->role !== 'buyer') {
             throw ValidationException::withMessages(['email' => 'This account is not a buyer account.']);
         }
-        if ($user->active && $user->approval_status==='unverified' && ($user->verification_required ?? false)) {
-            return response()->json(['message'=>'Verify your email before logging in.','verification_required'=>true,'verification_token'=>BuyerVerificationController::token($user->id),'email'=>$user->email],403);
+        if ($user->active && $user->account_status==='active' && $user->approval_status==='unverified' && ($user->verification_required ?? false)) {
+            return response()->json(['message'=>'Verify your email before logging in.','verification_required'=>true,'verification_token'=>BuyerVerificationController::token(\App\Services\PendingRegistration::resumeLegacy($user->id)),'email'=>$user->email],403);
         }
-        if ($user->approval_status !== 'approved' || !$user->active || (($user->verification_required ?? false) && !$user->email_verified_at)) {
+        if($user->account_status==='banned')throw ValidationException::withMessages(['email'=>'This account is permanently banned. Appeals are unavailable.']);
+        $suspended=$user->account_status==='suspended';
+        if ($user->approval_status !== 'approved' || (!$suspended&&(!$user->active||$user->account_status!=='active')) || (($user->verification_required ?? false) && !$user->email_verified_at)) {
             throw ValidationException::withMessages(['email' => 'Your account is inactive or unavailable. Contact LokaShop support.']);
         }
 
         $token = Str::random(60);
-        DB::table('users')->where('id', $user->id)->update(['remember_token' => $token]);
+        DB::table('users')->where('id', $user->id)->update(['remember_token' => hash('sha256',$token),'api_token_expires_at'=>now()->addMinutes(30),'last_seen_at'=>now()]);
 
         return response()->json([
             'token' => $token,
-            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone],
+            'account_status'=>$user->account_status,'appeal_required'=>$suspended,'appeal_url'=>$suspended?url('/api/appeal'):null,
+            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone,'profile_photo_url'=>\App\Services\Support::imageUrl($user->profile_photo)],
         ]);
     }
 
@@ -56,49 +59,34 @@ class BuyerApiController extends Controller
 
     public function me()
     {
-        $u = DB::table('users')->where('id', auth()->id())->first(['id', 'name', 'email', 'phone', 'created_at']);
-        return response()->json($u);
+        $u = DB::table('users')->where('id', auth()->id())->first(['id', 'name', 'email', 'phone', 'profile_photo', 'created_at']);
+        $u->profile_photo_url=\App\Services\Support::imageUrl($u->profile_photo);return response()->json($u);
     }
 
-    public function updateProfile(Request $r)
-    {
-        $v = $r->validate(['name' => 'required|string|max:150', 'phone' => 'required|string|max:40']);
-        DB::table('users')->where('id', auth()->id())->update($v + ['updated_at' => now()]);
-        return response()->json(['message' => 'Profile saved.']);
-    }
+    public function updateProfile(Request $r){\App\Services\Cart::profile($r);return response()->json(['message'=>'Profile saved.']);}
 
     /* ---------------- Catalog ---------------- */
 
     public function categories()
     {
-        return response()->json(DB::table('categories')->orderBy('name')->get());
+        return response()->json(DB::table('categories')->whereNotNull('category_code')->orderBy('id')->get());
     }
 
-    public function products(Request $r)
-    {
-        $q = DB::table('products')
-            ->join('categories', 'categories.id', '=', 'products.category_id')
-            ->select('products.*', 'categories.name as category')
-            ->where('products.active', 1)->where('products.approved', 1);
-        if ($r->filled('q')) $q->where('products.name', 'like', '%' . $r->q . '%');
-        if ($r->filled('category')) $q->where('category_id', $r->integer('category'));
-        return response()->json($q->orderByDesc('products.id')->paginate(20));
-    }
+    public function products(Request $r){return response()->json(\App\Services\Catalog::query($r)->paginate(20)->withQueryString());}
 
     public function product(int $id)
     {
         $p = DB::table('products')->join('categories', 'categories.id', '=', 'products.category_id')
             ->select('products.*', 'categories.name as category')
-            ->where('products.id', $id)->where('active', 1)->where('approved', 1)->first();
+            ->where('products.id', $id)->where('active', 1)->where('approved', 1)->where('draft',0)->whereNull('products.deleted_at')->first();
         abort_unless($p, 404);
         $seller = DB::table('seller_businesses')->where('user_id', $p->seller_id)->first();
-        $rating = DB::table('ratings')->join('orders', 'orders.id', '=', 'ratings.order_id')
-            ->join('order_items', 'order_items.order_id', '=', 'orders.id')
+        $rating = DB::table('item_reviews')->join('order_items','order_items.id','=','item_reviews.order_item_id')
             ->where('order_items.product_id', $id);
         return response()->json([
             'product' => $p,
             'seller_name' => $seller->name ?? null,
-            'variations' => DB::table('product_variations')->where('product_id', $id)->get(),
+            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get(),
             'rating_avg' => round((clone $rating)->avg('stars') ?? 0, 1),
             'rating_count' => (clone $rating)->count(),
         ]);
@@ -122,37 +110,9 @@ class BuyerApiController extends Controller
         return response()->json($this->cartRows());
     }
 
-    public function cartAdd(Request $r)
-    {
-        $v = $r->validate([
-            'product_id' => 'required|exists:products,id',
-            'variation_id' => 'nullable|exists:product_variations,id',
-            'quantity' => 'required|integer|min:1|max:100',
-        ]);
-        $p = DB::table('products')->where('id', $v['product_id'])->where('active', 1)->where('approved', 1)->first();
-        abort_unless($p, 404);
-        if (isset($v['variation_id'])) {
-            abort_unless(DB::table('product_variations')->where('id', $v['variation_id'])->where('product_id', $p->id)->exists(), 422);
-        }
-        $existing = DB::table('cart_items')->where('buyer_id', auth()->id())->where('product_id', $p->id)
-            ->where('variation_id', $v['variation_id'] ?? null)->first();
-        if ($existing) {
-            DB::table('cart_items')->where('id', $existing->id)->update(['quantity' => $existing->quantity + $v['quantity'], 'updated_at' => now()]);
-        } else {
-            DB::table('cart_items')->insert(['buyer_id' => auth()->id(), 'product_id' => $p->id,
-                'variation_id' => $v['variation_id'] ?? null, 'quantity' => $v['quantity'],
-                'created_at' => now(), 'updated_at' => now()]);
-        }
-        return response()->json($this->cartRows());
-    }
+    public function cartAdd(Request $r){\App\Services\Cart::add($r);return response()->json($this->cartRows());}
 
-    public function cartUpdate(Request $r, int $id)
-    {
-        $v = $r->validate(['quantity' => 'required|integer|min:1|max:100']);
-        abort_unless(DB::table('cart_items')->where('id', $id)->where('buyer_id', auth()->id())->exists(), 404);
-        DB::table('cart_items')->where('id', $id)->update(['quantity' => $v['quantity'], 'updated_at' => now()]);
-        return response()->json($this->cartRows());
-    }
+    public function cartUpdate(Request $r,int $id){\App\Services\Cart::update($r,$id);return response()->json($this->cartRows());}
 
     public function cartRemove(int $id)
     {
@@ -168,22 +128,7 @@ class BuyerApiController extends Controller
             ->orderByDesc('is_default')->orderByDesc('id')->get());
     }
 
-    public function addressAdd(Request $r)
-    {
-        $v = $r->validate([
-            'recipient' => 'required|max:150', 'phone' => 'required|max:40', 'street' => 'required|max:200',
-            'barangay' => 'required|max:120', 'city' => 'required|max:120', 'province' => 'required|max:120',
-            'postal_code' => 'nullable|max:20', 'is_default' => 'nullable|boolean',
-        ]);
-        $makeDefault = (bool) ($v['is_default'] ?? false);
-        unset($v['is_default']);
-        DB::transaction(function () use ($v, $makeDefault) {
-            if ($makeDefault) DB::table('addresses')->where('user_id', auth()->id())->update(['is_default' => 0]);
-            DB::table('addresses')->insert($v + ['user_id' => auth()->id(), 'is_default' => $makeDefault ? 1 : 0,
-                'created_at' => now(), 'updated_at' => now()]);
-        });
-        return response()->json(DB::table('addresses')->where('user_id', auth()->id())->orderByDesc('is_default')->orderByDesc('id')->get());
-    }
+    public function addressAdd(Request $r){app(\App\Http\Controllers\MarketController::class)->address($r);return $this->addresses();}
 
     public function addressSetDefault(int $id)
     {
@@ -197,69 +142,7 @@ class BuyerApiController extends Controller
 
     /* ---------------- Checkout / Orders ---------------- */
 
-    public function checkout(Request $r)
-    {
-        $v = $r->validate([
-            'address_id' => 'required|integer', 'payment_method' => 'required|in:cod,manual', 'voucher' => 'nullable|string|max:60',
-        ]);
-        abort_unless(DB::table('addresses')->where('id', $v['address_id'])->where('user_id', auth()->id())->exists(), 403);
-        $ids = DB::table('cart_items')->where('buyer_id', auth()->id())->pluck('id');
-        abort_if($ids->isEmpty(), 422, 'Cart is empty');
-
-        $orderIds = DB::transaction(function () use ($ids, $v) {
-            $rows = DB::table('cart_items')->whereIn('id', $ids)->where('buyer_id', auth()->id())->lockForUpdate()->get();
-            $groups = [];
-            foreach ($rows as $row) {
-                $p = DB::table('products')->where('id', $row->product_id)->lockForUpdate()->first();
-                abort_unless($p && $p->active && $p->approved, 422, 'Product unavailable');
-                $variation = $row->variation_id ? DB::table('product_variations')->where('id', $row->variation_id)->where('product_id', $p->id)->lockForUpdate()->first() : null;
-                abort_if($row->variation_id && !$variation, 422);
-                abort_if($row->quantity > ($variation ? $variation->stock : $p->stock) || $row->quantity > $p->stock, 422, 'Not enough stock');
-                $price = round(((float) $p->price + (float) ($variation->price_adjustment ?? 0)) * (1 - (float) $p->discount_percent / 100), 2);
-                $groups[$p->seller_id][] = ['row' => $row, 'product' => $p, 'variation' => $variation, 'price' => $price];
-            }
-            $voucher = null;
-            if (!empty($v['voucher'])) {
-                $voucher = DB::table('vouchers')->where('code', $v['voucher'])->where('active', 1)
-                    ->where(function ($q) { $q->whereNull('expires_at')->orWhere('expires_at', '>', now()); })->first();
-                if (!$voucher) throw ValidationException::withMessages(['voucher' => 'Voucher invalid or expired.']);
-                if ($voucher->seller_id && (count($groups) !== 1 || !isset($groups[$voucher->seller_id]))) {
-                    throw ValidationException::withMessages(['voucher' => 'Voucher is only for its seller.']);
-                }
-            }
-            $created = [];
-            foreach ($groups as $sellerId => $items) {
-                $subtotal = array_sum(array_map(fn($x) => $x['row']->quantity * $x['price'], $items));
-                $discount = round($subtotal * (float) ($voucher->discount_percent ?? 0) / 100, 2);
-                $total = round($subtotal - $discount, 2);
-                $oid = DB::table('orders')->insertGetId(['buyer_id' => auth()->id(), 'seller_id' => $sellerId,
-                    'address_id' => $v['address_id'], 'status' => 'PLACED', 'total' => $total, 'discount' => $discount,
-                    'commission' => round($total * .1, 2), 'voucher_id' => $voucher->id ?? null,
-                    'created_at' => now(), 'updated_at' => now()]);
-                $created[] = $oid;
-                foreach ($items as $x) {
-                    $row = $x['row']; $p = $x['product'];
-                    DB::table('products')->where('id', $p->id)->decrement('stock', $row->quantity);
-                    if ($x['variation']) DB::table('product_variations')->where('id', $x['variation']->id)->decrement('stock', $row->quantity);
-                    DB::table('order_items')->insert(['order_id' => $oid, 'product_id' => $p->id, 'variation_id' => $row->variation_id,
-                        'name' => $p->name . ' ' . ($x['variation']->name ?? ''), 'quantity' => $row->quantity, 'unit_price' => $x['price'],
-                        'created_at' => now(), 'updated_at' => now()]);
-                }
-                DB::table('payments')->insert(['order_id' => $oid, 'method' => $v['payment_method'],
-                    'status' => $v['payment_method'] === 'cod' ? 'due_on_delivery' : 'awaiting_manual_confirmation',
-                    'amount' => $total, 'created_at' => now(), 'updated_at' => now()]);
-                $pid = DB::table('parcels')->insertGetId(['order_id' => $oid, 'tracking_code' => 'LKS-' . strtoupper(Str::random(12)),
-                    'status' => 'PLACED', 'created_at' => now(), 'updated_at' => now()]);
-                DB::table('status_history')->insert(['parcel_id' => $pid, 'from_status' => null, 'to_status' => 'PLACED',
-                    'actor_id' => auth()->id(), 'created_at' => now(), 'updated_at' => now()]);
-                DB::table('notifications')->insert(['user_id' => $sellerId, 'body' => 'New order #' . $oid, 'created_at' => now(), 'updated_at' => now()]);
-            }
-            DB::table('cart_items')->whereIn('id', $ids)->where('buyer_id', auth()->id())->delete();
-            return $created;
-        });
-
-        return response()->json(['message' => 'Order placed.', 'order_ids' => $orderIds]);
-    }
+    public function checkout(Request $r){$ids=\App\Services\Commerce::checkout($r);return response()->json(['message'=>'Order placed.','order_ids'=>$ids]);}
 
     public function orders()
     {
@@ -287,7 +170,7 @@ class BuyerApiController extends Controller
         return response()->json([
             'order' => $order,
             'items' => DB::table('order_items')->where('order_id', $id)->get(),
-            'address' => DB::table('addresses')->where('id', $order->address_id)->first(),
+            'address' => $order->address_snapshot ? json_decode($order->address_snapshot) : DB::table('addresses')->where('id', $order->address_id)->first(),
             'payment' => DB::table('payments')->where('order_id', $id)->first(),
             'history' => DB::table('status_history')->where('parcel_id', $order->parcel_id)->orderBy('id')->get(),
             'rating' => DB::table('ratings')->where('order_id', $id)->first(),
@@ -302,13 +185,7 @@ class BuyerApiController extends Controller
         return response()->json(['message' => 'Order completed.']);
     }
 
-    public function orderRating(Request $r, int $id)
-    {
-        $v = $r->validate(['stars' => 'required|integer|between:1,5', 'comment' => 'nullable|string|max:2000']);
-        abort_unless(DB::table('orders')->where('id', $id)->where('buyer_id', auth()->id())->where('status', 'COMPLETED')->exists(), 403);
-        DB::table('ratings')->updateOrInsert(['order_id' => $id], $v + ['buyer_id' => auth()->id(), 'created_at' => now(), 'updated_at' => now()]);
-        return response()->json(['message' => 'Review saved.']);
-    }
+    public function orderRating(Request $r,int $id){$o=\App\Services\Support::ownsOrder($id);abort_unless($o->buyer_id==auth()->id(),403);if(!$r->filled('order_item_id')){$items=DB::table('order_items')->where('order_id',$id)->get();if($items->count()!==1)\App\Services\Support::fail('order_item_id','Select an order item to review on the Reviews page.');$r->merge(['order_item_id'=>$items[0]->id]);}abort_unless(DB::table('order_items')->where('id',$r->order_item_id)->where('order_id',$id)->exists(),403);return app(\App\Http\Controllers\MarketController::class)->review($r);}
 
     /* ---------------- Misc: vouchers, notifications, messages, complaints ---------------- */
 
@@ -340,13 +217,7 @@ class BuyerApiController extends Controller
             })->orderBy('id')->get());
     }
 
-    public function sendMessage(Request $r)
-    {
-        $v = $r->validate(['recipient_id' => 'required|exists:users,id|different:sender_id', 'body' => 'required|string|max:2000']);
-        abort_if((int) $v['recipient_id'] === auth()->id(), 422);
-        DB::table('messages')->insert($v + ['sender_id' => auth()->id(), 'created_at' => now(), 'updated_at' => now()]);
-        return response()->json(['message' => 'Sent.']);
-    }
+    public function sendMessage(Request $r){$v=$r->validate(['recipient_id'=>'required|integer|exists:users,id','body'=>'required|string|max:1000','attachment'=>'nullable|file|mimes:jpg,jpeg,png|extensions:jpg,jpeg,png|max:5120']);$u=auth()->user();abort_if($v['recipient_id']==$u->id,422);$recipient=DB::table('users')->find($v['recipient_id']);abort_unless($recipient->active&&$recipient->approval_status==='approved',403);$roles=match($u->role){'buyer'=>['seller','admin'],'seller'=>['buyer','admin'],'admin'=>['buyer','seller'],'rider'=>['sorting_center'],'sorting_center'=>['rider','logistics_admin'],'logistics_admin'=>['sorting_center']};abort_unless(in_array($recipient->role,$roles,true),403);if($u->role==='rider')abort_unless($u->company_id==$recipient->id,403);if($u->role==='sorting_center'&&$recipient->role==='rider')abort_unless($recipient->company_id==$u->id,403);unset($v['attachment']);if($r->hasFile('attachment'))$v['attachment']=$r->file('attachment')->store('chat','local');DB::table('messages')->insert($v+['sender_id'=>$u->id,'created_at'=>now(),'updated_at'=>now()]);return $r->expectsJson()?response()->json(['message'=>'Sent.']):back()->with('success','Sent.');}
 
     public function complaints()
     {

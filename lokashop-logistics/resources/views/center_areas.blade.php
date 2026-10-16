@@ -11,8 +11,9 @@
     @csrf
     <div class="field-grid">
       <div><label>Area name</label><input name="name" placeholder="e.g. Poblacion East" required></div>
-      <div><label>City</label><input name="city" required></div>
-      <div><label>Province</label><input name="province" required></div>
+      <div><label>Region</label><input name="region" value="{{old('region')}}" required></div>
+      <div><label>Province</label><input name="province" value="{{old('province',$registeredCenter->province)}}" required></div>
+      <div><label>City / Municipality</label><input name="city" value="{{old('city',$registeredCenter->city)}}" required></div>
       <div>
         <label>Assigned rider</label>
         <select name="rider_id">

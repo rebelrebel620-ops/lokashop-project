@@ -13,7 +13,7 @@
  <div class="inline-form">
   @foreach($docs[$u->id]??[] as $doc)<a class="btn sm alt" href="/admin/documents/{{$doc->id}}" target="_blank">View {{$doc->kind}} document</a>@endforeach
  </div>
- <form method="post" action="/admin/approvals/{{$u->id}}" style="margin-top:8px">@csrf
+ <form method="post" action="/admin/approvals/{{$u->id}}" style="margin-top:8px">@csrf <input name="reason" placeholder="Reason for rejection (10–300 characters)" minlength="10" maxlength="300">
   <button name="decision" value="approved" class="btn">Approve</button>
   <button name="decision" value="rejected" class="btn danger">Reject</button>
  </form>

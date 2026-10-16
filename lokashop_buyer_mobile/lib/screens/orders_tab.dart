@@ -92,7 +92,7 @@ class _OrdersTabState extends State<OrdersTab> {
                                   Text('Order #${o['id']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: status.color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
+                                    decoration: BoxDecoration(color: status.color.withValues(alpha: .12), borderRadius: BorderRadius.circular(20)),
                                     child: Text(status.label, style: TextStyle(color: status.color, fontWeight: FontWeight.w700, fontSize: 11.5)),
                                   ),
                                 ],

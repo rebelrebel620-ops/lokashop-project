@@ -23,10 +23,12 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   void initState(){super.initState();_cooldown(widget.initialCooldown);}
   void _cooldown(int seconds){
     _timer?.cancel();_seconds=seconds;
-    if(seconds>0)_timer=Timer.periodic(const Duration(seconds:1),(timer){
+    if(seconds>0) {
+      _timer=Timer.periodic(const Duration(seconds:1),(timer){
       if(!mounted){timer.cancel();return;}
       setState(()=>_seconds--);if(_seconds<=0)timer.cancel();
     });
+    }
   }
   @override
   void dispose(){_timer?.cancel();_code.dispose();super.dispose();}

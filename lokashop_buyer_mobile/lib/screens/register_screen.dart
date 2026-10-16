@@ -109,8 +109,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (name == 'postal_code' && !RegExp(r'^\d{4}$').hasMatch(v)) return 'Enter four digits';
         if (confirmation && v != _fields['password']!.text) return 'Passwords do not match';
         if (name == 'password' && (v.length < 8 || !RegExp('[A-Z]').hasMatch(v) ||
-          !RegExp('[a-z]').hasMatch(v) || !RegExp('[0-9]').hasMatch(v) || !RegExp(r'[^a-zA-Z0-9\s]').hasMatch(v)))
+          !RegExp('[a-z]').hasMatch(v) || !RegExp('[0-9]').hasMatch(v) || !RegExp(r'[^a-zA-Z0-9\s]').hasMatch(v))) {
           return 'Use 8+ characters with uppercase, lowercase, number and symbol';
+        }
         return null;
       },
     ));

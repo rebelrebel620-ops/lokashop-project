@@ -1,6 +1,7 @@
 @extends('layout')
+@section('page-styles')<link rel="stylesheet" href="{{ asset('css/landing-background.css') }}"><link rel="stylesheet" href="{{ asset('css/landing-responsive.css') }}">@endsection
 @section('hero')
-<section class="hero">
+<section class="hero photo-hero">
  <div class="hero-in">
   <div>
    <h1>Your everyday finds, delivered with care.</h1>
@@ -19,12 +20,7 @@
     <div><b>{{$stats['orders']}}</b><span>Orders delivered</span></div>
    </div>
   </div>
-  <div class="hero-visual">
-   <div class="vc"><div class="em">&#127911;</div>Electronics</div>
-   <div class="vc"><div class="em">&#128092;</div>Fashion</div>
-   <div class="vc"><div class="em">&#129530;</div>Beauty</div>
-   <div class="vc wide"><span>&#128230; Support local sellers &middot; Go further together</span><span>&#128994;</span></div>
-  </div>
+
  </div>
 </section>
 @endsection
@@ -44,7 +40,7 @@
  <h2>Shop by category</h2>
  <div class="cat-grid">
   @foreach($categories as $c)
-  <a class="cat-card" href="/shop?category={{$c->id}}"><div class="ic">{{['Electronics'=>'💻','Fashion'=>'👕','Home & Living'=>'🛋️','Beauty'=>'🧴','Groceries'=>'🛒'][$c->name] ?? '🏷️'}}</div>{{$c->name}}</a>
+  <a class="cat-card" href="{{url('/shop').'?'.http_build_query(['main_category'=>$c->name])}}"><div class="ic">{{['Pet Supplies'=>'🐾','Electronics and Gadgets'=>'💻','Women’s Apparel'=>'👗','Men’s Apparel'=>'👔','Kids and Baby'=>'🧸','Home and Garden'=>'🏡','Sports and Outdoors'=>'⚽','Health and Beauty'=>'🧴','Books and Media'=>'📚','Food and Gourmet'=>'🛒','Furniture and Office Equipment'=>'🪑','Jewelry and Watches'=>'⌚'][$c->name] ?? '🏷️'}}</div>{{$c->name}}</a>
   @endforeach
   <a class="cat-card" href="/shop"><div class="ic">&#8734;</div>All products</a>
  </div>
@@ -56,7 +52,7 @@
  <div class="grid">
   @forelse($featured as $p)
   <div class="card">
-   <div class="product" style="--h:{{($p->category_id*47)%360}}">{{mb_strtoupper(mb_substr($p->name,0,1))}}</div>
+   @include('product-photo',['photoProduct'=>$p])
    <span class="tag">{{$p->category}}</span>
    @if($p->discount_percent>0)<span class="tag off">{{rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')}}% OFF</span>@endif
    <h3>{{$p->name}}</h3>

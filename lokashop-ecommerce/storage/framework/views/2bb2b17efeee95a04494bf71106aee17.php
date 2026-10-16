@@ -5,6 +5,7 @@
 <title><?php echo $__env->yieldContent('title','LokaShop Marketplace'); ?></title>
 <link rel="icon" href="/favicon.jpg">
 <?php echo app('Illuminate\Foundation\Vite')('resources/css/app.css'); ?>
+<?php echo $__env->yieldContent('page-styles'); ?>
 </head>
 <body>
 <div class="topribbon">&#128666; Free delivery on selected orders &middot; Shop local, live better.</div>
@@ -40,6 +41,7 @@
  </div>
  <small>&copy; <?php echo e(date('Y')); ?> LokaShop. All rights reserved.</small>
 </footer>
+<script>document.querySelectorAll('form[method="post"]').forEach(f=>{if(!f.querySelector('[name="_request_key"]')){const k=document.createElement('input');k.type='hidden';k.name='_request_key';k.value=crypto.randomUUID();f.appendChild(k);}f.addEventListener('submit',e=>{if(f.dataset.submitted){e.preventDefault();return;}f.dataset.submitted='1';setTimeout(()=>f.querySelectorAll('button[type="submit"],button:not([type])').forEach(b=>b.disabled=true),0);});});</script><?php echo $__env->make('shared-interactions', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 </body>
 </html>
 <?php /**PATH C:\Users\Administrator\Documents\LokaShop-all-in-one-v1\lokashop-ecommerce\resources\views/layout.blade.php ENDPATH**/ ?>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\ApiToken;
 use App\Services\Workflow;
+use App\Services\Municipalities;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -29,13 +30,14 @@ class RiderApiController extends Controller
         if (!$u || !Hash::check($v['password'], (string) $u->password)) {
             return response()->json(['message' => 'Incorrect login details.'], 422);
         }
-        if ($u->approval_status !== 'approved' || !$u->active) {
+        if ($u->approval_status !== 'approved' || !$u->active || $u->account_status !== 'active') {
             return response()->json(['message' => 'Account waiting for approval or inactive.'], 403);
         }
         if ($u->role !== 'rider') {
             return response()->json(['message' => 'This app is for riders only. Use the LokaShop website for your role.'], 403);
         }
 
+        DB::table('users')->where('id',$u->id)->update(['last_seen_at'=>now()]);
         [$token, $expires] = ApiToken::issue($u);
         return response()->json(['token' => $token, 'expires_at' => $expires, 'rider' => $this->riderJson($u)]);
     }
@@ -57,12 +59,7 @@ class RiderApiController extends Controller
         ]);
     }
 
-    public function updateProfile(Request $r): JsonResponse
-    {
-        $v = $r->validate(['name' => 'required|string|max:150', 'phone' => 'required|string|max:40']);
-        DB::table('users')->where('id', $r->user()->id)->update($v + ['updated_at' => now()]);
-        return response()->json(['message' => 'Profile saved.', 'rider' => $this->riderJson(User::find($r->user()->id))]);
-    }
+    public function updateProfile(Request $r): JsonResponse{\App\Services\Cart::profile($r);return response()->json(['message'=>'Profile saved.','rider'=>$this->riderJson(User::find($r->user()->id))]);}
 
     // --------------------------------------------------------- assignments
 
@@ -80,17 +77,7 @@ class RiderApiController extends Controller
     }
 
     /** Same rule as LogisticsController::accept(). */
-    public function accept(Request $r, int $id): JsonResponse
-    {
-        $rid = $r->user()->id;
-        $a = DB::table('assignments')->where('id', $id)->where('rider_id', $rid)->where('status', 'offered')->first();
-        abort_unless($a, 403, 'This assignment is no longer available to accept.');
-
-        DB::table('assignments')->where('id', $id)->update(['status' => 'accepted', 'updated_at' => now()]);
-
-        $row = $this->base($rid)->where('s.id', $id)->first();
-        return response()->json(['message' => 'Assignment accepted.', 'assignment' => $this->shape([$row])[0]]);
-    }
+    public function accept(Request $r,int $id): JsonResponse{\App\Services\Dispatch::accept($id,$r->user()->id);$row=$this->base($r->user()->id)->where('s.id',$id)->first();return response()->json(['message'=>'Assignment accepted.','assignment'=>$this->shape([$row])[0]]);}
 
     /**
      * Same validation as LogisticsController::riderStep(); every transition and
@@ -168,7 +155,7 @@ class RiderApiController extends Controller
 
     private function riderJson($u): array
     {
-        return ['id' => (int) $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone, 'vehicle' => $u->vehicle];
+        return ['id' => (int) $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone, 'vehicle' => $u->vehicle,'courier_type'=>$u->courier_type,'company_id'=>$u->company_id,'profile_photo_url'=>\App\Services\Support::imageUrl($u->profile_photo)];
     }
 
     private function trackingCode(string $raw): string
@@ -200,7 +187,7 @@ class RiderApiController extends Controller
             ->select(
                 's.id', 's.parcel_id', 's.kind', 's.status', 's.earnings', 's.created_at',
                 'p.tracking_code', 'p.status as parcel_status', 'p.failure_reason',
-                'o.id as order_id',
+                'o.id as order_id','o.address_snapshot',
                 'a.recipient', 'a.phone as recipient_phone', 'a.street', 'a.barangay', 'a.city', 'a.province', 'a.postal_code',
                 'sel.name as seller_name', 'sel.phone as seller_phone',
                 'pay.method as pay_method', 'pay.status as pay_status', 'pay.amount as pay_amount'
@@ -215,6 +202,7 @@ class RiderApiController extends Controller
         }
         if ($r->status !== 'accepted') return [];
 
+        if ($r->kind === 'transfer' && $r->parcel_status === 'TRANSFER_OFFERED') return [['type'=>'transfer_depart','endpoint'=>'/api/rider/transfers/'.$r->parcel_id.'/depart','label'=>'Depart for destination sorting center']];
         if ($r->kind === 'pickup' && $r->parcel_status === 'READY_FOR_PICKUP') {
             return [['type' => 'status', 'status' => 'PICKED_UP', 'label' => 'Confirm pickup from seller', 'needs_reason' => false]];
         }
@@ -243,6 +231,8 @@ class RiderApiController extends Controller
             ->get(['order_id', 'name', 'quantity'])->groupBy('order_id');
 
         return $rows->map(function ($r) use ($items) {
+            if($r->kind==='transfer'){$parcel=DB::table('parcels')->find($r->parcel_id);$centers=DB::table('sorting_centers')->whereIn('id',array_filter([$parcel->center_id,$parcel->destination_center_id]))->get();$out=['id'=>$r->id,'parcel_id'=>$r->parcel_id,'kind'=>'transfer','status'=>$r->status,'parcel_status'=>$r->parcel_status,'tracking_code'=>$r->tracking_code,'actions'=>$this->actions($r),'centers'=>$centers->map(fn($c)=>['name'=>$c->name,'city'=>$c->city,'province'=>$c->province,'address'=>Municipalities::address($c->user_id)])->all()];return $out;}
+            $snapshot=json_decode($r->address_snapshot??'null',true);if($snapshot){$r->recipient=$snapshot['recipient'];$r->recipient_phone=$snapshot['phone'];foreach(['street','barangay','city','province','postal_code'] as $field)$r->$field=$snapshot[$field]??null;}
             $actions = $this->actions($r);
             $detail = $r->status === 'accepted' && !empty($actions);
 
@@ -271,7 +261,7 @@ class RiderApiController extends Controller
                     ->map(fn ($i) => ['name' => $i->name, 'quantity' => (int) $i->quantity])->values()->all();
 
                 if ($r->kind === 'pickup') {
-                    $out['seller'] = ['name' => $r->seller_name, 'phone' => $r->seller_phone];
+                    $pickupAddress=DB::table('addresses')->where('user_id',DB::table('orders')->where('id',$r->order_id)->value('seller_id'))->orderByDesc('is_default')->first();$out['seller'] = ['name' => $r->seller_name, 'phone' => $r->seller_phone,'pickup_address'=>$pickupAddress];
                 } else {
                     $out['recipient'] = [
                         'name' => $r->recipient, 'phone' => $r->recipient_phone, 'street' => $r->street,

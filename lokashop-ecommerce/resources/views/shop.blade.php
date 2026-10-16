@@ -6,10 +6,12 @@
 @section('content')
 <div class="page-head"><div><h1>Shop local with LokaShop</h1><p>Browse approved products from verified local sellers.</p></div></div>
 
+@if(request('main_category'))<p><b>{{request('main_category')}}</b> · Browse its subcategories below. <a href="/shop">View all categories</a></p>@endif
 <div class="card" style="margin-bottom:22px">
  <form method="get" action="/shop" class="form-row" style="align-items:end">
+  @if(request('main_category'))<input type="hidden" name="main_category" value="{{request('main_category')}}">@endif
   <label>Search<input name="q" placeholder="Search products" value="{{request('q')}}"></label>
-  <label>Category<select name="category"><option value="">All categories</option>@foreach($categories as $c)<option value="{{$c->id}}" @selected(request('category')==$c->id)>{{$c->name}}</option>@endforeach</select></label>
+  <label>Subcategory<select name="category"><option value="">All categories</option>@foreach($categories as $c)<option value="{{$c->id}}" @selected(request('category')==$c->id)>{{$c->name}}</option>@endforeach</select></label>
   <div><button style="width:100%">Search</button></div>
  </form>
 </div>
@@ -17,7 +19,7 @@
 <div class="grid">
  @forelse($products as $p)
  <div class="card">
-  <div class="product" style="--h:{{($p->category_id*47)%360}}">{{mb_strtoupper(mb_substr($p->name,0,1))}}</div>
+  @include('product-photo',['photoProduct'=>$p])
   <span class="tag">{{$p->category}}</span>
   @if($p->discount_percent>0)<span class="tag off">{{rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')}}% OFF</span>@endif
   <h3>{{$p->name}}</h3>

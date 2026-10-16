@@ -42,3 +42,13 @@ Route::middleware('api.buyer')->group(function () {
     Route::get('/complaints', [B::class, 'complaints']);
     Route::post('/complaints', [B::class, 'complaintCreate']);
 });
+
+Route::middleware('api.buyer')->group(function(){
+ Route::post('/addresses',[\App\Http\Controllers\MarketController::class,'address']);
+ Route::post('/orders/{id}/cancel',[\App\Http\Controllers\MarketController::class,'cancel']);
+ foreach(['wishlist'=>'wishlist','follow'=>'follow','vouchers/claim'=>'claim','returns'=>'returnCreate','returns/escalate'=>'returnEscalate','reviews'=>'review','notifications/read'=>'notificationsRead'] as $path=>$action)Route::post('/'.$path,[\App\Http\Controllers\MarketController::class,$action]);
+ Route::get('/wishlist',fn()=>response()->json(\Illuminate\Support\Facades\DB::table('wishlists')->where('buyer_id',auth()->id())->get()));
+ Route::get('/returns',fn()=>response()->json(\Illuminate\Support\Facades\DB::table('return_requests')->where('buyer_id',auth()->id())->get()));
+});
+
+Route::middleware('api.buyer')->group(function(){Route::get('/appeal',[\App\Http\Controllers\AppealController::class,'form']);Route::post('/appeal',[\App\Http\Controllers\AppealController::class,'submit'])->middleware('throttle:5,1');});

@@ -15,13 +15,14 @@ use App\Models\User;
  */
 class ApiToken
 {
-    public const TTL = 60 * 60 * 24 * 30; // 30 days
+    public const TTL = 60 * 30; // thirty-minute token; log in again after expiry
 
     public static function issue(User $user): array
     {
+        $user->remember_token=\Illuminate\Support\Str::random(60);$user->save();
         $expires = time() + self::TTL;
         $payload = $user->id . '.' . $expires;
-        return [$payload . '.' . self::sign($payload, (string) $user->password), $expires];
+        return [$payload . '.' . self::sign($payload, (string) $user->password.'|'.(string)$user->remember_token), $expires];
     }
 
     public static function user(?string $token): ?User
@@ -34,7 +35,7 @@ class ApiToken
         $user = User::find((int) $parts[0]);
         if (!$user) return null;
 
-        $expected = self::sign($parts[0] . '.' . $parts[1], (string) $user->password);
+        $expected = self::sign($parts[0] . '.' . $parts[1], (string) $user->password.'|'.(string)$user->remember_token);
         return hash_equals($expected, $parts[2]) ? $user : null;
     }
 

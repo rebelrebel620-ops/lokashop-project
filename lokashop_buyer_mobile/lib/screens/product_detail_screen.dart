@@ -141,7 +141,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppColors.danger.withOpacity(.1), borderRadius: BorderRadius.circular(20)),
+                          decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: .1), borderRadius: BorderRadius.circular(20)),
                           child: Text('-${discount.toStringAsFixed(0)}%', style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700, fontSize: 12)),
                         ),
                       ],

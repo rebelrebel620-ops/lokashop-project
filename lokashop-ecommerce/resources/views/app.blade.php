@@ -5,6 +5,7 @@
 <title>@yield('title','LokaShop')</title>
 <link rel="icon" href="/favicon.jpg">
 @vite('resources/css/app.css')
+<link rel="stylesheet" href="{{ asset('css/account-cart-fixes.css') }}">
 </head>
 <body>
 @php
@@ -14,7 +15,11 @@
  $navLinks = ['Overview' => '/dashboard'] + $links;
  if (!array_key_exists('Messages', $navLinks)) $navLinks['Messages'] = '/messages';
  if (!array_key_exists('Account', $navLinks)) $navLinks['Account'] = '/profile';
- $active = fn($url) => request()->is(ltrim($url,'/')) || request()->is(ltrim($url,'/').'/*');
+ $active = function($url){
+  $path=trim(parse_url($url,PHP_URL_PATH)??$url,'/');
+  if($path==='addresses')return request()->is('addresses','tools/addresses','tools/addresses/*');
+  return request()->is($path) || request()->is($path.'/*');
+ };
  $icon = function($label){
   $map = [
    'Overview'=>'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
@@ -40,6 +45,7 @@
    'Areas'=>'<path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6"/>',
    'Assignments'=>'<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M9 3h4v3H9z"/><path d="m17 10 4-2v9l-4-2"/>',
    'Parcels'=>'<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>',
+   'Addresses'=>'<path d="M12 22s7-6.1 7-12a7 7 0 0 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="10" r="2.6"/>',
    'Account'=>'<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.1 3.4-7 7.5-7s7.5 2.9 7.5 7"/>',
   ];
   $d = $map[$label] ?? '<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>';
@@ -61,7 +67,7 @@
   <input name="q" placeholder="Search products, brands, or stores...">
  </form>
  <div class="ticons">
-  <a href="/profile" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
+  <a href="/notifications" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
   <a href="/cart" title="Cart">&#128722;@if($cartCount)<span class="badge-dot">{{$cartCount}}</span>@endif</a>
   <div class="who"><div class="av">{{$initial}}</div><div><b>{{auth()->user()->name}}</b><small>Buyer</small></div></div>
  </div>
@@ -96,7 +102,7 @@
     <input placeholder="Search {{ $role==='admin' ? 'users, orders, products...' : 'orders, products, or buyers...' }}">
    </form>
    <div class="ticons">
-    <a href="/profile" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
+    <a href="/notifications" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
     <div class="who"><div class="av">{{$initial}}</div><div><b>{{auth()->user()->name}}</b><small>{{ucfirst(str_replace('_',' ',$role))}}</small></div></div>
    </div>
   </header>
@@ -109,5 +115,6 @@
   </div></main>
  </div>
 </div>
+<script>document.querySelectorAll('form[method="post"]').forEach(f=>{if(!f.querySelector('[name="_request_key"]')){const k=document.createElement('input');k.type='hidden';k.name='_request_key';k.value=crypto.randomUUID();f.appendChild(k);}f.addEventListener('submit',e=>{if(f.dataset.submitted){e.preventDefault();return;}f.dataset.submitted='1';setTimeout(()=>f.querySelectorAll('button[type="submit"],button:not([type])').forEach(b=>b.disabled=true),0);});});</script>@include('shared-interactions')
 </body>
 </html>

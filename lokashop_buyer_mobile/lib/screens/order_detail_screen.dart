@@ -143,7 +143,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: info.color.withOpacity(.08), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: info.color.withValues(alpha: .08), borderRadius: BorderRadius.circular(16)),
               child: Row(
                 children: [
                   Icon(failed ? Icons.error_outline_rounded : Icons.local_shipping_outlined, color: info.color),
@@ -230,7 +230,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.accent.withOpacity(.1), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: .1), borderRadius: BorderRadius.circular(14)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
