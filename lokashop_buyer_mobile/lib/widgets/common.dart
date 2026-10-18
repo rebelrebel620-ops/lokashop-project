@@ -74,7 +74,12 @@ class SectionHeader extends StatelessWidget {
   final String title;
   final String? action;
   final VoidCallback? onAction;
-  const SectionHeader({super.key, required this.title, this.action, this.onAction});
+  const SectionHeader({
+    super.key,
+    required this.title,
+    this.action,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -83,11 +88,20 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
           if (action != null)
             GestureDetector(
               onTap: onAction,
-              child: Text(action!, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              child: Text(
+                action!,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
         ],
       ),
@@ -100,7 +114,13 @@ class EmptyState extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? action;
-  const EmptyState({super.key, required this.icon, required this.title, required this.subtitle, this.action});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.action,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -112,13 +132,24 @@ class EmptyState extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: .08), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: .08),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, size: 40, color: AppColors.primary),
             ),
             const SizedBox(height: 18),
-            Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppColors.muted), textAlign: TextAlign.center),
+            Text(
+              subtitle,
+              style: const TextStyle(color: AppColors.muted),
+              textAlign: TextAlign.center,
+            ),
             if (action != null) ...[const SizedBox(height: 18), action!],
           ],
         ),
@@ -131,7 +162,12 @@ class ShimmerBlock extends StatelessWidget {
   final double height;
   final double? width;
   final BorderRadius? radius;
-  const ShimmerBlock({super.key, required this.height, this.width, this.radius});
+  const ShimmerBlock({
+    super.key,
+    required this.height,
+    this.width,
+    this.radius,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +177,10 @@ class ShimmerBlock extends StatelessWidget {
       child: Container(
         height: height,
         width: width,
-        decoration: BoxDecoration(color: Colors.white, borderRadius: radius ?? BorderRadius.circular(14)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: radius ?? BorderRadius.circular(14),
+        ),
       ),
     );
   }
@@ -150,10 +189,12 @@ class ShimmerBlock extends StatelessWidget {
 class AppSnack {
   static void show(BuildContext context, String message, {bool error = false}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: error ? AppColors.danger : AppColors.ink,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.danger : AppColors.ink,
+      ),
+    );
   }
 }
 
@@ -178,9 +219,19 @@ class ProductArt extends StatelessWidget {
     return ClipRRect(
       borderRadius: radius ?? BorderRadius.circular(16),
       child: Container(
-        decoration: BoxDecoration(gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight)),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
         child: Center(
-          child: Icon(Icons.storefront_rounded, color: Colors.white.withValues(alpha: .85), size: 34),
+          child: Icon(
+            Icons.storefront_rounded,
+            color: Colors.white.withValues(alpha: .85),
+            size: 34,
+          ),
         ),
       ),
     );

@@ -1,0 +1,79 @@
+/* Shared public logistics background and navigation. */
+body.logistics-public{position:relative;isolation:isolate;background:#eef4e9;font-family:"Segoe UI",Arial,sans-serif;min-height:100vh}
+body.logistics-public::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:url('../images/logistics-background.webp') center/cover no-repeat}
+.logistics-public .m-header{display:flex;position:sticky;top:0;z-index:40;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;background:#fffffff5;padding:14px 4%;border-bottom:1px solid #dce7d7}
+.logistics-public .m-header .m-nav{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.logistics-public .m-header .m-nav a{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.logistics-public .m-header .m-nav a.btn[href="/register"],.logistics-public .m-header .m-nav a.btn[href="/register"]:hover,.logistics-public .m-header .m-nav a.btn[href="/register"]:visited{color:#fff;background:#146b38}
+.logistics-public>.wrap{max-width:1200px;width:100%;padding:0 4%;margin:32px auto;min-height:50vh;box-sizing:border-box}.logistics-public .m-footer{margin-top:48px}
+.public-eyebrow{display:block;font-size:11px;letter-spacing:1.8px;font-weight:700;color:#3e6e47;margin-bottom:12px}.public-muted{color:#61775f;font-size:14px;line-height:1.7}.public-back{display:inline-flex;align-items:center;padding:10px 16px;min-height:44px;background:white;border:1px solid #d6e3cf;border-radius:9px;color:#1d6234;font-size:14px}
+.partner-intro{text-align:center;max-width:760px;margin:12px auto 26px;padding:24px;border-radius:18px;background:#fafdf7e8}.partner-intro h1{font-size:32px;letter-spacing:-1px;margin:0 0 12px}.partner-intro p{color:#60795c;margin:0;font-size:15px}
+.partner-options{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:900px;margin:0 auto 24px}.partner-options a{display:flex;flex-direction:column;gap:7px;background:#fff;border:2px solid #dce6d5;border-radius:14px;padding:20px;text-decoration:none;color:#204b2d}.partner-options a[aria-current=page]{border-color:#23773d;background:#f0f8e9;box-shadow:0 4px 14px #25482c12}.partner-options b{font-size:17px}.partner-options span{font-size:13px;color:#64795f}
+.partner-forms{max-width:900px;margin:auto}.partner-card{background:#fff;border:1px solid #dce6d5;border-radius:20px;padding:34px;box-shadow:0 14px 45px #22402a12;margin:0 0 24px}.partner-card h2{font-size:25px;margin:0 0 10px}.partner-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 24px}.partner-form>*{min-width:0}.partner-section{grid-column:1/-1;font-size:17px;border-bottom:1px solid #e1eadb;padding:16px 0 12px;margin:8px 0 0;color:#245333}.partner-field{display:block;font-size:14px;font-weight:600;margin:0}.partner-field input,.partner-field select{width:100%;min-width:0;min-height:48px;margin:8px 0 0;border:1px solid #d5e0cd;border-radius:9px;background:#fbfdf9;padding:12px;font:400 16px/1.4 "Segoe UI",Arial,sans-serif;box-sizing:border-box}.partner-field input[type=file]{font-size:13px;padding:10px}.partner-field input[type=file]::file-selector-button{border:0;padding:8px;background:#e7f0df;color:#245333;border-radius:6px;margin-right:8px}.partner-field input:focus,.partner-field select:focus{outline:2px solid #81ad83;outline-offset:2px}.partner-field .field-hint{display:block;font-size:12px;font-weight:400;color:#657c5f;line-height:1.5;margin-top:7px}.partner-field-courier_type,.partner-field-terms,.partner-form>button{grid-column:1/-1}.partner-field input[type=checkbox]{display:inline-block;width:18px;height:18px;min-height:18px;margin-left:10px;vertical-align:middle;accent-color:#146b38}.partner-form>button{min-height:50px;margin:12px 0 0;background:#146b38;color:#fff;font-size:16px;border-radius:10px}.partner-login{text-align:center;font-size:14px;padding:18px;background:#fafdf7ef;border-radius:12px}.partner-login a{font-weight:600}
+.partner-password{position:relative;display:block}.partner-password input{padding-right:70px!important}.partner-password button{position:absolute;right:5px;top:12px;bottom:5px;margin:0;width:auto!important;padding:0 12px;background:transparent!important;color:#28613b!important;border:0;font-size:12px;min-height:32px}.partner-password button:focus-visible{outline:2px solid #67966b}
+.logistics-login-shell{display:grid;grid-template-columns:1fr 1fr;max-width:1000px;min-height:560px;margin:48px auto;background:white;border:1px solid #dce6d5;border-radius:24px;overflow:hidden;box-shadow:0 20px 60px #193c2318}.logistics-login-story{padding:38px 30px;background:linear-gradient(180deg,#edf5e4f5,#edf5e4cb 38%,transparent 70%),url('../images/logistics-bg.webp') 68% center/cover no-repeat}.logistics-login-story h2{font-size:40px;line-height:1.1;letter-spacing:-1.5px;color:#174b2c;margin:18px 0}.logistics-login-story p{color:#4f6e50;font-size:15px;line-height:1.6}.logistics-login-shell .auth-wrap{margin:0;padding:0;max-width:none;min-width:0;align-self:center}.logistics-login-shell .auth-card{border:0;box-shadow:none;padding:40px;border-radius:0}.logistics-login-shell .auth-card h1{text-align:left;font-size:30px;margin:20px 0 10px}.logistics-login-shell .auth-card .switch{text-align:left;font-size:14px}.logistics-login-shell input{font-size:16px;min-height:48px}.logistics-login-shell .block{background:#146b38;color:white;min-height:48px;font-size:16px;margin-top:24px}
+.logistics-track .track-wrap{max-width:760px;padding:0;margin:30px auto 60px}.logistics-track .track-card{padding:34px;border-radius:20px;box-shadow:0 16px 45px #20452a12}.logistics-track .track-card h1{font-size:30px}.logistics-track .track-card form{display:grid;grid-template-columns:1fr auto;gap:12px}.tracking-label{grid-column:1/-1;font-size:14px;font-weight:600}.logistics-track .track-card input{font-size:16px;min-height:50px;min-width:0;margin:0}.logistics-track .track-card button{min-height:50px;margin:0;background:#146b38;color:white}.logistics-track .steps-line{overflow-wrap:anywhere}
+@media(max-width:700px){.logistics-public .m-header{padding:12px 5%;gap:10px}.logistics-public .m-header .m-nav{gap:3px}.logistics-public .m-header .m-nav a{font-size:13px;padding:8px 10px}.logistics-public>.wrap{padding:0 5%;margin:24px auto}.partner-intro{padding:20px}.partner-intro h1{font-size:26px}.partner-options{gap:10px}.partner-options a{padding:15px}.partner-options b{font-size:15px}.partner-options span{font-size:12px}.partner-card{padding:24px}.partner-form{gap:16px}.logistics-login-shell{grid-template-columns:1fr;max-width:500px;margin:24px auto;min-height:0}.logistics-login-story{min-height:220px;padding:26px;background:linear-gradient(90deg,#edf5e4f2,#edf5e460),url('../images/logistics-bg.webp') 65% center/cover no-repeat}.logistics-login-story h2{font-size:32px}.logistics-login-shell .auth-card{padding:28px}.logistics-track .track-card{padding:24px}}
+@media(max-width:480px){.partner-form{grid-template-columns:1fr}.partner-options{grid-template-columns:1fr}.partner-card{padding:22px 18px}.logistics-public .m-header .m-nav{width:100%;justify-content:flex-start}.logistics-track .track-card form{grid-template-columns:1fr}.logistics-track .track-card h1{font-size:26px}.partner-intro p{font-size:13px}.partner-login{line-height:1.8}}
+
+/* Fluid public layouts: align page edges with the navigation. */
+body.logistics-public{--public-gutter:clamp(18px,4vw,80px)}
+body.logistics-public>.wrap{max-width:none;width:100%;padding:0 var(--public-gutter);margin:32px auto;min-width:0;box-sizing:border-box}
+body.logistics-public .m-header{padding-inline:var(--public-gutter)}
+body.logistics-public .m-footer{padding-inline:var(--public-gutter)}
+body.logistics-public .m-footer .foot{max-width:none;width:100%;min-width:0}
+body.logistics-public .photo-hero{padding-inline:var(--public-gutter)}
+body.logistics-public .photo-hero .hero-in,body.logistics-public .photo-hero .stat-strip{max-width:none;width:100%;box-sizing:border-box}
+body.logistics-landing>.wrap>.sec,body.logistics-landing>.wrap>.band{width:100%;max-width:none;box-sizing:border-box}
+body.logistics-landing .icon-row,body.logistics-landing .step-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(14px,1.5vw,28px)}
+body.logistics-landing .split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+body.logistics-public .step-card,body.logistics-public .icon-row .item,body.logistics-public .split>*,body.logistics-public .partner-field{min-width:0;overflow-wrap:break-word}
+body.logistics-landing .step-card{padding:clamp(20px,2vw,34px)}
+body.logistics-landing .icon-row{padding:24px}
+body.logistics-landing .step-card p,body.logistics-landing .split p{font-size:clamp(14px,.9vw,16px);line-height:1.65}
+body.logistics-landing .icon-row .item>div{min-width:0}
+body.logistics-landing .icon-row .ico{flex-shrink:0}
+body.logistics-registration .partner-intro,body.logistics-registration .partner-options,body.logistics-registration .partner-forms{max-width:none;width:100%;box-sizing:border-box}
+body.logistics-registration .partner-intro{margin-top:0}
+body.logistics-registration .partner-card{padding:clamp(24px,3vw,52px)}
+body.logistics-registration .partner-form{column-gap:clamp(20px,3vw,48px)}
+body.logistics-login .logistics-login-shell{max-width:none;width:100%;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);min-height:600px;margin:36px auto}
+body.logistics-login .logistics-login-story{padding:clamp(28px,4vw,70px);min-width:0}
+body.logistics-login .logistics-login-story h2{font-size:clamp(32px,3.5vw,56px)}
+body.logistics-login .logistics-login-shell .auth-card{padding:clamp(28px,4vw,64px)}
+body.logistics-track .track-wrap{max-width:none;width:100%;margin:28px auto 48px}
+body.logistics-track .track-card{padding:clamp(24px,3vw,48px)}
+body.logistics-public input,body.logistics-public select,body.logistics-public textarea{max-width:100%;box-sizing:border-box}
+body.logistics-public .track-code{overflow-wrap:anywhere}
+@media(max-width:1100px){body.logistics-landing .icon-row{grid-template-columns:repeat(2,minmax(0,1fr))}body.logistics-login .logistics-login-shell{min-height:540px}}
+@media(max-width:800px){body.logistics-landing .step-grid{grid-template-columns:repeat(2,minmax(0,1fr))}body.logistics-landing .split{grid-template-columns:1fr}body.logistics-login .logistics-login-shell{grid-template-columns:1fr;min-height:0;margin:24px auto}body.logistics-login .logistics-login-story{min-height:240px;background-position:65% center}body.logistics-login .logistics-login-shell .auth-wrap{width:100%}body.logistics-public .m-header{position:relative}body.logistics-public .photo-hero .hero-copy{max-width:100%}}
+@media(max-width:600px){body.logistics-public>.wrap{margin-top:24px}body.logistics-landing .icon-row{grid-template-columns:1fr;padding:20px}body.logistics-registration .partner-form,body.logistics-registration .partner-options{grid-template-columns:1fr}body.logistics-registration .partner-card{padding:24px 18px}body.logistics-track .track-card form{grid-template-columns:1fr}body.logistics-public .m-header .m-nav{width:100%;justify-content:flex-start;gap:4px}body.logistics-public .m-header .m-nav a{padding:8px 10px}body.logistics-public .m-footer .foot{flex-direction:column;gap:24px}body.logistics-public .photo-hero::after{width:100%;margin-inline:0}body.logistics-public .photo-hero .stat-strip .row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){body.logistics-landing .step-grid{grid-template-columns:1fr}body.logistics-login .logistics-login-story{min-height:210px}body.logistics-login .logistics-login-shell .auth-card{padding:24px 20px}body.logistics-track .track-card{padding:24px 18px}}
+
+/* Account pages match the ecommerce card widths. */
+body.logistics-public{display:flex;flex-direction:column;min-height:100vh}
+body.logistics-public>.m-header{flex-shrink:0}
+body.logistics-public>.wrap{flex:1}
+body.logistics-login>.wrap{max-width:1120px;padding:40px 28px;margin:0 auto;display:flex;align-items:center;justify-content:center}
+body.logistics-login .logistics-login-shell{width:100%;max-width:1000px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:560px;margin:16px auto}
+body.logistics-login .logistics-login-story{padding:42px 34px}
+body.logistics-login .logistics-login-story h2{font-size:clamp(32px,3.2vw,44px)}
+body.logistics-login .logistics-login-shell .auth-card{padding:40px}
+body.logistics-login .logistics-login-shell .block{display:block;width:100%;text-align:center}
+body.logistics-registration>.wrap{max-width:930px;padding:32px 24px;margin:0 auto}
+body.logistics-registration .partner-intro,body.logistics-registration .partner-options,body.logistics-registration .partner-forms{max-width:850px;margin-left:auto;margin-right:auto}
+body.logistics-registration .partner-intro{padding:24px}
+body.logistics-registration .partner-card{padding:34px 36px}
+body.logistics-registration .partner-form{column-gap:22px}
+body.logistics-track>.wrap{max-width:920px;padding:32px 28px;margin:0 auto}
+body.logistics-track .track-wrap{max-width:760px;margin:24px auto 40px}
+body.logistics-track .track-card{padding:32px}
+/* Footer stays below the content and reaches the bottom on short pages. */
+body.logistics-public>.m-footer{flex-shrink:0;width:100%;box-sizing:border-box;margin-top:auto;padding:32px var(--public-gutter) 20px}
+body.logistics-public .m-footer .foot{width:100%;max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;gap:32px;flex-wrap:wrap}
+body.logistics-public .m-footer .bottom{max-width:1200px;width:100%;margin:24px auto 0;text-align:left}
+/* Compact footer on login, signup and tracking, matching ecommerce accounts. */
+body:is(.logistics-login,.logistics-registration,.logistics-track)>.m-footer{padding:18px 24px;background:#f8faf3ed;border-top:1px solid #dce6d5;text-align:center}
+body:is(.logistics-login,.logistics-registration,.logistics-track) .m-footer .foot{display:none}
+body:is(.logistics-login,.logistics-registration,.logistics-track) .m-footer .bottom{max-width:none;text-align:center;margin:0;color:#657c61;font-size:12px}
+@media(max-width:760px){body.logistics-login>.wrap{padding:28px 18px}body.logistics-login .logistics-login-shell{grid-template-columns:1fr;max-width:480px;min-height:0;margin:0 auto}body.logistics-login .logistics-login-story{min-height:210px;padding:26px}body.logistics-login .logistics-login-shell .auth-card{padding:28px}body.logistics-registration>.wrap,body.logistics-track>.wrap{padding:24px 18px}body.logistics-registration .partner-card{padding:26px 22px}body.logistics-track .track-card{padding:26px}body.logistics-public .m-footer .foot{gap:24px}}
+@media(max-width:600px){body.logistics-registration .partner-form{grid-template-columns:1fr}body.logistics-registration .partner-card{padding:24px 18px}body.logistics-registration .partner-intro{padding:20px}body.logistics-track .track-card{padding:24px 20px}body.logistics-public .m-footer .foot{flex-direction:column}}

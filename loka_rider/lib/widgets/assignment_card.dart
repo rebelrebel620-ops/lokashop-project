@@ -1,239 +1,331 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import '../api.dart';
 import '../models.dart';
+import 'common.dart';
 
-/// Same colour families as components/badge.blade.php on the web portal.
-Color parcelStatusColor(String status) {
-  switch (status.toUpperCase()) {
-    case 'CONFIRMED':
-    case 'SORTED':
-    case 'ASSIGNED_TO_RIDER':
-    case 'ACCEPTED':
-      return Colors.blue;
-    case 'PREPARING':
-    case 'READY_FOR_PICKUP':
-    case 'REQUESTED':
-    case 'OFFERED':
-      return Colors.amber.shade800;
-    case 'PICKED_UP':
-      return Colors.purple;
-    case 'OUT_FOR_DELIVERY':
-      return Colors.teal;
-    case 'AT_SORTING_CENTER':
-    case 'DELIVERED':
-    case 'COMPLETED':
-      return Colors.green.shade700;
-    case 'DELIVERY_FAILED':
-    case 'FAILED':
-      return Colors.red;
-    default:
-      return Colors.blueGrey;
-  }
-}
+Color parcelStatusColor(String s) =>
+    ['DELIVERED', 'COMPLETED', 'AT_SORTING_CENTER'].contains(s)
+    ? const Color(0xFF287548)
+    : ['DELIVERY_FAILED', 'FAILED', 'EXPIRED', 'CANCELLED'].contains(s)
+    ? Colors.red.shade700
+    : const Color(0xFF526B89);
 
 class StatusChip extends StatelessWidget {
   final String label;
   final Color color;
   const StatusChip({super.key, required this.label, required this.color});
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .10),
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+    ),
+  );
 }
 
-/// One pickup/delivery job. The buttons come from the server (`actions`), so the
-/// app can never offer a step that the Workflow state machine would reject.
 class AssignmentCard extends StatefulWidget {
   final Assignment assignment;
   final ApiClient api;
   final ValueChanged<Assignment> onUpdated;
-
-  const AssignmentCard({super.key, required this.assignment, required this.api, required this.onUpdated});
-
+  final String? scannedCode;
+  const AssignmentCard({
+    super.key,
+    required this.assignment,
+    required this.api,
+    required this.onUpdated,
+    this.scannedCode,
+  });
   @override
   State<AssignmentCard> createState() => _AssignmentCardState();
 }
 
 class _AssignmentCardState extends State<AssignmentCard> {
-  bool _busy = false;
-  String? _note;
-  bool _noteIsError = false;
-
-  Future<void> _run(ActionItem action) async {
+  bool busy = false;
+  String? note;
+  Future<void> run(ActionItem action) async {
     final a = widget.assignment;
+    if (action.status == 'DELIVERED') {
+      final done = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DeliveryScreen(
+            assignment: a,
+            api: widget.api,
+            scannedCode: widget.scannedCode,
+          ),
+        ),
+      );
+      if (done == true) await refresh();
+      return;
+    }
     String? reason;
-
     if (action.needsReason) {
-      reason = await showDialog<String>(context: context, builder: (_) => const _ReasonDialog());
+      reason = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Why did delivery fail?'),
+          children: ['Buyer not home', 'Wrong address', 'Refused']
+              .map(
+                (s) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, s),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Text(s),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      );
       if (reason == null) return;
-    } else if (action.status == 'PICKED_UP' || action.status == 'DELIVERED') {
-      final ok = await showDialog<bool>(
+    } else {
+      final yes = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(action.label),
-          content: Text('Parcel ${a.trackingCode}\n\nThis cannot be undone. Continue?'),
+          content: Text('Parcel ${a.trackingCode}\nConfirm this action?'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm'),
+            ),
           ],
         ),
       );
-      if (ok != true) return;
+      if (yes != true) return;
     }
-
     if (!mounted) return;
     setState(() {
-      _busy = true;
-      _note = null;
+      busy = true;
+      note = null;
     });
-
     try {
-      final result = action.type == 'accept'
-          ? await widget.api.accept(a.id)
-          : await widget.api.setStatus(a.parcelId, action.status!, reason: reason);
-      if (!mounted) return;
-      setState(() {
-        _note = result.message;
-        _noteIsError = false;
-      });
-      final updated = result.assignment;
-      if (updated != null) widget.onUpdated(updated);
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _note = e.message;
-          _noteIsError = true;
-        });
+      if (action.type == 'accept') {
+        final r = await widget.api.accept(a.id);
+        if (r.assignment != null) widget.onUpdated(r.assignment!);
+      } else if (action.type == 'decline') {
+        await widget.api.post('/api/rider/decline', {'id': a.id});
+        await refresh();
+      } else if (action.type == 'transfer_depart') {
+        await widget.api.post('/api/rider/transfers/${a.parcelId}/depart', {});
+        await refresh();
+      } else {
+        final data = await widget.api.post(
+          '/api/rider/parcels/${a.parcelId}/status',
+          {
+            'status': action.status,
+            if (reason != null) 'reason': reason,
+            if (widget.scannedCode != null) 'scanned_code': widget.scannedCode,
+          },
+        );
+        if (data['assignment'] is Map) {
+          widget.onUpdated(
+            Assignment.fromJson(Map<String, dynamic>.from(data['assignment'])),
+          );
+        }
       }
+      if (mounted) setState(() => note = 'Saved.');
+    } catch (e) {
+      if (mounted) setState(() => note = '$e');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> refresh() async {
+    try {
+      final r = await widget.api.scan(widget.assignment.trackingCode);
+      if (mounted) widget.onUpdated(r);
+    } catch (e) {
+      if (mounted) setState(() => note = '$e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final a = widget.assignment;
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
-    final rec = a.recipient;
-    final sel = a.seller;
     final pay = a.payment;
-
+    final seller = a.seller;
+    final rec = a.recipient;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: Icon(a.isPickup ? Icons.inventory_2_outlined : Icons.local_shipping_outlined,
-                      color: theme.colorScheme.onPrimaryContainer),
+                  backgroundColor: const Color(0xFFEDF2E0),
+                  child: Icon(
+                    a.kind == 'transfer'
+                        ? Icons.airport_shuttle_outlined
+                        : a.isPickup
+                        ? Icons.inventory_2_outlined
+                        : Icons.local_shipping_outlined,
+                    color: const Color(0xFF123E32),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${a.isPickup ? 'Pickup' : 'Delivery'} \u00B7 Parcel #${a.parcelId}',
-                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      SelectableText(a.trackingCode, style: theme.textTheme.bodySmall?.copyWith(color: muted)),
+                      Text(
+                        prettyStatus(a.kind),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                        ),
+                      ),
+                      SelectableText(
+                        a.trackingCode,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),
-                StatusChip(label: prettyStatus(a.parcelStatus), color: parcelStatusColor(a.parcelStatus)),
+                IconButton(
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: a.trackingCode)),
+                  icon: const Icon(Icons.copy_outlined),
+                  tooltip: 'Copy tracking code',
+                ),
               ],
             ),
-            const SizedBox(height: 10),
-            Row(
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Icon(Icons.place_outlined, size: 16, color: muted),
-                const SizedBox(width: 4),
-                Expanded(child: Text('${a.city}, ${a.province}', style: theme.textTheme.bodyMedium)),
+                StatusChip(
+                  label: prettyStatus(a.parcelStatus),
+                  color: parcelStatusColor(a.parcelStatus),
+                ),
+                StatusChip(
+                  label: prettyStatus(a.status),
+                  color: parcelStatusColor(a.status.toUpperCase()),
+                ),
               ],
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.payments_outlined, size: 16, color: muted),
-                const SizedBox(width: 4),
-                Text('Earnings ${peso(a.earnings)}', style: theme.textTheme.bodyMedium),
-                const Spacer(),
-                StatusChip(label: 'Job: ${prettyStatus(a.status)}', color: parcelStatusColor(a.status)),
-              ],
-            ),
+            const SizedBox(height: 12),
+            if (a.city.isNotEmpty) Text('${a.city}, ${a.province}'),
+            if (a.status == 'offered' && a.expiresAt != null)
+              Text(
+                'Offer expires: ${shortDate(a.expiresAt)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            if (seller != null) ...[
+              const Divider(height: 28),
+              Text(
+                'PICK UP FROM',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              Text(
+                seller.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              SelectableText(seller.phone),
+              if (seller.pickupAddress != null)
+                Text(
+                  ['street', 'barangay', 'city', 'province', 'postal_code']
+                      .map((f) => seller.pickupAddress![f])
+                      .where((v) => v != null && '$v'.isNotEmpty)
+                      .join(', '),
+                ),
+            ],
             if (rec != null) ...[
-              const Divider(height: 24),
-              _Section(title: 'Deliver to', lines: [
+              const Divider(height: 28),
+              Text('DELIVER TO', style: Theme.of(context).textTheme.labelSmall),
+              Text(
                 rec.name,
-                if (rec.phone.isNotEmpty) rec.phone,
-                [rec.street, rec.barangay].where((s) => s.isNotEmpty).join(', '),
-                [a.city, a.province, if ((rec.postalCode ?? '').isNotEmpty) rec.postalCode!].join(', '),
-              ]),
-            ],
-            if (sel != null) ...[
-              const Divider(height: 24),
-              _Section(title: 'Pick up from seller', lines: [sel.name, if (sel.phone.isNotEmpty) sel.phone]),
-            ],
-            if (a.items.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _Section(title: 'Items', lines: [for (final i in a.items) '${i.quantity} \u00D7 ${i.name}']),
-            ],
-            if (pay != null) ...[
-              const SizedBox(height: 12),
-              _PaymentLine(payment: pay),
-            ],
-            if (a.parcelStatus == 'DELIVERY_FAILED' && (a.failureReason ?? '').isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text('Failure reason: ${a.failureReason}', style: TextStyle(color: theme.colorScheme.error)),
-            ],
-            if (_note != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (_noteIsError ? theme.colorScheme.errorContainer : Colors.green.shade50),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _note!,
-                  style: TextStyle(color: _noteIsError ? theme.colorScheme.onErrorContainer : Colors.green.shade900),
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              SelectableText(rec.phone),
+              Text(
+                '${rec.street}, ${rec.barangay}\n${a.city}, ${a.province} ${rec.postalCode ?? ''}',
               ),
             ],
-            if (a.actions.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              if (_busy)
-                const Center(child: Padding(padding: EdgeInsets.all(6), child: CircularProgressIndicator()))
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final action in a.actions)
-                      action.isDestructive
-                          ? OutlinedButton(
-                              onPressed: () => _run(action),
-                              style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
-                              child: Text(action.label),
-                            )
-                          : FilledButton(onPressed: () => _run(action), child: Text(action.label)),
-                  ],
+            ...a.centers.asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  '${e.value['stage'] ?? 'Sorting center'}: ${e.value['name']}\n${e.value['city']}, ${e.value['province']}',
                 ),
+              ),
+            ),
+            if (a.items.isNotEmpty) ...[
+              const Divider(height: 24),
+              ...a.items.map((i) => Text('${i.quantity} × ${i.name}')),
             ],
+            if (pay != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  pay.method == 'cod'
+                      ? 'Collect COD: ${peso(pay.amount)}'
+                      : '${prettyStatus(pay.method)} • ${prettyStatus(pay.status)}',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            if (a.failureReason != null) Text('Reason: ${a.failureReason}'),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...a.actions.map(
+                  (action) => FilledButton(
+                    onPressed: busy ? null : () => run(action),
+                    child: Text(action.label),
+                  ),
+                ),
+                if (a.status == 'offered' && a.actions.isNotEmpty)
+                  OutlinedButton(
+                    onPressed: busy
+                        ? null
+                        : () => run(
+                            const ActionItem(
+                              type: 'decline',
+                              label: 'Decline assignment',
+                            ),
+                          ),
+                    child: const Text('Decline'),
+                  ),
+                OutlinedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          JobHistory(assignment: a, api: widget.api),
+                    ),
+                  ),
+                  child: const Text('Tracking history'),
+                ),
+              ],
+            ),
+            if (note != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(note!),
+              ),
+            if (busy) const LinearProgressIndicator(),
           ],
         ),
       ),
@@ -241,93 +333,255 @@ class _AssignmentCardState extends State<AssignmentCard> {
   }
 }
 
-class _Section extends StatelessWidget {
-  final String title;
-  final List<String> lines;
-  const _Section({required this.title, required this.lines});
-
+class DeliveryScreen extends StatefulWidget {
+  final Assignment assignment;
+  final ApiClient api;
+  final String? scannedCode;
+  const DeliveryScreen({
+    super.key,
+    required this.assignment,
+    required this.api,
+    this.scannedCode,
+  });
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title.toUpperCase(),
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, letterSpacing: 0.6)),
-        const SizedBox(height: 4),
-        for (final l in lines.where((l) => l.trim().isNotEmpty)) SelectableText(l, style: theme.textTheme.bodyMedium),
-      ],
-    );
-  }
+  State<DeliveryScreen> createState() => _DeliveryScreenState();
 }
 
-class _PaymentLine extends StatelessWidget {
-  final Payment payment;
-  const _PaymentLine({required this.payment});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final collect = payment.method.toLowerCase() == 'cod' && payment.status.toLowerCase() != 'paid';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: collect ? Colors.amber.shade50 : theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        collect
-            ? 'Collect ${peso(payment.amount)} (cash on delivery)'
-            : 'Payment: ${payment.method.toUpperCase()} \u00B7 ${prettyStatus(payment.status)} \u00B7 ${peso(payment.amount)}',
-        style: TextStyle(fontWeight: FontWeight.w600, color: collect ? Colors.amber.shade900 : null),
-      ),
-    );
-  }
-}
-
-class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog();
-
-  @override
-  State<_ReasonDialog> createState() => _ReasonDialogState();
-}
-
-class _ReasonDialogState extends State<_ReasonDialog> {
-  final _controller = TextEditingController();
-  String? _error;
-
+class _DeliveryScreenState extends State<DeliveryScreen> {
+  final otp = TextEditingController(), cod = TextEditingController();
+  final form = GlobalKey<FormState>();
+  XFile? proof;
+  bool busy = false;
+  String? error;
   @override
   void dispose() {
-    _controller.dispose();
+    otp.dispose();
+    cod.dispose();
     super.dispose();
   }
 
-  void _submit() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) {
-      setState(() => _error = 'Enter a failure reason.');
+  Future<void> photo(ImageSource source) async {
+    try {
+      final x = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1800,
+        imageQuality: 80,
+      );
+      if (x != null && mounted) {
+        if (await x.length() > 5 * 1024 * 1024) {
+          if (mounted) toast(context, 'Photo must be smaller than 5 MB.');
+          return;
+        }
+        setState(() => proof = x);
+      }
+    } catch (e) {
+      if (mounted) toast(context, e);
+    }
+  }
+
+  Future<void> submit() async {
+    if (!form.currentState!.validate()) return;
+    if (proof == null) {
+      setState(() => error = 'Take or choose the delivery proof photo first.');
       return;
     }
-    Navigator.pop(context, text);
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await widget.api.upload(
+        '/api/rider/parcels/${widget.assignment.parcelId}/status',
+        {
+          'status': 'DELIVERED',
+          'otp': otp.text.trim(),
+          if (widget.assignment.payment?.method == 'cod')
+            'cod_amount': cod.text.trim(),
+          if (widget.scannedCode != null) 'scanned_code': widget.scannedCode!,
+        },
+        {'proof': proof!},
+      );
+      if (mounted) {
+        toast(context, 'Delivery saved. The buyer can now view the proof.');
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Delivery failed'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        maxLines: 3,
-        maxLength: 2000,
-        decoration: InputDecoration(labelText: 'Reason', errorText: _error, border: const OutlineInputBorder()),
+    final pay = widget.assignment.payment;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Complete delivery')),
+      body: Form(
+        key: form,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            InfoCard(
+              title: widget.assignment.trackingCode,
+              text:
+                  '1. Hand the parcel to the buyer\n2. Take a proof photo\n3. Ask for their delivery OTP\n4. Confirm payment and submit',
+              icon: Icons.task_alt,
+            ),
+            const SizedBox(height: 12),
+            if (proof != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.file(
+                  File(proof!.path),
+                  height: 230,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: busy ? null : () => photo(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  label: const Text('Take photo'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: busy ? null : () => photo(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_outlined),
+                  label: const Text('Choose photo'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: otp,
+              enabled: !busy,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Buyer delivery OTP',
+                helperText: 'The buyer receives this in their notifications.',
+              ),
+              validator: (s) => RegExp(r'^\d{6}$').hasMatch(s ?? '')
+                  ? null
+                  : 'Enter the 6-digit OTP',
+            ),
+            const SizedBox(height: 16),
+            if (pay?.method == 'cod')
+              TextFormField(
+                controller: cod,
+                enabled: !busy,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'COD collected',
+                  helperText: 'Exact amount required: ${peso(pay!.amount)}',
+                ),
+                validator: (s) => double.tryParse(s ?? '') == pay.amount
+                    ? null
+                    : 'Collect and enter exactly ${peso(pay.amount)}',
+              ),
+            if (pay != null && pay.method != 'cod')
+              Text(
+                'Payment: ${prettyStatus(pay.method)} • ${prettyStatus(pay.status)}',
+              ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: busy ? null : submit,
+              icon: const Icon(Icons.check_circle_outline),
+              label: Text(
+                busy ? 'Uploading proof…' : 'Confirm parcel delivered',
+              ),
+            ),
+          ],
+        ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _submit, child: const Text('Submit')),
-      ],
     );
   }
+}
+
+class JobHistory extends StatefulWidget {
+  final Assignment assignment;
+  final ApiClient api;
+  const JobHistory({super.key, required this.assignment, required this.api});
+  @override
+  State<JobHistory> createState() => _JobHistoryState();
+}
+
+class _JobHistoryState extends State<JobHistory> {
+  Map<String, dynamic>? data;
+  Object? error;
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final d = await widget.api.get(
+        '/api/rider/assignments/${widget.assignment.id}',
+      );
+      if (mounted) setState(() => data = d);
+    } catch (e) {
+      if (mounted) setState(() => error = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Parcel history')),
+    body: error != null
+        ? LoadError(error: error!, retry: load)
+        : data == null
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              InfoCard(
+                title: '${data!['tracking_code']}',
+                text: prettyStatus('${data!['parcel_status']}'),
+                icon: Icons.route_outlined,
+              ),
+              ...(data!['events'] as List? ?? []).map(
+                (x) => ListTile(
+                  leading: const Icon(Icons.check_circle_outline),
+                  title: Text(prettyStatus('${x['to_status']}')),
+                  subtitle: Text(
+                    '${x['reason'] ?? ''}\n${shortDate(x['created_at']?.toString())}',
+                  ),
+                ),
+              ),
+              if (data!['proof_url'] != null) ...[
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'Delivery proof',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Image.network(
+                  widget.api.mediaUrl(data!['proof_url']),
+                  headers: widget.api.imageHeaders(data!['proof_url']),
+                  errorBuilder: (_, e, s) => const Text(
+                    'Proof unavailable. Check shared media storage.',
+                  ),
+                ),
+              ],
+            ],
+          ),
+  );
 }

@@ -58,7 +58,7 @@ loginAs($buyer);Cart::add(requestFor(['product_id'=>$pa,'quantity'=>1]));Cart::a
 // Exercise every newly added role panel with the real Blade renderer.
 if(config('app.site_kind')==='ecommerce'){
  $controller=new \App\Http\Controllers\MarketController();
- foreach([[$buyer,['addresses','wishlist','vouchers','returns','ratings']],[$seller,['store','promotions','products','returns','earnings','ratings']]] as [$uid,$modules]){loginAs($uid);foreach($modules as $module){$html=$controller->panel(requestFor(),$module)->render();ok(strlen($html)>100,'Rendered '.$module.' panel');}}
+ foreach([[$buyer,['addresses','wishlist','vouchers','returns','ratings']],[$seller,['store','promotions','products','returns','earnings','ratings']]] as [$uid,$modules]){loginAs($uid);foreach($modules as $module){$panel=$controller->panel(requestFor(),$module);if($panel instanceof \Illuminate\Http\RedirectResponse){ok($panel->getStatusCode()===302,'Dedicated route for '.$module.' panel');}else{$html=$panel->render();ok(strlen($html)>100,'Rendered '.$module.' panel');}}}
  $admin=user('admin','admin');loginAs($admin);foreach(['payments','platform'] as $module){ok(strlen($controller->panel(requestFor(),$module)->render())>100,'Rendered admin '.$module);}
  // Public tracking must not render buyer address or phone.
  Auth::logout();$html=(new \App\Http\Controllers\CommonController())->track(DB::table('parcels')->find($pid)->tracking_code)->render();ok(!str_contains($html,'Private Street')&&!str_contains($html,'09171234567'),'Public tracking conceals private details');

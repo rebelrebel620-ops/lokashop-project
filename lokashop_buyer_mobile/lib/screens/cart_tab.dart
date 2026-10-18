@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/api_service.dart';
 import '../services/app_state.dart';
+import '../services/contracts.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
 import 'checkout_screen.dart';
 import 'login_screen.dart';
-import 'shop_tab.dart';
 
 class CartTab extends StatefulWidget {
   final VoidCallback? onBrowseProducts;
@@ -17,76 +17,169 @@ class CartTab extends StatefulWidget {
 
 class _CartTabState extends State<CartTab> {
   bool loading = true;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) => reload());
   }
 
-  Future<void> _refresh() async {
-    final app = context.read<AppState>();
-    if (!app.isLoggedIn) {
-      setState(() => loading = false);
-      return;
-    }
-    setState(() => loading = true);
+  Future<void> reload() async {
     try {
-      await app.refreshCart();
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => loading = false);
+      if (context.read<AppState>().isLoggedIn) {
+        await context.read<AppState>().refreshCart();
+      }
+    } catch (e) {
+      if (mounted) AppSnack.show(context, '$e', error: true);
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> change(Future<void> Function() fn) async {
+    try {
+      await fn();
+    } catch (e) {
+      if (mounted) AppSnack.show(context, '$e', error: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-
-    if (!app.isLoggedIn) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Cart')),
-        body: EmptyState(
-          icon: Icons.shopping_cart_outlined,
-          title: 'Log in to see your cart',
-          subtitle: 'Your cart is saved to your LokaShop account.',
-          action: ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-            child: const Padding(padding: EdgeInsets.symmetric(horizontal: 24), child: Text('Log in')),
-          ),
-        ),
-      );
-    }
-
+    final selected = app.selectedCart;
+    final total = selected.fold<double>(
+      0,
+      (sum, c) => sum + cartUnit(c) * (int.tryParse('${c['quantity']}') ?? 0),
+    );
     return Scaffold(
-      appBar: AppBar(title: const Text('My cart')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : app.cart.isEmpty
-              ? EmptyState(
-                  icon: Icons.shopping_cart_outlined,
-                  title: 'Your cart is empty',
-                  subtitle: 'Browse the shop and add something you like.',
-                  action: OutlinedButton(
-                    onPressed: widget.onBrowseProducts ?? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Scaffold(body: ShopTab()))),
-                    child: const Padding(padding: EdgeInsets.symmetric(horizontal: 24), child: Text('Browse products')),
+      appBar: AppBar(title: Text('Your bag (${app.cartCount})')),
+      body: PageBody(
+        child: !app.isLoggedIn
+            ? EmptyState(
+                icon: Icons.shopping_bag_outlined,
+                title: 'Keep your finds together',
+                subtitle: 'Sign in to save items in your bag.',
+                action: FilledButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _refresh,
-                  color: AppColors.primary,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                    itemCount: app.cart.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) => _CartRow(item: app.cart[i]),
-                  ),
+                  child: const Text('Sign in'),
                 ),
-      bottomNavigationBar: (!loading && app.cart.isNotEmpty)
-          ? SafeArea(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-                decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.line))),
+              )
+            : loading
+            ? const Center(child: CircularProgressIndicator())
+            : app.cart.isEmpty
+            ? EmptyState(
+                icon: Icons.shopping_bag_outlined,
+                title: 'Your next find is waiting',
+                subtitle: 'Browse local products and add your favourites.',
+                action: TextButton(
+                  onPressed: widget.onBrowseProducts,
+                  child: const Text('Explore products'),
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: reload,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  itemCount: app.cart.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (ctx, i) {
+                    final c = app.cart[i],
+                        id = int.parse('${c['id']}'),
+                        qty = int.parse('${c['quantity']}');
+                    return SheetCard(
+                      child: Column(
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Checkbox(
+                                value: app.selectedCartIds.contains(id),
+                                onChanged: (v) =>
+                                    app.selectCart(id, v ?? false),
+                              ),
+                              AppPhoto(productPhoto(c), width: 68, height: 80),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${c['name']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    if (c['variation'] != null)
+                                      Text(
+                                        '${c['variation']}',
+                                        style: const TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 7),
+                                    Text(
+                                      money(cartUnit(c)),
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: qty > 1
+                                    ? () => change(
+                                        () => app.updateCartQty(id, qty - 1),
+                                      )
+                                    : null,
+                                icon: const Icon(Icons.remove_circle_outline),
+                              ),
+                              Text(
+                                '$qty',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => change(
+                                  () => app.updateCartQty(id, qty + 1),
+                                ),
+                                icon: const Icon(Icons.add_circle_outline),
+                              ),
+                              const Spacer(),
+                              TextButton.icon(
+                                onPressed: () =>
+                                    change(() => app.removeFromCart(id)),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                ),
+                                label: const Text('Remove'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+      ),
+      bottomNavigationBar: !app.isLoggedIn || app.cart.isEmpty
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
                 child: Row(
                   children: [
                     Expanded(
@@ -94,106 +187,42 @@ class _CartTabState extends State<CartTab> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Total', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                          Text(money(app.cartTotal), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                          Text(
+                            '${selected.length} selected · items subtotal',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            money(total),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CheckoutScreen())),
-                      child: const Padding(padding: EdgeInsets.symmetric(horizontal: 28), child: Text('Checkout')),
+                    FilledButton(
+                      onPressed: selected.isEmpty
+                          ? null
+                          : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CheckoutScreen(
+                                  cartIds: selected
+                                      .map((c) => int.parse('${c['id']}'))
+                                      .toList(),
+                                ),
+                              ),
+                            ),
+                      child: const Text('Checkout'),
                     ),
                   ],
                 ),
               ),
-            )
-          : null,
-    );
-  }
-}
-
-class _CartRow extends StatelessWidget {
-  final Map item;
-  const _CartRow({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final price = double.tryParse('${item['price']}') ?? 0;
-    final adj = double.tryParse('${item['price_adjustment'] ?? 0}') ?? 0;
-    final discount = double.tryParse('${item['discount_percent'] ?? 0}') ?? 0;
-    final unit = (price + adj) * (1 - discount / 100);
-    final qty = item['quantity'] as int;
-    final maxStock = item['variation_id'] != null
-        ? (int.tryParse('${item['variation_stock']}') ?? 0)
-        : (int.tryParse('${item['product_stock']}') ?? 0);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.line)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 64, height: 64, child: ProductArt(seed: '${item['product_id']}${item['name']}')),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${item['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                if (item['variation'] != null) Text('${item['variation']}', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                const SizedBox(height: 6),
-                Text(money(unit), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _stepperButton(context, Icons.remove_rounded, () {
-                      if (qty > 1) {
-                        context.read<AppState>().updateCartQty(item['id'], qty - 1);
-                      } else {
-                        _remove(context);
-                      }
-                    }),
-                    Container(
-                      width: 34,
-                      alignment: Alignment.center,
-                      child: Text('$qty', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    ),
-                    _stepperButton(context, Icons.add_rounded, qty < maxStock
-                        ? () => context.read<AppState>().updateCartQty(item['id'], qty + 1)
-                        : null),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-                      onPressed: () => _remove(context),
-                    ),
-                  ],
-                ),
-              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _remove(BuildContext context) async {
-    try {
-      await context.read<AppState>().removeFromCart(item['id']);
-    } on ApiException catch (e) {
-      if (context.mounted) AppSnack.show(context, e.message, error: true);
-    }
-  }
-
-  Widget _stepperButton(BuildContext context, IconData icon, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.line)),
-        child: Icon(icon, size: 16, color: onTap == null ? AppColors.muted.withValues(alpha: .4) : AppColors.ink),
-      ),
     );
   }
 }

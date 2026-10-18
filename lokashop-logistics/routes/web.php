@@ -65,3 +65,7 @@ Route::get('/media/{path}',function(string $path){
 })->where('path','.*');
 
 
+
+Route::get('/register/courier',[\App\Http\Controllers\PublicCourierController::class,'form']);
+
+Route::middleware(['auth','role:rider'])->post('/rider/scan',[L::class,'scan']);

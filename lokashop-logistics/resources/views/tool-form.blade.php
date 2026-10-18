@@ -2,7 +2,7 @@
 <input type="hidden" name="_request_key" value="{{(string)\Illuminate\Support\Str::uuid()}}">
 @foreach($form['fields'] as $definition)
 @php
- $optional=str_contains($definition,'?');$definition=str_replace('?','',$definition);$parts=explode(':',$definition);$field=$parts[0];$type=$parts[1]??'text';$multiple=str_ends_with($type,'[]');$type=str_replace('[]','',$type);$label=ucwords(str_replace('_',' ',preg_replace('/_id$/','',$field)));$choices=\App\Services\FormChoices::for($field,$form['action']);
+ $optional=str_contains($definition,'?');$definition=str_replace('?','',$definition);$parts=explode(':',$definition);$field=$parts[0];$type=$parts[1]??'text';$multiple=str_ends_with($type,'[]');$type=str_replace('[]','',$type);$label=ucwords(str_replace('_',' ',preg_replace('/_id$/','',$field)));$label=['id'=>'Select record','order_item_id'=>'Purchased product','rider_id'=>'Courier','company_id'=>'Sorting center account','parcel_id'=>'Parcel','order_id'=>'Order','product_id'=>'Product','current_password'=>'Current password','otp'=>'Verification code'][$field]??$label;$choices=\App\Services\FormChoices::for($field,$form['action']);
 @endphp
 @if($field==='id' && $optional) @continue @endif
 <label style="display:block;margin:12px 0">{{$label}} @if($optional)<small>(optional)</small>@endif

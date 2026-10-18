@@ -1,5 +1,6 @@
 @extends('layout')
-@section('page-styles')<link rel="stylesheet" href="{{ asset('css/landing-background.css') }}"><link rel="stylesheet" href="{{ asset('css/landing-responsive.css') }}">@endsection
+@section('body-class','logistics-landing')
+@section('page-styles')<link rel="stylesheet" href="{{ asset('css/landing-background.css') }}"><link rel="stylesheet" href="{{ asset('css/landing-responsive.css') }}"><link rel="stylesheet" href="{{ asset('css/delivery-steps.css') }}">@endsection
 
 @section('hero')
 <section class="hero photo-hero">
@@ -14,7 +15,7 @@
         </form>
       </div>
       <a class="btn alt" href="/register/courier">
-        <x-icon name="truck" size="18"/> Join as a rider
+        <x-icon name="truck" size="18"/> Join as a courier
       </a>
     </div>
 
@@ -44,11 +45,23 @@
 <section class="sec">
   <h2>How LokaShop delivery works</h2>
   <p class="sub">From pickup to delivery, in four simple steps.</p>
-  <div class="step-grid">
-    <div class="step-card"><span class="n">01</span><span class="ico"><x-icon name="box" size="18"/></span><h3>Seller prepares</h3><p>Packages and labels the order for pickup.</p></div>
-    <div class="step-card"><span class="n">02</span><span class="ico"><x-icon name="truck" size="18"/></span><h3>Rider picks up</h3><p>A nearby rider collects the parcel from the seller.</p></div>
-    <div class="step-card"><span class="n">03</span><span class="ico"><x-icon name="scan" size="18"/></span><h3>Center sorts</h3><p>Parcels are scanned and routed by destination.</p></div>
-    <div class="step-card"><span class="n">04</span><span class="ico"><x-icon name="map-pin" size="18"/></span><h3>Rider delivers</h3><p>Parcel is delivered to the customer with proof.</p></div>
+  <div class="step-grid delivery-photo-grid">
+    <article class="step-card delivery-photo-card">
+      <div class="delivery-step-photo"><img src="{{ asset('images/Seller_prepares.jpg') }}" alt="Seller packing and labeling a parcel" loading="lazy" width="600" height="440"><span class="delivery-step-number">01</span></div>
+      <div class="delivery-step-copy"><h3>Seller prepares</h3><p>Packages and labels the order for pickup.</p></div>
+    </article>
+    <article class="step-card delivery-photo-card">
+      <div class="delivery-step-photo"><img src="{{ asset('images/Rider_picks_up.jpg') }}" alt="Courier collecting a parcel from the seller" loading="lazy" width="600" height="440"><span class="delivery-step-number">02</span></div>
+      <div class="delivery-step-copy"><h3>Rider picks up</h3><p>A nearby rider collects the parcel from the seller.</p></div>
+    </article>
+    <article class="step-card delivery-photo-card">
+      <div class="delivery-step-photo"><img src="{{ asset('images/Center_sorts.jpg') }}" alt="Parcels being processed at a sorting center" loading="lazy" width="600" height="440"><span class="delivery-step-number">03</span></div>
+      <div class="delivery-step-copy"><h3>Center sorts</h3><p>Parcels are scanned and routed by destination.</p></div>
+    </article>
+    <article class="step-card delivery-photo-card">
+      <div class="delivery-step-photo"><img src="{{ asset('images/Rider_delivers.jpg') }}" alt="Courier delivering a parcel to the customer" loading="lazy" width="600" height="440"><span class="delivery-step-number">04</span></div>
+      <div class="delivery-step-copy"><h3>Rider delivers</h3><p>Parcel is delivered to the customer with proof.</p></div>
+    </article>
   </div>
 </section>
 
@@ -58,9 +71,9 @@
     <div class="panel-card">
       <span class="ico-lg"><x-icon name="truck" size="24"/></span>
       <div>
-        <h3>Become a rider</h3>
+        <h3>Become a courier</h3>
         <p>Earn per pickup and delivery. Register and get approved by a sorting center.</p>
-        <a class="btn" href="/register">Apply as rider</a>
+        <a class="btn" href="/register/courier">Apply as courier</a>
       </div>
     </div>
     <div class="panel-card">

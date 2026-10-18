@@ -50,12 +50,16 @@
                 <button class="sm"><x-icon name="user" size="15"/> Assign rider</button>
               </form>
             @endif
+            @if($p->status==='ASSIGNED_TO_RIDER')
+              @php $liveDelivery=\Illuminate\Support\Facades\DB::table('assignments')->where('parcel_id',$p->id)->where('kind','delivery')->whereIn('status',['offered','accepted'])->exists(); @endphp
+              @if(!$liveDelivery)<form class="inline" method="post" action="/center/parcels/{{$p->id}}/assign">@csrf<button class="sm">Resend delivery offer</button></form>@else<small>Awaiting rider acceptance or departure.</small>@endif
+            @endif
             @if($p->status==='DELIVERY_FAILED')
               <form class="inline" method="post" action="/center/parcels/{{ $p->id }}/return">@csrf
                 <button class="sm danger">Return parcel</button>
               </form>
             @endif
-            @if(!in_array($p->status,['PICKED_UP','AT_SORTING_CENTER','SORTED','DELIVERY_FAILED']))
+            @if(!in_array($p->status,['PICKED_UP','AT_SORTING_CENTER','SORTED','DELIVERY_FAILED','ASSIGNED_TO_RIDER']))
               <small>&mdash;</small>
             @endif
           </td>

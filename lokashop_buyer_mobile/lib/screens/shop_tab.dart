@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/design.dart';
 import '../widgets/product_card.dart';
 import 'product_detail_screen.dart';
+import 'notifications_screen.dart';
+import 'buyer_features.dart';
 
 class ShopTab extends StatefulWidget {
   const ShopTab({super.key});
@@ -14,245 +17,375 @@ class ShopTab extends StatefulWidget {
 }
 
 class _ShopTabState extends State<ShopTab> {
-  final _searchCtrl = TextEditingController();
-  final _scrollCtrl = ScrollController();
-  Timer? _debounce;
-
-  List categories = [];
-  int? selectedCategory;
-  List products = [];
-  int page = 1;
-  bool hasMore = true;
-  bool loading = true;
-  bool loadingMore = false;
-  String query = '';
-
+  final search = TextEditingController();
+  Timer? timer;
+  List mains = [], subs = [], products = [];
+  String? main;
+  int? category;
+  String sort = 'newest';
+  int page = 1, last = 1, version = 0;
+  bool loading = true, more = false;
+  String? error;
   @override
   void initState() {
     super.initState();
-    _load(reset: true);
-    _scrollCtrl.addListener(() {
-      if (_scrollCtrl.position.pixels > _scrollCtrl.position.maxScrollExtent - 300) {
-        _loadMore();
-      }
-    });
+    load();
   }
 
-  Future<void> _load({bool reset = false}) async {
-    final app = context.read<AppState>();
-    if (reset) {
+  Future<void> load({bool append = false}) async {
+    if (append && (more || loading || page >= last)) return;
+    final request = append ? version : ++version;
+    if (mounted) {
       setState(() {
-        loading = true;
-        page = 1;
-        hasMore = true;
-        products = [];
+        if (append) {
+          more = true;
+        } else {
+          loading = true;
+          error = null;
+        }
       });
     }
     try {
-      if (categories.isEmpty) {
-        final cats = await app.api.get('/categories');
-        categories = List.from(cats);
+      final api = context.read<AppState>().api;
+      if (mains.isEmpty) {
+        final tree = await api.get('/catalog/categories');
+        mains = List.from(tree['main_categories']);
+        subs = List.from(tree['subcategories']);
       }
-      final res = await app.api.get('/products', query: {
-        'page': page,
-        if (query.isNotEmpty) 'q': query,
-        if (selectedCategory != null) 'category': selectedCategory,
-      });
-      final data = List.from(res['data'] ?? []);
+      final result = await api.get(
+        '/products',
+        query: {
+          'page': append ? page + 1 : 1,
+          'sort': sort,
+          if (search.text.trim().isNotEmpty) 'q': search.text.trim(),
+          if (main != null) 'main_category': main,
+          if (category != null) 'category': category,
+        },
+      );
+      if (!mounted || request != version) return;
       setState(() {
-        products = data;
-        hasMore = (res['current_page'] ?? 1) < (res['last_page'] ?? 1);
+        page = result['current_page'];
+        last = result['last_page'];
+        products = append
+            ? [...products, ...result['data']]
+            : List.from(result['data']);
       });
     } catch (e) {
-      if (mounted) AppSnack.show(context, 'Could not load products.', error: true);
+      if (mounted && request == version) setState(() => error = '$e');
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted && request == version) {
+        setState(() {
+          loading = false;
+          more = false;
+        });
+      }
     }
-  }
-
-  Future<void> _loadMore() async {
-    if (loadingMore || !hasMore) return;
-    setState(() => loadingMore = true);
-    try {
-      final app = context.read<AppState>();
-      final next = page + 1;
-      final res = await app.api.get('/products', query: {
-        'page': next,
-        if (query.isNotEmpty) 'q': query,
-        if (selectedCategory != null) 'category': selectedCategory,
-      });
-      final data = List.from(res['data'] ?? []);
-      setState(() {
-        page = next;
-        products.addAll(data);
-        hasMore = (res['current_page'] ?? 1) < (res['last_page'] ?? 1);
-      });
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => loadingMore = false);
-    }
-  }
-
-  void _onSearchChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 450), () {
-      query = v.trim();
-      _load(reset: true);
-    });
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
-    _searchCtrl.dispose();
-    _scrollCtrl.dispose();
+    timer?.cancel();
+    search.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: () => _load(reset: true),
-        color: AppColors.primary,
-        child: CustomScrollView(
-          controller: _scrollCtrl,
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('LokaShop', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                    const Text('Discover goods from local sellers', style: TextStyle(color: AppColors.muted)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _searchCtrl,
-                      onChanged: _onSearchChanged,
-                      decoration: InputDecoration(
-                        hintText: 'Search products…',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: _searchCtrl.text.isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.close_rounded),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  query = '';
-                                  _load(reset: true);
-                                },
-                              ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                        filled: true,
-                        fillColor: AppColors.surface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (categories.isNotEmpty)
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: PageBody(
+        child: RefreshIndicator(
+          onRefresh: () => load(),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
               SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 44,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _CategoryChip(
-                        label: 'All',
-                        selected: selectedCategory == null,
-                        onTap: () {
-                          selectedCategory = null;
-                          _load(reset: true);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ...categories.map((c) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _CategoryChip(
-                              label: c['name'],
-                              selected: selectedCategory == c['id'],
-                              onTap: () {
-                                selectedCategory = c['id'];
-                                _load(reset: true);
-                              },
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/lokashop_logo.png',
+                            width: 38,
+                            height: 38,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'LokaShop',
+                              style: TextStyle(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                          )),
+                          ),
+                          IconButton(
+                            tooltip: 'Saved finds',
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const WishlistScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.favorite_border),
+                          ),
+                          IconButton(
+                            tooltip: 'Notifications',
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationsScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.notifications_none),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(25),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.primaryDark, AppColors.primary],
+                          ),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'GOOD FINDS. CLOSE TO HOME.',
+                              style: TextStyle(
+                                color: AppColors.accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'A little local.\nA lot to love.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                height: 1.12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Discover everyday essentials from trusted local sellers.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: search,
+                        onChanged: (_) {
+                          timer?.cancel();
+                          timer = Timer(
+                            const Duration(milliseconds: 400),
+                            () => load(),
+                          );
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'Find your next local favourite',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                      ),
+                      const SectionHeading('Shop by category'),
                     ],
                   ),
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            if (loading)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .68),
-                  delegate: SliverChildBuilderDelegate((c, i) => const ShimmerBlock(height: 220), childCount: 6),
-                ),
-              )
-            else if (products.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'No products found',
-                  subtitle: 'Try a different search or category.',
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .68),
-                  delegate: SliverChildBuilderDelegate(
-                    (c, i) => ProductCard(
-                      product: products[i],
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ProductDetailScreen(productId: products[i]['id'])),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: const Text('All finds'),
+                          selected: main == null,
+                          onSelected: (_) {
+                            main = null;
+                            category = null;
+                            load();
+                          },
+                        ),
                       ),
-                    ),
-                    childCount: products.length,
+                      ...mains.map(
+                        (m) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text('$m'),
+                            selected: main == m,
+                            onSelected: (_) {
+                              main = '$m';
+                              category = null;
+                              load();
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            if (loadingMore)
-              const SliverToBoxAdapter(
+              if (main != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+                    child: DropdownButtonFormField<int>(
+                      initialValue: category,
+                      key: ValueKey('$main:$category'),
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Subcategory',
+                      ),
+                      items: [
+                        const DropdownMenuItem<int>(
+                          value: null,
+                          child: Text('All products in this category'),
+                        ),
+                        ...subs
+                            .where((s) => s['main_category'] == main)
+                            .map(
+                              (s) => DropdownMenuItem<int>(
+                                value: s['id'],
+                                child: Text(
+                                  '${s['name']}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                      ],
+                      onChanged: (v) {
+                        category = v;
+                        load();
+                      },
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: SectionHeading(
+                    main ?? 'Fresh local finds',
+                    trailing: PopupMenuButton<String>(
+                      tooltip: 'Sort products',
+                      onSelected: (s) {
+                        sort = s;
+                        load();
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'newest',
+                          child: Text('Newest first'),
+                        ),
+                        PopupMenuItem(
+                          value: 'price_asc',
+                          child: Text('Price: low to high'),
+                        ),
+                        PopupMenuItem(
+                          value: 'price_desc',
+                          child: Text('Price: high to low'),
+                        ),
+                        PopupMenuItem(value: 'name', child: Text('Name A–Z')),
+                      ],
+                      child: const Icon(Icons.tune),
+                    ),
+                  ),
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
+              if (error != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Column(
+                      children: [
+                        Text(error!),
+                        TextButton(
+                          onPressed: () => load(),
+                          child: const Text('Try again'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (loading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(60),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                )
+              else if (products.isEmpty)
+                const SliverToBoxAdapter(
+                  child: EmptyState(
+                    icon: Icons.search_off,
+                    title: 'No finds just yet',
+                    subtitle: 'Try another category or search.',
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  sliver: SliverLayoutBuilder(
+                    builder: (ctx, constraints) => SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: constraints.crossAxisExtent > 700
+                            ? 4
+                            : constraints.crossAxisExtent > 480
+                            ? 3
+                            : 2,
+                        mainAxisExtent: 290,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, i) => ProductCard(
+                          product: products[i],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProductDetailScreen(
+                                productId: products[i]['id'],
+                              ),
+                            ),
+                          ),
+                        ),
+                        childCount: products.length,
+                      ),
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: page < last
+                      ? OutlinedButton(
+                          onPressed: more ? null : () => load(append: true),
+                          child: Text(more ? 'Loading…' : 'Discover more'),
+                        )
+                      : const SizedBox(height: 12),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _CategoryChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      showCheckmark: false,
-      labelStyle: TextStyle(color: selected ? Colors.white : AppColors.ink, fontWeight: FontWeight.w700, fontSize: 13),
-      selectedColor: AppColors.primary,
-      backgroundColor: AppColors.surface,
-      side: BorderSide(color: selected ? AppColors.primary : AppColors.line),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-    );
-  }
+    ),
+  );
 }

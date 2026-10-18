@@ -31,7 +31,9 @@ class _ComplaintFormScreenState extends State<ComplaintFormScreen> {
     } on ApiException catch (e) {
       if (mounted) AppSnack.show(context, e.message, error: true);
     } catch (_) {
-      if (mounted) AppSnack.show(context, 'Could not send complaint.', error: true);
+      if (mounted) {
+        AppSnack.show(context, 'Could not send complaint.', error: true);
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -48,15 +50,27 @@ class _ComplaintFormScreenState extends State<ComplaintFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('What went wrong?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              const Text(
+                'What went wrong?',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
               const SizedBox(height: 6),
-              const Text('Describe the issue in detail so our support team can help quickly.', style: TextStyle(color: AppColors.muted)),
+              const Text(
+                'Describe the issue in detail so our support team can help quickly.',
+                style: TextStyle(color: AppColors.muted),
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _description,
                 maxLines: 8,
-                decoration: const InputDecoration(hintText: 'e.g. Item arrived damaged, missing items, wrong product…', alignLabelWithHint: true),
-                validator: (v) => (v == null || v.trim().length < 5) ? 'Please describe the issue (min 5 characters).' : null,
+                decoration: const InputDecoration(
+                  hintText:
+                      'e.g. Item arrived damaged, missing items, wrong product…',
+                  alignLabelWithHint: true,
+                ),
+                validator: (v) => (v == null || v.trim().length < 5)
+                    ? 'Please describe the issue (min 5 characters).'
+                    : null,
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -64,7 +78,14 @@ class _ComplaintFormScreenState extends State<ComplaintFormScreen> {
                 child: ElevatedButton(
                   onPressed: _sending ? null : _submit,
                   child: _sending
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.4,
+                          ),
+                        )
                       : const Text('Submit complaint'),
                 ),
               ),

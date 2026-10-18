@@ -1,255 +1,309 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/api_service.dart';
 import '../services/app_state.dart';
-import '../theme.dart';
+import '../services/api_service.dart';
+import '../widgets/design.dart';
 import '../widgets/common.dart';
 import '../widgets/address_form.dart';
+import '../theme.dart';
 import 'home_shell.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  final List<int>? cartIds;
+  const CheckoutScreen({super.key, this.cartIds});
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  bool loading = true;
-  bool placing = false;
   List addresses = [];
-  int? selectedAddress;
-  final _voucherCtrl = TextEditingController();
+  int? address;
+  Map? quote;
+  bool loading = true, busy = false, quoting = false;
+  String? error;
+  final store = TextEditingController(),
+      platform = TextEditingController(),
+      shipping = TextEditingController(),
+      note = TextEditingController();
+  final key = requestKey();
+  int quoteVersion = 0;
+  void invalidateQuote() {
+    setState(() {
+      quoteVersion++;
+      quote = null;
+      quoting = false;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-    _load();
+    load();
   }
 
-  Future<void> _load() async {
-    setState(() => loading = true);
+  Map<String, dynamic> data() => {
+    'address_id': address,
+    'payment_method': 'cod',
+    'selection_required': 1,
+    'cart_ids':
+        widget.cartIds ?? context.read<AppState>().selectedCartIds.toList(),
+    if (store.text.trim().isNotEmpty) 'voucher': store.text.trim(),
+    if (platform.text.trim().isNotEmpty)
+      'platform_voucher': platform.text.trim(),
+    if (shipping.text.trim().isNotEmpty)
+      'shipping_voucher': shipping.text.trim(),
+    'note': note.text.trim(),
+  };
+  Future<void> load() async {
     try {
-      final res = await context.read<AppState>().api.get('/addresses');
+      final result = await context.read<AppState>().api.get('/addresses');
+      if (!mounted) return;
       setState(() {
-        addresses = List.from(res);
-        if (addresses.isNotEmpty) selectedAddress = addresses.first['id'];
+        addresses = List.from(result);
+        if (addresses.isNotEmpty) address ??= addresses.first['id'];
+        loading = false;
       });
-    } catch (_) {
-      if (mounted) AppSnack.show(context, 'Could not load addresses.', error: true);
-    } finally {
-      if (mounted) setState(() => loading = false);
+      if (address != null) await calculate();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          error = '$e';
+          loading = false;
+        });
+      }
     }
   }
 
-  Future<void> _addAddress() async {
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const AddressForm(),
-    );
-    if (result == true) _load();
+  Future<void> calculate() async {
+    final version = ++quoteVersion;
+    final submitted = data();
+    setState(() {
+      quoting = true;
+      quote = null;
+      error = null;
+    });
+    try {
+      final result = await context.read<AppState>().api.post(
+        '/checkout/quote',
+        submitted,
+      );
+      if (mounted && version == quoteVersion) {
+        setState(() => quote = Map.from(result));
+      }
+    } catch (e) {
+      if (mounted && version == quoteVersion) setState(() => error = '$e');
+    } finally {
+      if (mounted && version == quoteVersion) setState(() => quoting = false);
+    }
   }
 
-  Future<void> _placeOrder() async {
-    if (selectedAddress == null) {
-      AppSnack.show(context, 'Add a delivery address first.', error: true);
+  Future<void> place() async {
+    if (quote == null || address == null) return;
+    if (!await confirmAction(
+      context,
+      'Place your order?',
+      'Pay ${money(quote!['total'])} by cash on delivery.',
+      label: 'Place order',
+    )) {
       return;
     }
-    setState(() => placing = true);
+    if (!mounted) return;
+    setState(() => busy = true);
     try {
       final app = context.read<AppState>();
-      await app.api.post('/checkout', {
-        'address_id': selectedAddress,
-        'payment_method': 'cod',
-        if (_voucherCtrl.text.trim().isNotEmpty) 'voucher': _voucherCtrl.text.trim(),
-      });
+      await app.api.post('/checkout', {...data(), '_request_key': key});
       await app.refreshCart();
       if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [Icon(Icons.check_circle_rounded, color: AppColors.success), SizedBox(width: 10), Text('Order placed!')]),
-          content: const Text('Your order was placed successfully. You can track it from My orders.'),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const HomeShell()), (r) => false),
-              child: const Text('View orders'),
-            ),
-          ],
-        ),
+      AppSnack.show(context, 'Your local finds are on their way.');
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeShell(initialIndex: 1)),
+        (_) => false,
       );
-    } on ApiException catch (e) {
-      if (mounted) AppSnack.show(context, e.message, error: true);
     } catch (e) {
-      if (mounted) AppSnack.show(context, 'Could not place order. Try again.', error: true);
+      if (mounted) AppSnack.show(context, '$e', error: true);
     } finally {
-      if (mounted) setState(() => placing = false);
+      if (mounted) setState(() => busy = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final app = context.watch<AppState>();
+  void dispose() {
+    store.dispose();
+    platform.dispose();
+    shipping.dispose();
+    note.dispose();
+    super.dispose();
+  }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Checkout')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('A few final details')),
+    body: PageBody(
+      child: loading
+          ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              padding: const EdgeInsets.all(22),
               children: [
-                const Text('Delivery address', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                const SizedBox(height: 10),
-                ...addresses.map((a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _AddressTile(
-                        address: a,
-                        selected: selectedAddress == a['id'],
-                        onTap: () => setState(() => selectedAddress = a['id']),
+                const Eyebrow('SAFE CHECKOUT · CASH ON DELIVERY'),
+                const SectionHeading('Where should we deliver?'),
+                ...addresses.map(
+                  (a) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SheetCard(
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        selected: address == a['id'],
+                        leading: Icon(
+                          address == a['id']
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                        ),
+                        onTap: busy || quoting
+                            ? null
+                            : () {
+                                setState(() => address = a['id']);
+                                calculate();
+                              },
+                        title: Text(
+                          '${a['recipient']}',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          '${a['street']}, ${a['barangay']}, ${a['city']}\n${a['phone']}',
+                        ),
                       ),
-                    )),
+                    ),
+                  ),
+                ),
                 OutlinedButton.icon(
-                  onPressed: _addAddress,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add new address'),
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final saved = await showModalBottomSheet<bool>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (_) => const AddressForm(),
+                          );
+                          if (saved == true) await load();
+                        },
+                  icon: const Icon(Icons.add_location_alt_outlined),
+                  label: const Text('Add delivery address'),
                 ),
-                const SizedBox(height: 24),
-                const Text('Payment method', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                const SizedBox(height: 10),
-                const _PaymentTile(
-                  title: 'Cash on delivery',
-                  subtitle: 'Pay the rider when your order arrives',
-                  icon: Icons.payments_outlined,
-                ),
-                const SizedBox(height: 24),
-                const Text('Voucher (optional)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _voucherCtrl,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(hintText: 'Enter voucher code', prefixIcon: Icon(Icons.local_offer_outlined)),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.line)),
+                const SectionHeading('Make the most of your bag'),
+                SheetCard(
                   child: Column(
                     children: [
-                      _summaryRow('Subtotal', money(app.cartTotal)),
-                      const SizedBox(height: 8),
-                      _summaryRow('Delivery', 'Calculated by seller'),
-                      const Divider(height: 24),
-                      _summaryRow('Total', money(app.cartTotal), bold: true),
+                      TextField(
+                        controller: store,
+                        onChanged: (_) => invalidateQuote(),
+                        decoration: const InputDecoration(
+                          labelText: 'Store voucher',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: platform,
+                        onChanged: (_) => invalidateQuote(),
+                        decoration: const InputDecoration(
+                          labelText: 'Platform voucher',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: shipping,
+                        onChanged: (_) => invalidateQuote(),
+                        decoration: const InputDecoration(
+                          labelText: 'Shipping voucher',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: address == null || quoting || busy
+                            ? null
+                            : calculate,
+                        child: const Text('Apply and update total'),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-      bottomNavigationBar: loading
-          ? null
-          : SafeArea(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-                decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.line))),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: placing ? null : _placeOrder,
-                    child: placing
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4))
-                        : Text('Place order • ${money(app.cartTotal)}'),
+                const SectionHeading('Order summary'),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      error!,
+                      style: const TextStyle(color: AppColors.danger),
+                    ),
+                  ),
+                if (quoting)
+                  const Center(child: CircularProgressIndicator())
+                else if (quote != null)
+                  SheetCard(
+                    child: Column(
+                      children: [
+                        row('Products', money(quote!['merchandise_total'])),
+                        row('Shipping', money(quote!['shipping_total'])),
+                        row('Discounts', '−${money(quote!['discount_total'])}'),
+                        const Divider(height: 28),
+                        row(
+                          'Cash on delivery',
+                          money(quote!['total']),
+                          bold: true,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Totals are calculated by LokaShop using your selected products, delivery address and vouchers.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: note,
+                  maxLength: 200,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Delivery note (optional)',
                   ),
                 ),
-              ),
+                const SizedBox(height: 20),
+              ],
             ),
-    );
-  }
-
-  Widget _summaryRow(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(color: bold ? AppColors.ink : AppColors.muted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
-        Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 16 : 14)),
-      ],
-    );
-  }
-}
-
-class _AddressTile extends StatelessWidget {
-  final Map address;
-  final bool selected;
-  final VoidCallback onTap;
-  const _AddressTile({required this.address, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.line, width: selected ? 1.6 : 1),
-        ),
-        child: Row(
-          children: [
-            Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: selected ? AppColors.primary : AppColors.muted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${address['recipient']} · ${address['phone']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text('${address['street']}, ${address['barangay']}, ${address['city']}, ${address['province']}',
-                      style: const TextStyle(color: AppColors.muted, fontSize: 13)),
-                ],
-              ),
-            ),
-          ],
+    ),
+    bottomNavigationBar: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: FilledButton(
+          onPressed: busy || quoting || quote == null ? null : place,
+          child: Text(
+            busy
+                ? 'Placing order…'
+                : quote == null
+                ? 'Update total to continue'
+                : 'Place order · ${money(quote!['total'])}',
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _PaymentTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  const _PaymentTile({required this.title, required this.subtitle, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary, width: 1.6),
+    ),
+  );
+  Widget row(String label, String value, {bool bold = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        Expanded(child: Text(label)),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
+            fontSize: bold ? 19 : 14,
+          ),
         ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                ],
-              ),
-            ),
-            const Icon(Icons.radio_button_checked_rounded, color: AppColors.primary),
-          ],
-        ),
-    );
-  }
+      ],
+    ),
+  );
 }

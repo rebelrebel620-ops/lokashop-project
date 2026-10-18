@@ -1,17 +1,33 @@
 @extends(auth()->check() && auth()->user()->role === 'buyer' ? 'app' : 'layout')
 @php $links=auth()->check()?app(\App\Http\Controllers\CommonController::class)->links():[]; @endphp
 @section('title',$p->name.' - LokaShop')
+@section('body-class','product-page')
 @section('content')
-<div class="panel-grid">
- <div>
-  <div class="card">
-   <div class="product" style="--h:{{($p->category_id*47)%360}}">{{mb_strtoupper(mb_substr($p->name,0,1))}}</div>
-  </div>
+<link rel="stylesheet" href="{{ asset('css/product-detail.css') }}">
+<div class="product-detail">
+<a class="product-back" href="{{ '/shop'.(is_string(request('shop_query')) && request('shop_query') !== '' ? '?'.request('shop_query') : '') }}">&larr; Back to shop</a>
+@php
+ $productPhotos = json_decode($p->images ?? '[]', true);
+ $productPhotos = is_array($productPhotos) ? array_values(array_filter($productPhotos, fn($photo) => is_string($photo) && trim($photo) !== '')) : [];
+@endphp
+<div class="panel-grid product-detail-grid">
+ <div class="card product-gallery">
+  @if(count($productPhotos))
+   <div class="product-main-photo"><img id="product-main-image" src="{{ \App\Services\Support::imageUrl($productPhotos[0]) }}" alt="{{ $p->name }}"></div>
+   @if(count($productPhotos)>1)
+   <div class="product-thumbnails" aria-label="Product photos">
+    @foreach($productPhotos as $photo)
+     <button type="button" class="product-thumbnail" aria-label="View photo {{ $loop->iteration }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" data-gallery-image="{{ \App\Services\Support::imageUrl($photo) }}"><img src="{{ \App\Services\Support::imageUrl($photo) }}" alt="{{ $p->name }} — photo {{ $loop->iteration }}" loading="lazy"></button>
+    @endforeach
+   </div>
+   @endif
+  @else
+   <div class="product-no-photo"><span aria-hidden="true">▧</span><p>No product photo available</p></div>
+  @endif
  </div>
- <div class="card">
+ <div class="card product-summary">
   <h1>{{$p->name}}</h1>
   <p>{{$p->description}}</p>
-  @foreach(json_decode($p->images??'[]',true) as $image)<img src="{{\App\Services\Support::imageUrl($image)}}" style="max-width:160px" alt="{{$p->name}}">@endforeach
   @php $vacation=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$p->seller_id)->value('vacation'); @endphp
   @if($vacation)<p>Store is on vacation. Orders are paused.</p>@endif
   <p class="price" style="font-size:1.6rem">₱{{number_format(\App\Services\Catalog::price($p),2)}}
@@ -37,4 +53,14 @@
  </div>
 </div>
 <script>const variants=document.querySelector('[name="variation_id"]');variants?.addEventListener('change',()=>{const o=variants.selectedOptions[0];const info=document.getElementById('selected-variant');info.textContent=o.dataset.price?'Selected price: PHP '+Number(o.dataset.price).toFixed(2)+'; '+o.dataset.stock+' left':'';const image=document.getElementById('variant-image');image.hidden=!o.dataset.image;if(o.dataset.image)image.src=o.dataset.image;});</script>
+</div>
+<script>
+(()=>{
+ const main=document.getElementById('product-main-image');
+ const thumbnails=document.querySelectorAll('[data-gallery-image]');
+ const original=main?.src;
+ thumbnails.forEach(button=>button.addEventListener('click',()=>{if(!main)return;main.src=button.dataset.galleryImage;thumbnails.forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}));
+ document.querySelector('[name="variation_id"]')?.addEventListener('change',event=>{const src=event.target.selectedOptions[0]?.dataset.image;if(main){document.getElementById('variant-image').hidden=true;main.src=src||original;thumbnails.forEach(button=>button.setAttribute('aria-pressed',String(main.src===button.dataset.galleryImage)));}});
+})();
+</script>
 @endsection

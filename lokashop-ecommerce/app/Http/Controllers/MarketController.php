@@ -43,7 +43,7 @@ class MarketController extends Controller {
   }elseif($module==='earnings'&&$seller){
    $title='Available earnings: PHP '.number_format(Commerce::available($u->id),2);$records=DB::table('payouts')->where('seller_id',$u->id)->get();$form('Request payout','/tools/payout',['amount:number','account']);
   }elseif($module==='ratings'&&in_array($u->role,['buyer','seller'])){
-   $records=DB::table('item_reviews')->where($seller?'seller_id':'buyer_id',$u->id)->get();
+   $records=DB::table('item_reviews as r')->join('order_items as oi','oi.id','=','r.order_item_id')->join('users as b','b.id','=','r.buyer_id')->where($seller?'r.seller_id':'r.buyer_id',$u->id)->select('r.*','oi.name as product_name','b.name as buyer_name')->orderByDesc('r.id')->get();
    if($seller)$form('Reply to review','/tools/review/reply',['id:number','response:textarea']);
    else $form('Rate order item','/tools/review',['order_item_id:number','stars:number','comment:textarea?','photos:file[]?']);
   }elseif($module==='platform'&&$admin){$records=DB::table('vouchers')->whereNull('seller_id')->get();$form('Create platform/shipping voucher','/tools/platform-voucher',['code','type:select:percent,fixed,shipping','value:number','minimum_spend:number','cap:number?','starts_at:datetime-local','expires_at:datetime-local','usage_limit:number','per_buyer_limit:number','claimable:checkbox']);}
@@ -56,6 +56,7 @@ class MarketController extends Controller {
    $form('Request email/phone change','/tools/contact/request',['email:email?','phone?','password:password']);
    $form('Verify contact change','/tools/contact/verify',['otp']);$form('Mark notifications read','/tools/notifications/read',[]);
   }else abort(404);
+  if($module==='ratings'&&in_array($u->role,['buyer','seller']))return view('reviews',['links'=>app(CommonController::class)->links(),'reviews'=>$records,'seller'=>$seller,'forms'=>$forms]);
   return view('tools',['links'=>app(CommonController::class)->links(),'title'=>$title,'forms'=>$forms,'records'=>$records]);
  }
  public function address(Request $r){
@@ -76,7 +77,34 @@ class MarketController extends Controller {
  public function wishlist(Request $r){return $this->toggle($r,'wishlists','product_id','products');}
  public function follow(Request $r){return $this->toggle($r,'store_follows','seller_id','seller_businesses','user_id');}
  private function toggle(Request $r,string $table,string $field,string $target,string $targetKey='id'){$v=$r->validate([$field=>"required|integer|exists:{$target},{$targetKey}",'enabled'=>'nullable|boolean']);$q=[$field=>$v[$field],'buyer_id'=>auth()->id()];if($r->boolean('enabled'))DB::table($table)->insertOrIgnore($q+['created_at'=>now(),'updated_at'=>now()]);else DB::table($table)->where($q)->delete();return $this->done($r,'Saved.');}
- public function claim(Request $r){$v=$r->validate(['voucher_id'=>'required|integer']);$x=DB::table('vouchers')->find($v['voucher_id']);abort_unless($x&&$x->active&&$x->claimable&&(!$x->expires_at||now()->lt($x->expires_at)),422);DB::table('voucher_claims')->insertOrIgnore(['buyer_id'=>auth()->id(),'voucher_id'=>$x->id,'created_at'=>now(),'updated_at'=>now()]);return $this->done($r,'Voucher claimed.');}
+ public function claim(Request $r)
+ {
+  $v = $r->validate(['voucher_id' => 'required|integer']);
+  $voucher = DB::table('vouchers')->find($v['voucher_id']);
+
+  if (!$voucher) {
+   Support::fail('voucher_id', 'This voucher no longer exists.');
+  }
+  if (!$voucher->active) {
+   Support::fail('voucher_id', 'This voucher is currently inactive.');
+  }
+  if (!$voucher->claimable) {
+   Support::fail('voucher_id', 'This voucher is not available for claiming.');
+  }
+  if ($voucher->expires_at && now()->gte($voucher->expires_at)) {
+   Support::fail('voucher_id', 'This voucher has already expired.');
+  }
+
+  DB::table('voucher_claims')->insertOrIgnore([
+   'buyer_id' => auth()->id(),
+   'voucher_id' => $voucher->id,
+   'created_at' => now(),
+   'updated_at' => now(),
+  ]);
+
+  return $this->done($r, 'Voucher claimed.');
+ }
+
  public function store(Request $r){$store=DB::table('seller_businesses')->where('user_id',auth()->id())->first();abort_unless($store,404);if(($r->has('name')&&trim((string)$r->name)!==$store->name)||($r->has('category')&&$r->category!==$store->category))Support::fail('name','Registered store name and main category cannot be changed.');$r->merge(['name'=>$store->name]);$name=$store->name;$v=$r->validate(['name'=>'required|string|min:3|max:30','description'=>'nullable|string|max:500','vacation'=>'nullable|boolean','logo'=>'nullable|file|mimes:jpg,jpeg,png|extensions:jpg,jpeg,png|max:5120','banner'=>'nullable|file|mimes:jpg,jpeg,png|extensions:jpg,jpeg,png|max:5120']);
   if(mb_strlen($name)<3)Support::fail('name','Enter at least 3 characters.');if(DB::table('seller_businesses')->whereRaw('LOWER(TRIM(name)) = ?',[mb_strtolower($name)])->where('user_id','!=',auth()->id())->exists())Support::fail('name','Store name is already in use.');
   $data=['name'=>$name,'name_normalized'=>mb_strtolower($name),'description'=>$v['description']??null,'vacation'=>$r->boolean('vacation'),'updated_at'=>now()];foreach(['logo','banner'] as $f)if($r->hasFile($f))$data[$f]=$r->file($f)->store('stores','public');DB::table('seller_businesses')->where('user_id',auth()->id())->update($data);return $this->done($r,'Store settings saved.');}

@@ -47,7 +47,7 @@ class BuyerApiController extends Controller
         return response()->json([
             'token' => $token,
             'account_status'=>$user->account_status,'appeal_required'=>$suspended,'appeal_url'=>$suspended?url('/api/appeal'):null,
-            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone,'profile_photo_url'=>\App\Services\Support::imageUrl($user->profile_photo)],
+            'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'phone' => $user->phone,'profile_photo_url'=>\App\Services\Support::imageUrl($user->profile_photo),'account_status'=>$user->account_status],
         ]);
     }
 
@@ -72,11 +72,11 @@ class BuyerApiController extends Controller
         return response()->json(DB::table('categories')->whereNotNull('category_code')->orderBy('id')->get());
     }
 
-    public function products(Request $r){return response()->json(\App\Services\Catalog::query($r)->paginate(20)->withQueryString());}
+    public function products(Request $r){$page=\App\Services\Catalog::query($r)->paginate(20)->withQueryString();$page->getCollection()->transform(fn($p)=>\App\Http\Controllers\Api\MobileBuyerController::productCard($p));return response()->json($page);}
 
     public function product(int $id)
     {
-        $p = DB::table('products')->join('categories', 'categories.id', '=', 'products.category_id')
+        $p = \App\Services\Commerce::catalog(DB::table('products'))->join('categories', 'categories.id', '=', 'products.category_id')
             ->select('products.*', 'categories.name as category')
             ->where('products.id', $id)->where('active', 1)->where('approved', 1)->where('draft',0)->whereNull('products.deleted_at')->first();
         abort_unless($p, 404);
@@ -84,9 +84,9 @@ class BuyerApiController extends Controller
         $rating = DB::table('item_reviews')->join('order_items','order_items.id','=','item_reviews.order_item_id')
             ->where('order_items.product_id', $id);
         return response()->json([
-            'product' => $p,
+            'product' => \App\Http\Controllers\Api\MobileBuyerController::productCard($p),
             'seller_name' => $seller->name ?? null,
-            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get(),
+            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);return $v;}),
             'rating_avg' => round((clone $rating)->avg('stars') ?? 0, 1),
             'rating_count' => (clone $rating)->count(),
         ]);
@@ -100,9 +100,9 @@ class BuyerApiController extends Controller
             ->join('products as p', 'p.id', '=', 'c.product_id')
             ->leftJoin('product_variations as v', 'v.id', '=', 'c.variation_id')
             ->where('c.buyer_id', auth()->id())
-            ->select('c.*', 'p.name', 'p.price', 'p.discount_percent', 'p.seller_id', 'p.stock as product_stock',
+            ->select('c.*', 'p.name', 'p.price', 'p.discount_percent', 'p.seller_id', 'p.stock as product_stock', 'p.images',
                 'v.name as variation', 'v.price_adjustment', 'v.stock as variation_stock')
-            ->orderByDesc('c.id')->get();
+            ->orderByDesc('c.id')->get()->map(function($row){$p=DB::table('products')->find($row->product_id);$variant=$row->variation_id?DB::table('product_variations')->find($row->variation_id):null;$row->effective_price=\App\Services\Catalog::price($p,$variant);return $row;});
     }
 
     public function cart()
@@ -152,6 +152,7 @@ class BuyerApiController extends Controller
                 ->leftJoin('seller_businesses as sb', 'sb.user_id', '=', 'o.seller_id')
                 ->where('o.buyer_id', auth()->id())
                 ->select('o.*', 'p.id as parcel_id', 'p.tracking_code', 'p.failure_reason',
+                    DB::raw("CASE WHEN p.proof_path IS NOT NULL AND o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END as has_delivery_proof"),
                     DB::raw('COALESCE(sb.name, s.name) as seller_name'))
                 ->orderByDesc('o.id')->get()
         );
@@ -164,16 +165,19 @@ class BuyerApiController extends Controller
             ->leftJoin('users as s', 's.id', '=', 'o.seller_id')
             ->where('o.id', $id)->where('o.buyer_id', auth()->id())
             ->select('o.*', 'p.id as parcel_id', 'p.tracking_code', 'p.failure_reason',
+                    DB::raw("CASE WHEN p.proof_path IS NOT NULL AND o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END as has_delivery_proof"),
                 DB::raw('COALESCE(sb.name, s.name) as seller_name'))
             ->first();
         abort_unless($order, 404);
+        $order->proof_url = $order->has_delivery_proof ? url('/api/orders/'.$order->id.'/proof') : null;
         return response()->json([
             'order' => $order,
-            'items' => DB::table('order_items')->where('order_id', $id)->get(),
+            'items' => DB::table('order_items')->where('order_id', $id)->get()->map(function($i){$i->image_url=\App\Services\Support::imageUrl($i->image);$i->review=DB::table('item_reviews')->where('order_item_id',$i->id)->where('buyer_id',auth()->id())->first();return $i;}),
             'address' => $order->address_snapshot ? json_decode($order->address_snapshot) : DB::table('addresses')->where('id', $order->address_id)->first(),
             'payment' => DB::table('payments')->where('order_id', $id)->first(),
             'history' => DB::table('status_history')->where('parcel_id', $order->parcel_id)->orderBy('id')->get(),
             'rating' => DB::table('ratings')->where('order_id', $id)->first(),
+            'return_request'=>DB::table('return_requests')->where('order_id',$id)->where('buyer_id',auth()->id())->first(),
         ]);
     }
 
@@ -203,7 +207,7 @@ class BuyerApiController extends Controller
 
     public function messageContacts()
     {
-        return response()->json(DB::table('users')->where('active', 1)->where('approval_status', 'approved')
+        return response()->json(DB::table('users')->where('active', 1)->where('account_status','active')->where('approval_status', 'approved')
             ->where('id', '!=', auth()->id())->whereIn('role', ['seller', 'admin'])->select('id', 'name', 'role')->get());
     }
 

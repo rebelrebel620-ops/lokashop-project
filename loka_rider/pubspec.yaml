@@ -1,4 +1,4 @@
-﻿name: lokashop_rider
+name: lokashop_rider
 description: "LokaShop rider app"
 publish_to: 'none'
 version: 1.0.0+1
@@ -13,6 +13,8 @@ dependencies:
   http: ^1.2.0
   shared_preferences: ^2.2.0
   cupertino_icons: ^1.0.6
+  flutter_secure_storage: 9.2.4
+  image_picker: 1.2.0
 
 dev_dependencies:
   flutter_test:

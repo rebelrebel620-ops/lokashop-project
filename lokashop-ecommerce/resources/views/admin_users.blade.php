@@ -37,5 +37,5 @@
   </tbody>
  </table>
 </div>
-{{$users->links()}}
+{{$users->links('components.pagination')}}
 @endsection

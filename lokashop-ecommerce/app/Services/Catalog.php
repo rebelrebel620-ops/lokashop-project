@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 class Catalog {
  public static function query(Request $r){
   $v=$r->validate(['q'=>'nullable|string|max:180','main_category'=>['nullable','string',\Illuminate\Validation\Rule::in(config('registration.categories'))],'category'=>'nullable|integer','seller'=>'nullable|integer','store_category'=>'nullable|integer','min_price'=>'nullable|numeric|min:0','max_price'=>'nullable|numeric|gte:min_price','sort'=>'nullable|in:newest,price_asc,price_desc,name']);
+  if($r->filled('main_category')&&$r->filled('category')&&!DB::table('categories')->where('id',$v['category'])->where('main_category',$v['main_category'])->exists())Support::fail('category','Choose a subcategory within the selected main category.');
   $q=Commerce::catalog(DB::table('products'))->join('categories','categories.id','=','products.category_id')->select('products.*','categories.name as category');
   if($r->filled('main_category'))$q->where('categories.main_category',$v['main_category']);
   if($r->filled('q'))$q->where('products.name','like','%'.$v['q'].'%');if($r->filled('category'))$q->where('category_id',$v['category']);if($r->filled('seller'))$q->where('products.seller_id',$v['seller']);

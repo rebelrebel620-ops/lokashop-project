@@ -39,3 +39,22 @@
 })->purpose('Create an administrator without shipping a default password');
 
 \Illuminate\Support\Facades\Schedule::call(fn()=>\App\Services\PendingRegistration::purge())->hourly();
+
+\Illuminate\Support\Facades\Artisan::command('lokashop:delivery-check', function () {
+ $this->info('Delivery integration configuration');
+ $this->line('Database: '.config('database.connections.'.config('database.default').'.database'));
+ $root=config('filesystems.disks.local.root');$this->line('Private storage: '.$root);
+ $this->line('Both websites MUST print the same database and private-storage path.');
+ try {
+  $disk=\Illuminate\Support\Facades\Storage::disk('local');
+  $probe='delivery-proofs/.connection-check-'.bin2hex(random_bytes(8));
+  $disk->put($probe,'test');$disk->delete($probe);$this->info('Private storage is writable.');
+  $missing=0;
+  foreach(\Illuminate\Support\Facades\DB::table('parcels')->whereNotNull('proof_path')->cursor() as $parcel)if(!$disk->exists($parcel->proof_path))$missing++;
+  $this->line('Delivery records with missing proof files: '.$missing);
+  if($missing)$this->warn('Run lokashop:sync-storage in the original logistics folder, or restore the shared proof folder from backup.');
+  return $missing ? 1 : 0;
+ } catch(\Throwable $error) {
+  $this->error('Database or shared-storage check failed: '.$error->getMessage());return 1;
+ }
+})->purpose('Check the database and shared storage used by courier proof photos');

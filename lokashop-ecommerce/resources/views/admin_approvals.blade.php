@@ -21,5 +21,5 @@
 @empty
 <div class="section-card empty">Nothing waiting for review.</div>
 @endforelse
-{{$users->links()}}
+{{$users->links('components.pagination')}}
 @endsection

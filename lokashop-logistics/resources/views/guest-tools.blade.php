@@ -1,9 +1,22 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{$title}}</title>
-<style>body{font:16px/1.5 system-ui;background:#f3f7f4;color:#183b2c;margin:auto;padding:30px;max-width:720px}section{background:white;border:1px solid #dde5df;border-radius:12px;padding:24px;margin:20px 0}input,select,textarea{box-sizing:border-box;display:block;width:100%;padding:10px;border:1px solid #bbc8bf;border-radius:6px}input[type=checkbox]{width:auto}button{padding:12px;background:#18613e;color:white;border:0;border-radius:6px}.error{color:#b91c1c}form[data-safe-submit]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 20px}form[data-safe-submit]>button{grid-column:1/-1;cursor:pointer;margin-top:18px}input[type=file]{font-size:13px;background:#f5f8f6}label{font-weight:600;font-size:14px}nav a{padding:10px 14px;background:white;border:1px solid #c4d8cb;border-radius:8px;text-decoration:none;color:#185f3e}h1{font-size:28px}input,select{min-height:44px}input[type=checkbox]{min-height:20px}@media(max-width:600px){body{padding:16px}section{padding:18px}form[data-safe-submit]{grid-template-columns:1fr}} </style>
-<a href="/login">Log in</a> · <a href="/application/resubmit">Correct rejected application</a><h1>{{$title}}</h1>
-@if(request()->is('register')||request()->is('register/courier'))<nav aria-label="Registration type" style="display:flex;gap:14px;flex-wrap:wrap"><a href="/register">Sorting center</a><a href="/register?type=rider">Register as rider</a><a href="/register?type=driver">Register as driver</a></nav>@endif
-@if(session('success'))<p>{{session('success')}}</p>@endif
-@if($errors->any())<div class="error">@foreach($errors->all() as $error)<p>{{$error}}</p>@endforeach</div>@endif
-@foreach($forms as $form)<section><h2>{{$form['label']}}</h2>@include('tool-form',['form'=>$form])</section>@endforeach
-@include('shared-interactions')
-</html>
+@extends('layout')
+@section('title',$title.' - LokaShop Logistics')
+@section('body-class','logistics-registration')
+@section('content')
+@php $isRegistration=request()->is('register','register/courier'); $isCourier=request()->is('register/courier') || in_array(request('type'),['rider','driver']); @endphp
+<div class="partner-intro"><span class="public-eyebrow">GROW WITH LOKASHOP LOGISTICS</span><h1>{{ $isRegistration ? 'Join our delivery network' : $title }}</h1><p>Connect local businesses and communities, one delivery at a time.</p></div>
+@if($isRegistration)
+<nav class="partner-options" aria-label="Registration type">
+ <a href="/register" @if(!$isCourier) aria-current="page" @endif><b>Sorting Center</b><span>Register your company and service municipality</span></a>
+ <a href="/register/courier" @if($isCourier) aria-current="page" @endif><b>Couriers (Driver and Rider)</b><span>Choose Rider or Driver in the form below</span></a>
+</nav>
+@endif
+<div class="partner-forms">
+@foreach($forms as $form)
+<section class="partner-card"><h2>{{ $isRegistration ? ($isCourier ? 'Courier application' : 'Sorting center application') : $form['label'] }}</h2>
+@if($isRegistration)<p class="public-muted">Complete all fields. Verify your email after submitting; your application will then be reviewed.</p>@include('partner-registration-form',['form'=>$form])
+@else @include('tool-form',['form'=>$form]) @endif
+</section>
+@endforeach
+<p class="partner-login">Already registered? <a href="/login">Log in</a> · <a href="/application/resubmit">Correct a rejected application</a></p>
+</div>
+@endsection

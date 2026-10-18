@@ -1,14 +1,24 @@
 @extends('layout')
 @section('title', ($register ? 'Register' : 'Log in') . ' - LokaShop')
+@section('body-class', $register ? 'register-page' : 'login-page')
+@section('page-styles')
+<link rel="stylesheet" href="{{ asset('css/login.css') }}">
+@if($register)<link rel="stylesheet" href="{{ asset('css/registration.css') }}">@endif
+@endsection
 @section('content')
+@if(!$register)
+ @include('login-panel')
+@else
 <style>.registration-form{max-width:700px;margin:24px auto}.registration-form label{display:block;margin:12px 0}.field-error{color:#a11;display:block;font-size:14px}.registration-form fieldset{border:1px solid #ddd;border-radius:12px;margin:18px 0;padding:16px}.registration-form input[type=checkbox]{width:auto}.password-row{display:flex;gap:8px;align-items:center}.password-row input{flex:1;min-width:0}.password-row button{width:auto}</style>
+<div class="registration-intro"><span class="login-eyebrow">JOIN YOUR LOCAL MARKETPLACE</span><h2>Local finds. New possibilities.</h2><p>Shop your favorites or grow your business with LokaShop.</p></div>
 <div class="card registration-form">
  <img src="/logo.jpg" width="64" alt="LokaShop" style="border-radius:14px">
  <h1>{{ $register ? 'Create your account' : 'Welcome back' }}</h1>
  <p>{{ $register ? 'Verify your email to activate a buyer account. Sellers also need admin approval.' : 'Log in to continue to LokaShop.' }}</p>
  <form id="account-form" action="{{ $register ? '/register' : '/login' }}" method="post" enctype="multipart/form-data">@csrf
   @if($register)
-  <label>I am a<select name="role" id="account-role">@foreach($roles as $role)<option value="{{$role}}" @selected(old('role','buyer')===$role)>{{ucfirst($role)}}</option>@endforeach</select>@error('role')<small class="field-error">{{$message}}</small>@enderror</label>
+  <h2 class="registration-section-title">01 <span>About you</span></h2>
+  <label class="registration-role">I am a<select name="role" id="account-role">@foreach($roles as $role)<option value="{{$role}}" @selected(old('role','buyer')===$role)>{{ucfirst($role)}}</option>@endforeach</select>@error('role')<small class="field-error">{{$message}}</small>@enderror</label>
   @foreach(['first_name'=>'First name','last_name'=>'Last name'] as $field=>$label)
   <label>{{$label}}<input name="{{$field}}" required minlength="2" maxlength="50" value="{{old($field)}}" autocomplete="{{$field==='first_name'?'given-name':'family-name'}}">@error($field)<small class="field-error">{{$message}}</small>@enderror</label>
   @endforeach
@@ -24,19 +34,20 @@
    @endforeach
    <small>JPG, PNG or PDF. Maximum 5 MB per file. Documents depend on seller type.</small>
   </fieldset>
-  <fieldset><legend>Address</legend>
+  <fieldset><legend>02 · Delivery address</legend>
    @foreach(['region'=>'Region','province'=>'Province','city'=>'City / Municipality','barangay'=>'Barangay','street'=>'Street address','postal_code'=>'Postal code'] as $field=>$label)
    <label>{{$label}}<input name="{{$field}}" required maxlength="{{$field==='street'?200:($field==='postal_code'?4:120)}}" @if($field==='postal_code') inputmode="numeric" pattern="[0-9]{4}" @endif value="{{old($field)}}">@error($field)<small class="field-error">{{$message}}</small>@enderror</label>
    @endforeach
   </fieldset>
   @endif
-  <label>Email<input type="email" name="email" required maxlength="190" value="{{old('email')}}" autocomplete="email">@error('email')<small class="field-error">{{$message}}</small>@enderror</label>
+  <h2 class="registration-section-title">03 <span>Account security</span></h2>
+  <label class="registration-email">Email<input type="email" name="email" required maxlength="190" value="{{old('email')}}" autocomplete="email">@error('email')<small class="field-error">{{$message}}</small>@enderror</label>
   @foreach($register?['password'=>'Password','password_confirmation'=>'Confirm password']:['password'=>'Password'] as $field=>$label)
   <label>{{$label}}<span class="password-row"><input id="{{$field}}" type="password" name="{{$field}}" required @if($register) minlength="8" autocomplete="new-password" @else autocomplete="current-password" @endif><button type="button" class="btn alt" data-password="{{$field}}" aria-label="Show {{$label}}" aria-pressed="false">Show</button></span>@error($field)<small class="field-error">{{$message}}</small>@enderror</label>
   @endforeach
   @if($register)
-  <small>Use at least 8 characters, including uppercase and lowercase letters, a number and a special character.</small>
-  <label><input type="checkbox" name="terms" value="1" required @checked(old('terms'))> I accept the <a href="/terms" target="_blank" rel="noopener">Terms and Privacy Policy</a>.@error('terms')<small class="field-error">{{$message}}</small>@enderror</label>
+  <small class="registration-password-help">Use at least 8 characters, including uppercase and lowercase letters, a number and a special character.</small>
+  <label class="registration-terms"><input type="checkbox" name="terms" value="1" required @checked(old('terms'))> I accept the <a href="/terms" target="_blank" rel="noopener">Terms and Privacy Policy</a>.@error('terms')<small class="field-error">{{$message}}</small>@enderror</label>
   @endif
   <button id="submit-account" class="btn lg" style="width:100%">{{ $register ? 'Create account' : 'Log in' }}</button>
  </form>
@@ -64,4 +75,5 @@ document.getElementById('account-form').addEventListener('submit',()=>{
  const button=document.getElementById('submit-account');button.disabled=true;button.textContent='Please wait…';
 });
 </script>
+@endif
 @endsection

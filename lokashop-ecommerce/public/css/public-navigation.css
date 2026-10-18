@@ -1,0 +1,138 @@
+/* Full marketplace navigation */
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 4%;
+    background: #fffffff2;
+    border-bottom: 1px solid #e3ece5;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .brand {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .brand small {
+    display: block;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hsearch {
+    display: flex;
+    flex: 1;
+    max-width: 480px;
+    min-width: 160px;
+    margin: 0;
+    order: 0;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hsearch input {
+    min-width: 0;
+    width: 0;
+    flex: 1;
+    font-size: 14px;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hsearch button {
+    flex: none;
+    min-height: 44px;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hnav {
+    display: flex;
+    margin-left: auto;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hnav a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+}
+
+/* White Sign up text */
+header.site .hnav a.btn[href="/register"],
+header.site .hnav a.btn[href="/register"]:hover,
+header.site .hnav a.btn[href="/register"]:focus,
+header.site .hnav a.btn[href="/register"]:visited {
+    color: #fff;
+}
+
+/* Full-page background for Shop and Product pages */
+body.shop-page,
+body.product-page {
+    background: #eff4e9;
+    position: relative;
+    isolation: isolate;
+}
+
+body.shop-page::before,
+body.product-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: url("../images/account-background.webp") center / cover no-repeat;
+}
+
+/* Tablet navigation */
+@media (max-width: 900px) {
+    body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hsearch {
+        order: 3;
+        flex-basis: 100%;
+        max-width: none;
+        width: 100%;
+    }
+
+    body:is(.login-page, .register-page, .shop-page, .product-page) header.site .brand small {
+        font-size: 0.6rem;
+    }
+}
+
+/* Phone navigation */
+@media (max-width: 480px) {
+    body:is(.login-page, .register-page, .shop-page, .product-page) header.site {
+        gap: 10px;
+        padding: 12px 5%;
+    }
+
+    body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hnav {
+        width: 100%;
+        margin-left: 0;
+        gap: 6px;
+    }
+
+    body:is(.login-page, .register-page, .shop-page, .product-page) header.site .hnav a {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+
+    body:is(.login-page, .register-page, .shop-page, .product-page) header.site .brand {
+        font-size: 1.1rem;
+    }
+
+    /* Landing page background */
+    body.landing-page {
+        background: #eff4e9;
+        position: relative;
+        isolation: isolate;
+    }
+
+    body.landing-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: url("../images/account-background.webp") center / cover no-repeat;
+    }
+}

@@ -6,6 +6,8 @@
 <link rel="icon" href="/favicon.jpg">
 @vite('resources/css/app.css')
 <link rel="stylesheet" href="{{ asset('css/account-cart-fixes.css') }}">
+<link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
+<script src="{{ asset('js/workspace-design.js') }}" defer></script>
 </head>
 <body>
 @php

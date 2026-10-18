@@ -1,11 +1,13 @@
 @extends('layout')
 @section('title','Track parcel')
+@section('body-class','logistics-track')
 @section('content')
+<a class="public-back" href="/">&larr; Back to home</a>
 <div class="track-wrap">
   <div class="track-card">
-    <h1>Track your parcel</h1>
+    <span class="public-eyebrow">EVERY PARCEL, EVERY STEP</span><h1>Track your parcel</h1><p class="public-muted">Enter your tracking code to see the latest delivery updates.</p>
     <form action="/track">
-      <input name="code" value="{{ $code }}" placeholder="LKS-XXXXXXXXXXXX" required>
+      <label class="tracking-label" for="tracking-code">Tracking code</label><input id="tracking-code" name="code" value="{{ $code }}" placeholder="LKS-XXXXXXXXXXXX" required>
       <button><x-icon name="search" size="18"/> Track</button>
     </form>
 

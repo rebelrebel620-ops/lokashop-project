@@ -1,6 +1,8 @@
 @extends('layout')
 @section('title', $register ? 'Register' : 'Log in')
+@section('body-class','logistics-login')
 @section('content')
+<div class="logistics-login-shell"><aside class="logistics-login-story"><span class="public-eyebrow">LOKASHOP LOGISTICS</span><h2>Moving every<br>order forward.</h2><p>Pick up. Sort. Deliver.<br>Keep local communities connected.</p></aside>
 <div class="auth-wrap">
   <div class="auth-card">
     <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="64" height="64" style="width:64px;height:64px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
@@ -37,11 +39,11 @@
         <input type="file" name="permit_document">
       @endif
 
-      <label>Email</label>
-      <input type="email" name="email" required value="{{ old('email') }}">
+      <label for="partner-email">Email address</label>
+      <input id="partner-email" type="email" autocomplete="email" placeholder="you@example.com" name="email" required value="{{ old('email') }}">
 
-      <label>Password</label>
-      <input type="password" name="password" required>
+      <label for="partner-password">Password</label>
+      <div class="partner-password"><input id="partner-password" type="password" name="password" autocomplete="current-password" required><button type="button" id="login-toggle" aria-label="Show password" aria-pressed="false">Show</button></div>
 
       @if($register)
         <label>Confirm password</label>
@@ -60,4 +62,6 @@
     </p>
   </div>
 </div>
+</div>
+<script>document.getElementById('login-toggle')?.addEventListener('click',function(){const input=document.getElementById('partner-password'),show=input.type==='password';input.type=show?'text':'password';this.textContent=show?'Hide':'Show';this.setAttribute('aria-pressed',String(show));this.setAttribute('aria-label',show?'Hide password':'Show password');});</script>
 @endsection

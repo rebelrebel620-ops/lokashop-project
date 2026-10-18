@@ -14,7 +14,7 @@ class LogisticsAdminController extends Controller
 
     public function approvals()
     {
-        $users = $this->accounts()->where('approval_status', 'pending')->orderBy('id')->paginate(20);
+        $users = $this->accounts()->where('approval_status', 'pending')->orderBy('id')->paginate(12)->withQueryString();
         return view('admin_approvals', [
             'links' => app(CommonController::class)->links(), 'users' => $users,
             'docs' => DB::table('registration_documents')->whereIn('user_id', $users->pluck('id'))->get()->groupBy('user_id'),
@@ -43,11 +43,20 @@ class LogisticsAdminController extends Controller
         return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($document->path));
     }
 
-    public function users()
+    public function users(Request $request)
     {
-        return view('admin_users', [
-            'links' => app(CommonController::class)->links(),
-            'users' => $this->accounts()->select('id', 'name', 'email', 'role', 'approval_status', 'active', 'account_status', 'courier_type')->orderByDesc('id')->paginate(30),
+        $v=$request->validate(['search'=>'nullable|string|max:150','role'=>'nullable|in:sorting_center,rider,driver','state'=>'nullable|in:active,suspended,banned,archived','approval'=>'nullable|in:approved,pending,unverified,rejected,pending_activation']);
+        $search=trim($v['search']??'');$role=$v['role']??'';$state=$v['state']??'';$approval=$v['approval']??'';
+        $query=$this->accounts();
+        if($search!=='')$query->where(fn($q)=>$q->where('name','like','%'.$search.'%')->orWhere('email','like','%'.$search.'%'));
+        if($role==='sorting_center')$query->where('role','sorting_center');
+        elseif(in_array($role,['rider','driver']))$query->where('role','rider')->where('courier_type',$role);
+        if($state!=='')$query->where('account_status',$state);else $query->where('account_status','!=','archived');
+        if($approval!=='')$query->where('approval_status',$approval);
+        return view('admin_users',[
+            'links'=>app(CommonController::class)->links(),
+            'users'=>$query->select('id','name','email','role','approval_status','active','account_status','courier_type')->orderByDesc('id')->paginate(12)->withQueryString(),
+            'search'=>$search,'role'=>$role,'state'=>$state,'approval'=>$approval,
         ]);
     }
 

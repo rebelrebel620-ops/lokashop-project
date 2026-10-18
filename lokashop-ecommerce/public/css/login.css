@@ -1,0 +1,40 @@
+/* Scoped login styling; registration and marketplace keep their existing layout. */
+body.login-page{font-family:"Segoe UI",Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 15% 40%,#e7f0df,transparent 55%),#f7f8f2;color:#163c2a}
+
+.login-page header.site{position:relative;padding:18px 5%;background:#ffffffdb;backdrop-filter:none}
+.login-back{margin-left:auto;font-size:14px;font-weight:600;color:#24563b;padding:10px 0}
+.login-page>.wrap{flex:1;display:flex;flex-direction:column;justify-content:center;width:100%;max-width:1120px;padding:48px 28px;margin:0 auto}
+.login-page .notice,.login-page .error{width:100%;margin:0 auto 18px}
+.login-shell{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:1000px;margin:auto;background:#fff;border:1px solid #dfE8dd;border-radius:26px;overflow:hidden;box-shadow:0 22px 70px #20452b12;min-height:580px}
+.login-story{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:42px 34px;color:#16452a;background:linear-gradient(180deg,#eff7e9f5 0%,#eff7e9cc 35%,transparent 62%),url('../images/landing-bg.webp') 74% bottom/auto 100% no-repeat}
+.login-eyebrow{display:block;font-size:11px;font-weight:700;letter-spacing:1.8px;color:#47704e}
+.login-story h2{font-size:clamp(36px,4vw,52px);line-height:1.08;letter-spacing:-2px;margin:18px 0;color:#0f4527}
+.login-story p{font-size:16px;line-height:1.6;margin:0;color:#43644c}
+.login-story-note{background:#ffffffe8;border:1px solid #ffffffaa;border-radius:12px;padding:13px 16px;font-size:12px;font-weight:600;backdrop-filter:blur(8px)}
+.login-story-note span{display:inline-grid;place-items:center;background:#e1f0d8;border-radius:50%;width:24px;height:24px;margin-right:7px;color:#155e2b}
+.login-panel{padding:44px 42px;align-self:center;min-width:0}
+.login-logo{display:block;border-radius:14px;margin-bottom:24px;object-fit:cover}
+.login-panel h1{font-size:32px;letter-spacing:-1px;margin:10px 0;color:#133e28;line-height:1.2}
+.login-subtitle{font-size:14px;line-height:1.6;color:#6a7b6d;margin:0 0 26px}
+.login-panel label{display:block;font-size:14px;font-weight:600;margin:19px 0 8px}
+.login-panel input{display:block;width:100%;min-width:0;min-height:50px;border:1px solid #d8e2d8;border-radius:10px;background:#fcfdfb;padding:13px 14px;font:400 16px/1.4 "Segoe UI",Arial,sans-serif;color:#173b28;margin:0}
+.login-panel input:focus{outline:2px solid #87b596;outline-offset:2px;border-color:#176d3c}
+.login-panel input[aria-invalid=true]{border-color:#b53939}
+.login-password-field{position:relative}.login-password-field input{padding-right:72px}
+.login-password-field button{position:absolute;right:7px;top:6px;bottom:6px;padding:0 10px;margin:0;border:0;background:transparent;color:#28633c;font-size:12px;font-weight:700;border-radius:7px;min-width:52px}
+.login-password-field button:hover{background:#edf4eb}
+.login-submit{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;min-height:50px;border:0;border-radius:10px;background:#126b38;color:white;margin:26px 0 0;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s}
+.login-submit:hover{background:#188345}.login-submit:disabled{opacity:.65;cursor:wait}
+.login-panel button:focus-visible,.login-page a:focus-visible{outline:3px solid #7fab83;outline-offset:3px}
+.login-signup{text-align:center;font-size:13px;color:#697b6d;margin:22px 0}.login-signup a{font-weight:700;color:#146a36}
+.login-local-note{border-top:1px solid #e7ede4;text-align:center;padding-top:19px;font-size:11px;color:#718070}
+.login-field-error{display:block;color:#a32f2f;font-size:13px;margin-top:7px}
+.login-page footer{padding:18px 24px;background:transparent;text-align:center;border-top:1px solid #e0e8dd}.login-page footer .foot{display:none}.login-page footer>small{display:block;margin:0;color:#70806e;font-size:12px}
+@media(max-width:760px){.login-page>.wrap{padding:28px 18px}.login-shell{grid-template-columns:1fr;max-width:480px;border-radius:20px;min-height:0}.login-story{min-height:200px;padding:24px;background:linear-gradient(90deg,#eff7e9f5,#eff7e9aa 45%,transparent),url('../images/landing-bg.webp') 75% center/cover no-repeat}.login-story h2{font-size:32px;margin:10px 0;letter-spacing:-1px}.login-story p{font-size:13px;max-width:210px}.login-story-note{display:none}.login-panel{padding:28px}.login-logo{width:44px;height:44px;margin-bottom:18px}.login-panel h1{font-size:28px}.login-back{font-size:13px}.login-page header.site{padding:12px 5%}}
+@media(max-width:360px){.login-panel{padding:24px 20px}.login-page header.site .brand{font-size:1rem}.login-page header.site .brand img{width:32px;height:32px}}
+@media(prefers-reduced-motion:reduce){.login-submit{transition:none}}
+
+/* Product photography behind the account form. */
+body.login-page{background:#eff4e9;position:relative;isolation:isolate}
+body.login-page::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:url('../images/account-background.webp') center/cover no-repeat}
+body.login-page footer{background:#f8faf3e8}

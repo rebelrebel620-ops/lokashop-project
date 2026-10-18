@@ -3,12 +3,14 @@ namespace App\Services;
 use Illuminate\Support\Facades\{DB,Hash};
 class Workflow {
  public static function move(int $parcelId,string $to,int $actorId,?string $reason=null,?int $areaId=null,?int $centerId=null,bool $system=false):void {
+  if(in_array($to,['READY_FOR_PICKUP','PICKED_UP']))PickupRequests::refresh($parcelId);
   $error=DB::transaction(function()use($parcelId,$to,$actorId,$reason,$areaId,$centerId,$system){
    $p=DB::table('parcels')->where('id',$parcelId)->lockForUpdate()->first();abort_unless($p,404);
    $o=DB::table('orders')->where('id',$p->order_id)->lockForUpdate()->first();$actor=DB::table('users')->find($actorId);abort_unless($actor&&(($system&&$to==='COMPLETED')||($actor->active&&$actor->approval_status==='approved')),403);
    $map=['PLACED'=>['CONFIRMED'=>'seller'],'CONFIRMED'=>['PREPARING'=>'seller'],'PREPARING'=>['READY_FOR_PICKUP'=>'seller'],'READY_FOR_PICKUP'=>['PICKED_UP'=>'rider'],'PICKED_UP'=>['AT_SORTING_CENTER'=>'sorting_center'],'AT_SORTING_CENTER'=>['SORTED'=>'sorting_center'],'SORTED'=>['ASSIGNED_TO_RIDER'=>'sorting_center'],'ASSIGNED_TO_RIDER'=>['OUT_FOR_DELIVERY'=>'rider'],'OUT_FOR_DELIVERY'=>['DELIVERED'=>'rider','DELIVERY_FAILED'=>'rider'],'DELIVERED'=>['COMPLETED'=>'buyer'],'DELIVERY_FAILED'=>['ASSIGNED_TO_RIDER'=>'sorting_center','RETURN_TO_SENDER'=>'sorting_center'],'RETURN_TO_SENDER'=>['RETURNED'=>'sorting_center'],'RETURNED'=>['RETURN_RECEIVED'=>'seller']];
    if($p->status===$to){$already=DB::table('status_history')->where('parcel_id',$p->id)->where('to_status',$to)->where('actor_id',$actorId)->exists();abort_unless($already,403);return null;}
    if(($map[$p->status][$to]??null)!==$actor->role)Support::fail('status','This status change is not allowed. Follow the order sequence.');
+   if($actor->role==='rider' && request()->filled('scanned_code') && !hash_equals($p->tracking_code, \App\Services\ParcelCode::parse((string)request()->input('scanned_code'))))Support::fail('scanned_code','The scanned label does not match this parcel.');
    if($actor->role==='seller')abort_unless($o->seller_id==$actorId,403);
    if($actor->role==='buyer')abort_unless($o->buyer_id==$actorId,403);
    if($actor->role==='sorting_center')abort_unless(DB::table('sorting_centers')->where('id',$centerId??$p->center_id)->where('user_id',$actorId)->exists()&&(!$p->center_id||$p->center_id==($centerId??$p->center_id)),403);

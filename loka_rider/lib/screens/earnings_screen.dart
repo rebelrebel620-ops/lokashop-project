@@ -51,7 +51,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             if (_loading && data == null)
-              const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+              const Padding(
+                padding: EdgeInsets.all(48),
+                child: Center(child: CircularProgressIndicator()),
+              )
             else if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(40),
@@ -59,7 +62,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   children: [
                     Text(_error!, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    OutlinedButton(onPressed: _load, child: const Text('Try again')),
+                    OutlinedButton(
+                      onPressed: _load,
+                      child: const Text('Try again'),
+                    ),
                   ],
                 ),
               )
@@ -72,14 +78,27 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Total earnings', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onPrimaryContainer)),
+                      Text(
+                        'Total earnings',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(peso(data.total),
-                          style: theme.textTheme.headlineLarge
-                              ?.copyWith(fontWeight: FontWeight.w800, color: theme.colorScheme.onPrimaryContainer)),
+                      Text(
+                        peso(data.total),
+                        style: theme.textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text('${data.count} completed ${data.count == 1 ? 'trip' : 'trips'}',
-                          style: TextStyle(color: theme.colorScheme.onPrimaryContainer)),
+                      Text(
+                        '${data.count} completed ${data.count == 1 ? 'trip' : 'trips'}',
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -87,20 +106,34 @@ class _EarningsScreenState extends State<EarningsScreen> {
               if (data.entries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(40),
-                  child: Text('No completed trips yet.',
-                      textAlign: TextAlign.center, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                  child: Text(
+                    'No completed trips yet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 )
               else
                 for (final e in data.entries)
                   ListTile(
                     leading: CircleAvatar(
                       backgroundColor: theme.colorScheme.secondaryContainer,
-                      child: Icon(e.kind == 'pickup' ? Icons.inventory_2_outlined : Icons.local_shipping_outlined),
+                      child: Icon(
+                        e.kind == 'pickup'
+                            ? Icons.inventory_2_outlined
+                            : Icons.local_shipping_outlined,
+                      ),
                     ),
-                    title: Text('${e.kind == 'pickup' ? 'Pickup' : 'Delivery'} \u00B7 Parcel #${e.parcelId}'),
-                    subtitle: Text('${e.trackingCode}\n${shortDate(e.completedAt)}'),
+                    title: Text(
+                      '${e.kind == 'pickup' ? 'Pickup' : 'Delivery'} \u00B7 Parcel #${e.parcelId}',
+                    ),
+                    subtitle: Text(
+                      '${e.trackingCode}\n${shortDate(e.completedAt)}',
+                    ),
                     isThreeLine: true,
-                    trailing: Text(peso(e.earnings), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    trailing: Text(
+                      peso(e.earnings),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
             ],
           ],

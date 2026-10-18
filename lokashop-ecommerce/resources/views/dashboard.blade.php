@@ -173,7 +173,7 @@
    <div class="section-card">
     <div class="shead"><h3>Needs attention</h3></div>
     <div class="needs"><div class="ic o">{{$stat_pending_products}}</div><div><b>Seller products awaiting compliance review</b><br><a href="/admin/products">Review products &rarr;</a></div></div>
-    <div class="needs"><div class="ic r">{{$stat_complaints}}</div><div><b>Unresolved buyer complaints</b><br><a href="/complaints">View complaints &rarr;</a></div></div>
+    <div class="needs"><div class="ic r">{{$stat_complaints}}</div><div><b>Unresolved buyer complaints</b><br><a href="/admin/complaints">View complaints &rarr;</a></div></div>
     <div class="needs"><div class="ic g">&#128227;</div><div><b>System announcements</b><br><a href="/admin/announcements">Manage announcements &rarr;</a></div></div>
    </div>
    <div class="section-card">

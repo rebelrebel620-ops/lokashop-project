@@ -1,7 +1,8 @@
 // Plain data classes for the rider API. MySQL decimals can arrive as strings,
 // so every number goes through the tolerant helpers below.
 
-int _i(dynamic v) => v is int ? v : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
+int _i(dynamic v) =>
+    v is int ? v : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
 double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 String? _s(dynamic v) => v == null ? null : '$v';
 
@@ -9,11 +10,14 @@ String? _s(dynamic v) => v == null ? null : '$v';
 String peso(double v) => '\u20B1${v.toStringAsFixed(2)}';
 
 /// "2026-10-04 15:20:11" -> "2026-10-04 15:20"
-String shortDate(String? v) => v == null ? '' : (v.length >= 16 ? v.substring(0, 16) : v);
+String shortDate(String? v) =>
+    v == null ? '' : (v.length >= 16 ? v.substring(0, 16) : v);
 
 String prettyStatus(String s) => s
     .split('_')
-    .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase())
+    .map(
+      (w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1).toLowerCase(),
+    )
     .join(' ');
 
 class Rider {
@@ -22,18 +26,42 @@ class Rider {
   final String email;
   final String? phone;
   final String? vehicle;
+  final bool online;
+  final String courierType;
+  final Map<String, dynamic> extra;
 
-  const Rider({required this.id, required this.name, required this.email, this.phone, this.vehicle});
+  const Rider({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.phone,
+    this.vehicle,
+    this.online = false,
+    this.courierType = 'rider',
+    this.extra = const {},
+  });
 
   factory Rider.fromJson(Map<String, dynamic> j) => Rider(
-        id: _i(j['id']),
-        name: _s(j['name']) ?? '',
-        email: _s(j['email']) ?? '',
-        phone: _s(j['phone']),
-        vehicle: _s(j['vehicle']),
-      );
+    id: _i(j['id']),
+    name: _s(j['name']) ?? '',
+    email: _s(j['email']) ?? '',
+    phone: _s(j['phone']),
+    vehicle: _s(j['vehicle']),
+    online: j['online'] == true || j['online'] == 1,
+    courierType: '${j['courier_type'] ?? 'rider'}',
+    extra: j,
+  );
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'email': email, 'phone': phone, 'vehicle': vehicle};
+  Map<String, dynamic> toJson() => {
+    ...extra,
+    'id': id,
+    'name': name,
+    'email': email,
+    'phone': phone,
+    'vehicle': vehicle,
+    'online': online,
+    'courier_type': courierType,
+  };
 }
 
 class RiderStats {
@@ -42,31 +70,42 @@ class RiderStats {
   final int completed;
   final double totalEarnings;
 
-  const RiderStats({this.pickupsAssigned = 0, this.deliveriesInProgress = 0, this.completed = 0, this.totalEarnings = 0});
+  const RiderStats({
+    this.pickupsAssigned = 0,
+    this.deliveriesInProgress = 0,
+    this.completed = 0,
+    this.totalEarnings = 0,
+  });
 
   factory RiderStats.fromJson(Map<String, dynamic> j) => RiderStats(
-        pickupsAssigned: _i(j['pickups_assigned']),
-        deliveriesInProgress: _i(j['deliveries_in_progress']),
-        completed: _i(j['completed']),
-        totalEarnings: _d(j['total_earnings']),
-      );
+    pickupsAssigned: _i(j['pickups_assigned']),
+    deliveriesInProgress: _i(j['deliveries_in_progress']),
+    completed: _i(j['completed']),
+    totalEarnings: _d(j['total_earnings']),
+  );
 }
 
 /// A button the server says the rider may press right now.
 class ActionItem {
   final String type; // 'accept' | 'status'
-  final String? status; // PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED
+  final String?
+  status; // PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED
   final String label;
   final bool needsReason;
 
-  const ActionItem({required this.type, this.status, required this.label, this.needsReason = false});
+  const ActionItem({
+    required this.type,
+    this.status,
+    required this.label,
+    this.needsReason = false,
+  });
 
   factory ActionItem.fromJson(Map<String, dynamic> j) => ActionItem(
-        type: _s(j['type']) ?? '',
-        status: _s(j['status']),
-        label: _s(j['label']) ?? '',
-        needsReason: j['needs_reason'] == true,
-      );
+    type: _s(j['type']) ?? '',
+    status: _s(j['status']),
+    label: _s(j['label']) ?? '',
+    needsReason: j['needs_reason'] == true,
+  );
 
   bool get isDestructive => status == 'DELIVERY_FAILED';
 }
@@ -78,38 +117,59 @@ class Recipient {
   final String barangay;
   final String? postalCode;
 
-  const Recipient({required this.name, required this.phone, required this.street, required this.barangay, this.postalCode});
+  const Recipient({
+    required this.name,
+    required this.phone,
+    required this.street,
+    required this.barangay,
+    this.postalCode,
+  });
 
   factory Recipient.fromJson(Map<String, dynamic> j) => Recipient(
-        name: _s(j['name']) ?? '',
-        phone: _s(j['phone']) ?? '',
-        street: _s(j['street']) ?? '',
-        barangay: _s(j['barangay']) ?? '',
-        postalCode: _s(j['postal_code']),
-      );
+    name: _s(j['name']) ?? '',
+    phone: _s(j['phone']) ?? '',
+    street: _s(j['street']) ?? '',
+    barangay: _s(j['barangay']) ?? '',
+    postalCode: _s(j['postal_code']),
+  );
 }
 
 class Seller {
   final String name;
   final String phone;
-  const Seller({required this.name, required this.phone});
-  factory Seller.fromJson(Map<String, dynamic> j) => Seller(name: _s(j['name']) ?? '', phone: _s(j['phone']) ?? '');
+  final Map<String, dynamic>? pickupAddress;
+  const Seller({required this.name, required this.phone, this.pickupAddress});
+  factory Seller.fromJson(Map<String, dynamic> j) => Seller(
+    name: _s(j['name']) ?? '',
+    phone: _s(j['phone']) ?? '',
+    pickupAddress: j['pickup_address'] is Map
+        ? Map<String, dynamic>.from(j['pickup_address'])
+        : null,
+  );
 }
 
 class Payment {
   final String method;
   final String status;
   final double amount;
-  const Payment({required this.method, required this.status, required this.amount});
-  factory Payment.fromJson(Map<String, dynamic> j) =>
-      Payment(method: _s(j['method']) ?? '', status: _s(j['status']) ?? '', amount: _d(j['amount']));
+  const Payment({
+    required this.method,
+    required this.status,
+    required this.amount,
+  });
+  factory Payment.fromJson(Map<String, dynamic> j) => Payment(
+    method: _s(j['method']) ?? '',
+    status: _s(j['status']) ?? '',
+    amount: _d(j['amount']),
+  );
 }
 
 class OrderLine {
   final String name;
   final int quantity;
   const OrderLine({required this.name, required this.quantity});
-  factory OrderLine.fromJson(Map<String, dynamic> j) => OrderLine(name: _s(j['name']) ?? '', quantity: _i(j['quantity']));
+  factory OrderLine.fromJson(Map<String, dynamic> j) =>
+      OrderLine(name: _s(j['name']) ?? '', quantity: _i(j['quantity']));
 }
 
 class Assignment {
@@ -126,6 +186,8 @@ class Assignment {
   final String city;
   final String province;
   final List<ActionItem> actions;
+  final String? expiresAt;
+  final List<Map<String, dynamic>> centers;
   final Recipient? recipient;
   final Seller? seller;
   final Payment? payment;
@@ -145,6 +207,8 @@ class Assignment {
     required this.city,
     required this.province,
     this.actions = const [],
+    this.expiresAt,
+    this.centers = const [],
     this.recipient,
     this.seller,
     this.payment,
@@ -156,7 +220,8 @@ class Assignment {
   factory Assignment.fromJson(Map<String, dynamic> j) {
     List<T> list<T>(dynamic v, T Function(Map<String, dynamic>) f) =>
         v is List ? v.whereType<Map<String, dynamic>>().map(f).toList() : <T>[];
-    Map<String, dynamic>? map(dynamic v) => v is Map<String, dynamic> ? v : null;
+    Map<String, dynamic>? map(dynamic v) =>
+        v is Map<String, dynamic> ? v : null;
 
     final rec = map(j['recipient']);
     final sel = map(j['seller']);
@@ -176,6 +241,8 @@ class Assignment {
       city: _s(j['city']) ?? '',
       province: _s(j['province']) ?? '',
       actions: list(j['actions'], ActionItem.fromJson),
+      expiresAt: _s(j['expires_at']),
+      centers: list(j['centers'], (v) => v),
       recipient: rec == null ? null : Recipient.fromJson(rec),
       seller: sel == null ? null : Seller.fromJson(sel),
       payment: pay == null ? null : Payment.fromJson(pay),
@@ -202,27 +269,36 @@ class EarningEntry {
   });
 
   factory EarningEntry.fromJson(Map<String, dynamic> j) => EarningEntry(
-        id: _i(j['id']),
-        parcelId: _i(j['parcel_id']),
-        kind: _s(j['kind']) ?? '',
-        earnings: _d(j['earnings']),
-        completedAt: _s(j['completed_at']),
-        trackingCode: _s(j['tracking_code']) ?? '',
-      );
+    id: _i(j['id']),
+    parcelId: _i(j['parcel_id']),
+    kind: _s(j['kind']) ?? '',
+    earnings: _d(j['earnings']),
+    completedAt: _s(j['completed_at']),
+    trackingCode: _s(j['tracking_code']) ?? '',
+  );
 }
 
 class EarningsSummary {
   final double total;
   final int count;
   final List<EarningEntry> entries;
-  const EarningsSummary({required this.total, required this.count, required this.entries});
+  const EarningsSummary({
+    required this.total,
+    required this.count,
+    required this.entries,
+  });
 
   factory EarningsSummary.fromJson(Map<String, dynamic> j) {
     final data = j['data'];
     return EarningsSummary(
       total: _d(j['total']),
       count: _i(j['count']),
-      entries: data is List ? data.whereType<Map<String, dynamic>>().map(EarningEntry.fromJson).toList() : [],
+      entries: data is List
+          ? data
+                .whereType<Map<String, dynamic>>()
+                .map(EarningEntry.fromJson)
+                .toList()
+          : [],
     );
   }
 }

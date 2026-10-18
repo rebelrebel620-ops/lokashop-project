@@ -37,7 +37,7 @@
     </tbody>
    </table>
   </div>
-  {{$products->links()}}
+  {{$products->links('components.pagination')}}
  </div>
 
  <div>
@@ -63,8 +63,8 @@
   </div>
  </div>
 </div>
-<details class="form-card"><summary>Manage existing variants</summary>
+<section class="form-card"><h3>Manage existing variants</h3>
 @php $form=['label'=>'Update variant / add variant image','action'=>'/tools/variant','fields'=>['id?','product_id:number','name','sku','options','price_adjustment:number','stock:number','image:file?']]; @endphp @include('tool-form')
 @php $form=['label'=>'Remove variant','action'=>'/tools/variant/delete','fields'=>['id:number']]; @endphp @include('tool-form')
-</details>
+</section>
 @endsection

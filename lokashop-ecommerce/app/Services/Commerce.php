@@ -5,10 +5,10 @@ use Illuminate\Support\Facades\{DB,Hash};
 use Illuminate\Support\Str;
 class Commerce {
  public static function catalog($q){return $q->where('products.active',1)->where('products.approved',1)->where('products.draft',0)->whereNull('products.deleted_at')->whereIn('products.seller_id',DB::table('users')->where('role','seller')->where('active',1)->where('account_status','active')->where('approval_status','approved')->select('id'));}
- public static function checkout(Request $r): array {
+ public static function checkout(Request $r,bool $preview=false): array {
   $v=$r->validate(['address_id'=>'required|integer','payment_method'=>'required|in:cod','voucher'=>'nullable|string|max:60','platform_voucher'=>'nullable|string|max:60','shipping_voucher'=>'nullable|string|max:60','store_vouchers'=>'nullable|array','store_vouchers.*'=>'string|max:60','selection_required'=>'nullable|boolean','cart_ids'=>'required_if:selection_required,1|array|min:1','cart_ids.*'=>'integer','note'=>'nullable|string|max:200']);
   if(!empty($v['store_vouchers']))Support::fail('voucher','Choose only one store voucher using the store voucher field.');
-  $checkoutKey=$r->header('Idempotency-Key')??$r->input('_request_key');return Support::once($r,'checkout',function()use($v,$checkoutKey){
+  $checkoutKey=$r->header('Idempotency-Key')??$r->input('_request_key');$calculate=function()use($v,$checkoutKey,$preview){
    $address=DB::table('addresses')->where('id',$v['address_id'])->where('user_id',auth()->id())->first();abort_unless($address,403);
    $q=DB::table('cart_items')->where('buyer_id',auth()->id());if(isset($v['cart_ids']))$q->whereIn('id',$v['cart_ids']);
    $rows=$q->orderBy('product_id')->orderBy('variation_id')->lockForUpdate()->get();if($rows->isEmpty())Support::fail('cart','Select at least one item.');
@@ -22,7 +22,7 @@ class Commerce {
     if($p->purchase_limit){$bought=DB::table('order_items as i')->join('orders as o','o.id','=','i.order_id')->where('o.buyer_id',auth()->id())->where('i.product_id',$id)->whereNotIn('o.status',['CANCELLED','REFUNDED'])->sum('i.quantity');if($bought+$qty>$p->purchase_limit)Support::fail('quantity','Purchase limit exceeded.');}
    }
    foreach($vn as $id=>$qty)if(!isset($variants[$id])||$variants[$id]->deleted_at||$qty>$variants[$id]->stock)Support::fail('stock','Variant stock is insufficient.');
-   $groups=[];
+   $groups=[];$previewUsed=[];
    foreach($rows as $row){$p=$products[$row->product_id];$var=$row->variation_id?$variants[$row->variation_id]:null;
     if($var&&$var->product_id!=$p->id)Support::fail('variation_id','Variation does not belong to this product.');
     if(!$var&&DB::table('product_variations')->where('product_id',$p->id)->whereNull('deleted_at')->exists())Support::fail('variation_id','Select a variation.');
@@ -30,8 +30,8 @@ class Commerce {
     $sale=DB::table('promotions')->where('product_id',$p->id)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->orderBy('id')->lockForUpdate()->get();
     $scheduled=$sale->firstWhere('type','sale');if($scheduled)$regular=Support::money($scheduled->price+($var->price_adjustment??0));
     if($regular<1)Support::fail('price','Product effective price must be at least PHP 1.00.');
-    $flash=$sale->firstWhere('type','flash');$flashQty=$flash?min($row->quantity,max(0,$flash->quantity-$flash->used)):0;
-    $parts=[];if($flashQty){$parts[]=[$flashQty,Support::money($flash->price+($var->price_adjustment??0))];DB::table('promotions')->where('id',$flash->id)->increment('used',$flashQty);}
+    $flash=$sale->firstWhere('type','flash');$flashQty=$flash?min($row->quantity,max(0,$flash->quantity-$flash->used-($previewUsed[$flash->id]??0))):0;
+    $parts=[];if($flashQty){$parts[]=[$flashQty,Support::money($flash->price+($var->price_adjustment??0))];if($preview)$previewUsed[$flash->id]=($previewUsed[$flash->id]??0)+$flashQty;else DB::table('promotions')->where('id',$flash->id)->increment('used',$flashQty);}
     if($row->quantity>$flashQty)$parts[]=[$row->quantity-$flashQty,$regular];
     foreach($parts as [$qty,$price]){$groups[$p->seller_id]['items'][]=['p'=>$p,'v'=>$var,'quantity'=>$qty,'price'=>$price];$groups[$p->seller_id]['subtotal']=Support::money(($groups[$p->seller_id]['subtotal']??0)+$qty*$price);$groups[$p->seller_id]['weight']=($groups[$p->seller_id]['weight']??0)+$qty*$p->weight;}
    }
@@ -39,15 +39,15 @@ class Commerce {
    foreach($groups as $sid=>&$g){
     $origin=DB::table('addresses')->where('user_id',$sid)->orderByDesc('is_default')->value('province')??'';
     $serving=Municipalities::centerFor($address);if(!$serving)Support::fail('address_id','No approved sorting center serves your municipality yet.');$rate=DB::table('shipping_rates')->where('center_id',$serving->id)->where(fn($q)=>$q->where('origin_province',$origin)->orWhere('origin_province',''))->orderByRaw("CASE WHEN origin_province = ? THEN 0 ELSE 1 END",[$origin])->where('city',$address->city)->where('province',$address->province)->where('active',1)->orderBy('id')->first();
-    if(!$rate)Support::fail('address_id','No active shipping rate serves this address. Ask logistics to add a rate.');
-    $g['shipping']=Support::money($rate->base_fee+max(0,ceil($g['weight'])-1)*$rate->extra_kg_fee);
+    // Flat PHP 50 per seller shipment only when no active configured rate matches.
+    $g['shipping']=Support::money($rate ? $rate->base_fee+max(0,ceil($g['weight'])-1)*$rate->extra_kg_fee : 50);
     $bundle=0;foreach(DB::table('bundle_deals')->where('seller_id',$sid)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $deal){$eligible=json_decode($deal->product_ids,true);$quantity=0;$base=0;$gift=0;foreach($g['items'] as $item){if(in_array($item['p']->id,$eligible)){ $quantity+=$item['quantity'];$base+=$item['quantity']*$item['price'];}if($deal->gift_product_id==$item['p']->id)$gift+=min($item['quantity'],$deal->gift_quantity)*$item['price'];}if($quantity>=$deal->minimum_quantity)$bundle=max($bundle,$deal->type==='bundle'?$base*$deal->percent/100:$gift);}$bundle=Support::money(min($bundle,$g['subtotal']));
     $code=$v['store_vouchers'][$sid]??($sid==$legacySeller?($v['voucher']??''):'');$g['store']=$bundle;$g['voucher']=null;
-    if($code){$voucher=self::voucher($code,$sid,$g['subtotal']-$bundle);$g['store']=$bundle+self::discount($voucher,$g['subtotal']-$bundle);$g['voucher']=$voucher;$voucherUses[$voucher->id]=$voucher;}
+    if($code){$voucher=self::voucher($code,$sid,$g['subtotal']-$bundle,null,$preview);$g['store']=$bundle+self::discount($voucher,$g['subtotal']-$bundle);$g['voucher']=$voucher;$voucherUses[$voucher->id]=$voucher;}
     $g['bundle']=$bundle;$g['net']=Support::money($g['subtotal']-$g['store']);$totalMerch+=$g['net'];$totalShip+=$g['shipping'];
    }unset($g);
-   $platform=!empty($v['platform_voucher'])?self::voucher($v['platform_voucher'],null,$totalMerch,'platform'):null;
-   $shipping=!empty($v['shipping_voucher'])?self::voucher($v['shipping_voucher'],null,$totalMerch,'shipping'):null;
+   $platform=!empty($v['platform_voucher'])?self::voucher($v['platform_voucher'],null,$totalMerch,'platform',$preview):null;
+   $shipping=!empty($v['shipping_voucher'])?self::voucher($v['shipping_voucher'],null,$totalMerch,'shipping',$preview):null;
    $pd=$platform?self::discount($platform,$totalMerch):0;$sd=$shipping?self::discount($shipping,$totalShip):0;
    $pa=self::allocate($pd,array_map(fn($g)=>$g['net'],$groups));$sa=self::allocate($sd,array_map(fn($g)=>$g['shipping'],$groups));
    if($platform)$voucherUses[$platform->id]=$platform;if($shipping)$voucherUses[$shipping->id]=$shipping;
@@ -57,6 +57,7 @@ class Commerce {
     foreach($parts as $pid=>$part){$key=$sid.':'.$pid;$part+=['seller_id'=>$sid,'store'=>$storeDiscount[$pid],'bundle'=>$bundleDiscount[$pid],'shipping'=>$shippingFees[$pid],'voucher'=>$store['voucher'],'net'=>Support::money($part['subtotal']-$storeDiscount[$pid]),'commission'=>$commissions[$pid]];$productGroups[$key]=$part;$productPA[$key]=$platformParts[$pid];$productSA[$key]=$shippingParts[$pid];}
    }
    $groups=$productGroups;$pa=$productPA;$sa=$productSA;
+   if($preview){$summary=['merchandise_total'=>0,'shipping_total'=>0,'discount_total'=>0,'total'=>0,'orders'=>[]];foreach($groups as $key=>$g){$discount=Support::money($g['store']+($pa[$key]??0)+($sa[$key]??0));$total=Support::money($g['subtotal']+$g['shipping']-$discount);$summary['merchandise_total']+=$g['subtotal'];$summary['shipping_total']+=$g['shipping'];$summary['discount_total']+=$discount;$summary['total']+=$total;$summary['orders'][]=['seller_id'=>$g['seller_id'],'product_name'=>$g['items'][0]['p']->name,'merchandise'=>$g['subtotal'],'shipping'=>$g['shipping'],'discount'=>$discount,'total'=>$total];}return $summary;}
    $created=[];
    foreach($groups as $groupKey=>$g){$sid=$g['seller_id'];$total=Support::money($g['net']+$g['shipping']-($pa[$groupKey]??0)-($sa[$groupKey]??0));
     $oid=DB::table('orders')->insertGetId(['checkout_key'=>$checkoutKey,'buyer_id'=>auth()->id(),'seller_id'=>$sid,'address_id'=>$address->id,'address_snapshot'=>json_encode($address),'note'=>$v['note']??null,'status'=>'PLACED','total'=>$total,'discount'=>Support::money($g['store']+($pa[$groupKey]??0)+($sa[$groupKey]??0)),'merchandise_total'=>$g['subtotal'],'shipping_fee'=>$g['shipping'],'store_discount'=>$g['store'],'platform_discount'=>$pa[$groupKey]??0,'shipping_discount'=>$sa[$groupKey]??0,'commission'=>$g['commission'],'voucher_id'=>$g['voucher']->id??null,'created_at'=>now(),'updated_at'=>now()]);$created[]=$oid;
@@ -72,13 +73,14 @@ class Commerce {
    foreach($vn as $id=>$qty){DB::table('product_variations')->where('id',$id)->decrement('stock',$qty);self::stockAlert('product_variations',$id);}
    foreach($voucherUses as $vv){DB::table('vouchers')->where('id',$vv->id)->increment('used_count');DB::table('voucher_redemptions')->insert(['buyer_id'=>auth()->id(),'voucher_id'=>$vv->id,'checkout_key'=>$checkoutKey,'created_at'=>now(),'updated_at'=>now()]);}
    DB::table('cart_items')->whereIn('id',$rows->pluck('id'))->where('buyer_id',auth()->id())->delete();return $created;
-  });
+  };
+  return $preview?DB::transaction($calculate):Support::once($r,'checkout',$calculate);
  }
  public static function allocate(float $amount,array $weights): array {
   $total=array_sum($weights);$out=[];foreach($weights as $id=>$w)$out[$id]=$total>0?round($amount*$w/$total,2,PHP_ROUND_HALF_UP):0;
   if($out){$largest=array_keys($weights,max($weights))[0];$out[$largest]=Support::money($out[$largest]+$amount-array_sum($out));}return $out;
  }
- private static function voucher(string $code,?int $seller,float $subtotal,?string $kind=null){
+ private static function voucher(string $code,?int $seller,float $subtotal,?string $kind=null,bool $preview=false){
   $x=DB::table('vouchers')->whereRaw('UPPER(code) = ?',[strtoupper(trim($code))])->lockForUpdate()->first();
   if(!$x||!$x->active||($x->starts_at&&now()->lt($x->starts_at))||($x->expires_at&&now()->gte($x->expires_at)))Support::fail('voucher','Voucher is invalid, not started or expired.');
   if($seller!==null&&$x->seller_id!=$seller)Support::fail('voucher','Use the voucher only for its store.');
@@ -87,7 +89,7 @@ class Commerce {
   if($x->usage_limit!==null&&$x->used_count>=$x->usage_limit)Support::fail('voucher','Voucher usage limit reached.');
   $used=DB::table('voucher_redemptions')->where('buyer_id',auth()->id())->where('voucher_id',$x->id)->count();
   if($used>=$x->per_buyer_limit)Support::fail('voucher','Your voucher usage limit is reached.');
-  if($x->claimable)DB::table('voucher_claims')->insertOrIgnore(['voucher_id'=>$x->id,'buyer_id'=>auth()->id(),'created_at'=>now(),'updated_at'=>now()]);
+  if($x->claimable&&!$preview)DB::table('voucher_claims')->insertOrIgnore(['voucher_id'=>$x->id,'buyer_id'=>auth()->id(),'created_at'=>now(),'updated_at'=>now()]);
   return $x;
  }
  private static function discount($v,float $base):float {$d=$v->type==='percent'?$base*($v->value??$v->discount_percent)/100:($v->value??0);if($v->cap!==null)$d=min($d,$v->cap);return Support::money(max(0,min($d,$base)));}

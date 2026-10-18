@@ -7,8 +7,11 @@
 <link rel="icon" type="image/png" href="{{ asset('images/logistics-logo.png') }}">
 @vite('resources/css/app.css')
 @yield('page-styles')
+<link rel="stylesheet" href="{{ asset('css/logistics-public.css') }}">
+<link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
+<script src="{{ asset('js/workspace-design.js') }}" defer></script>
 </head>
-<body class="logi">
+<body class="logi logistics-public @yield('body-class')">
 <header class="m-header">
   <a class="brand" href="/">
     <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="44" height="44" style="width:44px;height:44px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
@@ -24,7 +27,7 @@
       <form method="post" action="/logout"><input type="hidden" name="_token" value="{{csrf_token()}}"><button class="alt sm">Log out</button></form>
     @else
       <a href="/login">Log in</a>
-      <a class="btn sm" href="/register">Register</a>
+      <a class="btn sm" href="/register">Sign up</a>
     @endauth
   </nav>
 </header>

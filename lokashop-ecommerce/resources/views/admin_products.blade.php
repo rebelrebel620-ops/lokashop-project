@@ -16,5 +16,5 @@
 @empty
 <div class="section-card empty">Nothing awaiting review.</div>
 @endforelse
-{{$products->links()}}
+{{$products->links('components.pagination')}}
 @endsection

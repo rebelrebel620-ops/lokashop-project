@@ -1,0 +1,11 @@
+@extends('app')
+@section('title','Reviews')
+@section('content')
+<div class="page-head"><div><span class="design-eyebrow">CUSTOMER VOICES</span><h1>{{$seller?'Customer reviews':'My reviews'}}</h1><p>{{$seller?'See what buyers loved and reply to their feedback.':'Share your experience with the products you received.'}}</p></div></div>
+<div class="reviews-grid">@forelse($reviews as $review)<article class="design-card review-card"><header class="workspace-record-header"><div><h2>{{$review->product_name}}</h2><small>{{$seller?$review->buyer_name:'Your review'}} · {{\Illuminate\Support\Carbon::parse($review->created_at)->format('M j, Y')}}</small></div><span class="review-stars" aria-label="{{$review->stars}} out of 5 stars">{{str_repeat('★',(int)$review->stars)}}<span>{{str_repeat('☆',5-(int)$review->stars)}}</span></span></header><p class="review-comment">{{$review->comment?:'The buyer left a star rating.'}}</p>
+<div class="review-photos">@foreach(json_decode($review->photos??'[]',true)??[] as $path)<a href="{{\App\Services\Support::imageUrl($path)}}" target="_blank" rel="noopener"><img src="{{\App\Services\Support::imageUrl($path)}}" alt="Customer review photo" loading="lazy"></a>@endforeach</div>
+@if($review->seller_response)<div class="review-response"><strong>Seller's reply</strong><p>{{$review->seller_response}}</p></div>@endif
+@if($seller)<form method="post" action="/tools/review/reply" class="review-reply">@csrf<input type="hidden" name="id" value="{{$review->id}}"><label for="reply-{{$review->id}}">{{$review->seller_response?'Update your reply':'Reply to this review'}}</label><textarea id="reply-{{$review->id}}" name="response" maxlength="500" rows="3" required>{{old('response',$review->seller_response)}}</textarea><button class="btn">Save reply</button></form>@endif
+</article>@empty<section class="design-card design-empty"><div class="empty-orbit">★</div><h2>No reviews yet</h2><p>{{$seller?'Reviews will appear after your buyers complete an order.':'Complete an order to share your product experience.'}}</p></section>@endforelse</div>
+@if(!$seller)@foreach($forms as $form)<section class="design-card workspace-action"><h2>{{$form['label']}}</h2>@include('tool-form',['form'=>$form])</section>@endforeach @endif
+@endsection

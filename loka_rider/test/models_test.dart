@@ -16,13 +16,28 @@ void main() {
       'city': 'Santa Cruz',
       'province': 'Laguna',
       'actions': [
-        {'type': 'status', 'status': 'DELIVERED', 'label': 'Mark delivered', 'needs_reason': false},
-        {'type': 'status', 'status': 'DELIVERY_FAILED', 'label': 'Delivery failed', 'needs_reason': true},
+        {
+          'type': 'status',
+          'status': 'DELIVERED',
+          'label': 'Mark delivered',
+          'needs_reason': false,
+        },
+        {
+          'type': 'status',
+          'status': 'DELIVERY_FAILED',
+          'label': 'Delivery failed',
+          'needs_reason': true,
+        },
       ],
-      'recipient': {'name': 'Demo Buyer', 'phone': '0900', 'street': '12 Main Street', 'barangay': 'Poblacion'},
+      'recipient': {
+        'name': 'Demo Buyer',
+        'phone': '0900',
+        'street': '12 Main Street',
+        'barangay': 'Poblacion',
+      },
       'payment': {'method': 'cod', 'status': 'pending', 'amount': '398.00'},
       'items': [
-        {'name': 'Reusable Bag', 'quantity': 2}
+        {'name': 'Reusable Bag', 'quantity': 2},
       ],
     });
 
@@ -50,7 +65,12 @@ void main() {
       'city': 'Santa Cruz',
       'province': 'Laguna',
       'actions': [
-        {'type': 'accept', 'status': null, 'label': 'Accept assignment', 'needs_reason': false}
+        {
+          'type': 'accept',
+          'status': null,
+          'label': 'Accept assignment',
+          'needs_reason': false,
+        },
       ],
       'recipient': null,
     });
@@ -65,7 +85,13 @@ void main() {
   });
 
   test('server address normalisation', () {
-    expect(ApiClient.normalizeUrl('192.168.1.5:8001/'), 'http://192.168.1.5:8001');
-    expect(ApiClient.normalizeUrl(' https://lokashop.trade// '), 'https://lokashop.trade');
+    expect(
+      ApiClient.normalizeUrl('192.168.1.5:8001/'),
+      'http://192.168.1.5:8001',
+    );
+    expect(
+      ApiClient.normalizeUrl(' https://lokashop.trade// '),
+      'https://lokashop.trade',
+    );
   });
 }

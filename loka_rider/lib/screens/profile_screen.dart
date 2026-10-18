@@ -13,8 +13,12 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _name = TextEditingController(text: widget.session.rider?.name ?? '');
-  late final TextEditingController _phone = TextEditingController(text: widget.session.rider?.phone ?? '');
+  late final TextEditingController _name = TextEditingController(
+    text: widget.session.rider?.name ?? '',
+  );
+  late final TextEditingController _phone = TextEditingController(
+    text: widget.session.rider?.phone ?? '',
+  );
   bool _busy = false;
   String? _note;
   bool _noteIsError = false;
@@ -33,7 +37,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _note = null;
     });
     try {
-      final updated = await widget.session.api.updateProfile(_name.text.trim(), _phone.text.trim());
+      final updated = await widget.session.api.updateProfile(
+        _name.text.trim(),
+        _phone.text.trim(),
+      );
       widget.session.updateRider(updated);
       if (mounted) {
         setState(() {
@@ -59,8 +66,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log out')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log out'),
+          ),
         ],
       ),
     );
@@ -82,17 +95,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               CircleAvatar(
                 radius: 30,
                 backgroundColor: theme.colorScheme.primaryContainer,
-                child: Icon(Icons.person, size: 32, color: theme.colorScheme.onPrimaryContainer),
+                child: Icon(
+                  Icons.person,
+                  size: 32,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(rider?.name ?? '', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      rider?.name ?? '',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     Text(rider?.email ?? '', style: theme.textTheme.bodyMedium),
                     if ((rider?.vehicle ?? '').isNotEmpty)
-                      Text('Vehicle: ${rider!.vehicle}', style: theme.textTheme.bodySmall),
+                      Text(
+                        'Vehicle: ${rider!.vehicle}',
+                        style: theme.textTheme.bodySmall,
+                      ),
                   ],
                 ),
               ),
@@ -105,29 +130,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 TextFormField(
                   controller: _name,
-                  decoration: const InputDecoration(labelText: 'Full name', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Full name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Enter your name'
+                      : null,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _phone,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter your phone number' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Enter your phone number'
+                      : null,
                 ),
                 if (_note != null) ...[
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(_note!, style: TextStyle(color: _noteIsError ? theme.colorScheme.error : Colors.green.shade800)),
+                    child: Text(
+                      _note!,
+                      style: TextStyle(
+                        color: _noteIsError
+                            ? theme.colorScheme.error
+                            : Colors.green.shade800,
+                      ),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 14),
                 FilledButton(
                   onPressed: _busy ? null : _save,
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
                   child: _busy
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        )
                       : const Text('Save profile'),
                 ),
               ],
@@ -144,7 +192,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.logout, color: theme.colorScheme.error),
-            title: Text('Log out', style: TextStyle(color: theme.colorScheme.error)),
+            title: Text(
+              'Log out',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
             onTap: _logout,
           ),
         ],

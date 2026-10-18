@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../api.dart';
 import '../models.dart';
@@ -18,7 +19,9 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
-  final MobileScannerController _controller = MobileScannerController(formats: const [BarcodeFormat.qrCode]);
+  final MobileScannerController _controller = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+  );
 
   bool _busy = false; // a scan is being processed or its result sheet is open
   bool _loading = false; // waiting for the server
@@ -43,7 +46,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     if (state == AppLifecycleState.resumed) {
       if (!_busy) _safe(_controller.start);
-    } else if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _safe(_controller.stop);
     }
   }
@@ -86,7 +90,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         isScrollControlled: true,
         showDragHandle: true,
         useSafeArea: true,
-        builder: (_) => _ResultSheet(assignment: assignment, api: widget.session.api),
+        builder: (_) => _ResultSheet(
+          assignment: assignment,
+          api: widget.session.api,
+          scannedCode: raw,
+        ),
       );
     } on ApiException catch (e) {
       if (mounted) {
@@ -97,7 +105,17 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             icon: const Icon(Icons.error_outline),
             title: const Text('Cannot use this QR code'),
             content: Text(e.message),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+            actions: [
+              IconButton(
+                tooltip: 'Scan QR from photo',
+                icon: const Icon(Icons.photo_library_outlined),
+                onPressed: _photoScan,
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
           ),
         );
       }
@@ -112,10 +130,56 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _photoScan() async {
+    if (_busy) return;
+    _busy = true;
+    await _safe(_controller.stop);
+    try {
+      final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (image == null || !mounted) return;
+      final capture = await _controller.analyzeImage(image.path);
+      final values =
+          capture?.barcodes
+              .map((b) => b.rawValue)
+              .whereType<String>()
+              .where((v) => v.trim().isNotEmpty)
+              .toList() ??
+          [];
+      if (values.isEmpty) {
+        throw const ApiException(
+          'No QR code found in this image. Choose a clearer label photo or enter the tracking code.',
+        );
+      }
+      _busy = false;
+      await _handle(values.first);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      _busy = false;
+      if (mounted) await _safe(_controller.start);
+    }
+  }
+
   Future<void> _manualEntry() async {
     if (_busy) return;
-    final code = await showDialog<String>(context: context, builder: (_) => const _CodeDialog());
-    if (code != null && code.trim().isNotEmpty) await _handle(code.trim());
+    _busy = true;
+    await _safe(_controller.stop);
+    if (!mounted) return;
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => const _CodeDialog(),
+    );
+    _busy = false;
+    if (!mounted) return;
+    if (code != null && code.trim().isNotEmpty) {
+      await _handle(code.trim());
+    } else {
+      await _safe(_controller.start);
+    }
   }
 
   @override
@@ -125,9 +189,21 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: const Text('Scan shipping label'),
         actions: [
-          IconButton(tooltip: 'Enter code manually', icon: const Icon(Icons.keyboard_alt_outlined), onPressed: _manualEntry),
-          IconButton(tooltip: 'Toggle flash', icon: const Icon(Icons.flash_on), onPressed: () => _safe(_controller.toggleTorch)),
-          IconButton(tooltip: 'Switch camera', icon: const Icon(Icons.cameraswitch), onPressed: () => _safe(_controller.switchCamera)),
+          IconButton(
+            tooltip: 'Enter code manually',
+            icon: const Icon(Icons.keyboard_alt_outlined),
+            onPressed: _manualEntry,
+          ),
+          IconButton(
+            tooltip: 'Toggle flash',
+            icon: const Icon(Icons.flash_on),
+            onPressed: () => _safe(_controller.toggleTorch),
+          ),
+          IconButton(
+            tooltip: 'Switch camera',
+            icon: const Icon(Icons.cameraswitch),
+            onPressed: () => _safe(_controller.switchCamera),
+          ),
         ],
       ),
       body: Stack(
@@ -137,14 +213,19 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             controller: _controller,
             onDetect: _onDetect,
             errorBuilder: (context, error, child) {
-              final denied = error.errorCode == MobileScannerErrorCode.permissionDenied;
+              final denied =
+                  error.errorCode == MobileScannerErrorCode.permissionDenied;
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(28),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.no_photography_outlined, size: 56, color: Colors.white70),
+                      const Icon(
+                        Icons.no_photography_outlined,
+                        size: 56,
+                        color: Colors.white70,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         denied
@@ -156,7 +237,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                       const SizedBox(height: 16),
                       OutlinedButton(
                         onPressed: _manualEntry,
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                        ),
                         child: const Text('Enter code manually'),
                       ),
                     ],
@@ -182,11 +265,17 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             child: Text(
               'Point the camera at the QR code on the shipping label',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           if (_loading)
-            const ColoredBox(color: Colors.black54, child: Center(child: CircularProgressIndicator())),
+            const ColoredBox(
+              color: Colors.black54,
+              child: Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
@@ -196,7 +285,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 class _ResultSheet extends StatefulWidget {
   final Assignment assignment;
   final ApiClient api;
-  const _ResultSheet({required this.assignment, required this.api});
+  final String scannedCode;
+  const _ResultSheet({
+    required this.assignment,
+    required this.api,
+    required this.scannedCode,
+  });
 
   @override
   State<_ResultSheet> createState() => _ResultSheetState();
@@ -208,7 +302,9 @@ class _ResultSheetState extends State<_ResultSheet> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 8),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -216,6 +312,7 @@ class _ResultSheetState extends State<_ResultSheet> {
             key: ValueKey('scan-${_current.id}'),
             assignment: _current,
             api: widget.api,
+            scannedCode: widget.scannedCode,
             onUpdated: (updated) => setState(() => _current = updated),
           ),
           if (_current.actions.isEmpty)
@@ -224,7 +321,9 @@ class _ResultSheetState extends State<_ResultSheet> {
               child: Text(
                 'No action available for this parcel right now.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           Padding(
@@ -265,12 +364,21 @@ class _CodeDialogState extends State<_CodeDialog> {
         controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.characters,
-        decoration: const InputDecoration(hintText: 'LKS-XXXXXXXXXXXX', border: OutlineInputBorder()),
+        decoration: const InputDecoration(
+          hintText: 'LKS-XXXXXXXXXXXX',
+          border: OutlineInputBorder(),
+        ),
         onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Find parcel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text('Find parcel'),
+        ),
       ],
     );
   }

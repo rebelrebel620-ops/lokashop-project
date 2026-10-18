@@ -32,5 +32,5 @@
  <div class="empty">No records yet.</div>
  @endif
 </div>
-{{$records->links()}}
+{{$records->links('components.pagination')}}
 @endsection

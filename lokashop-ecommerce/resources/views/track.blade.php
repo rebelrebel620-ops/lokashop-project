@@ -58,3 +58,7 @@ td.label{color:#666;width:40%}
   </table>
   @endif
 </div>
+
+@if(in_array($order->status,['DELIVERED','COMPLETED']) && $parcel->proof_path)
+<div class="card" style="margin-top:20px"><h2>Proof of delivery</h2><p>Delivery photo for order #{{$order->id}} and its listed products.</p><a href="/orders/{{$order->id}}/proof" target="_blank" rel="noopener"><img src="/orders/{{$order->id}}/proof" alt="Proof of delivery" style="width:100%;max-height:420px;object-fit:contain"></a><p><a href="/orders">Back to orders</a></p></div>
+@endif

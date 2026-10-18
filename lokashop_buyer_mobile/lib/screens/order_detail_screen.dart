@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../services/api_service.dart';
 import '../services/app_state.dart';
-import '../theme.dart';
+import '../widgets/design.dart';
 import '../widgets/common.dart';
+import '../theme.dart';
+import 'buyer_features.dart';
 import 'complaint_form_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -14,327 +16,311 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  bool loading = true;
-  Map? order;
-  List items = [];
-  Map? address;
-  Map? payment;
-  Map? rating;
-  bool acting = false;
-
+  Map? data;
+  bool loading = true, busy = false;
+  String? error;
   @override
   void initState() {
     super.initState();
-    _load();
+    load();
   }
 
-  Future<void> _load() async {
-    setState(() => loading = true);
+  Future<void> load() async {
     try {
-      final res = await context.read<AppState>().api.get('/orders/${widget.orderId}');
-      setState(() {
-        order = Map.from(res['order']);
-        items = List.from(res['items'] ?? []);
-        address = res['address'] != null ? Map.from(res['address']) : null;
-        payment = res['payment'] != null ? Map.from(res['payment']) : null;
-        rating = res['rating'] != null ? Map.from(res['rating']) : null;
-      });
-    } catch (_) {
-      if (mounted) AppSnack.show(context, 'Could not load order.', error: true);
+      final r = await context.read<AppState>().api.get(
+        '/orders/${widget.orderId}',
+      );
+      if (mounted) setState(() => data = Map.from(r));
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
     } finally {
       if (mounted) setState(() => loading = false);
     }
   }
 
-  Future<void> _confirmReceived() async {
-    setState(() => acting = true);
+  Future<void> action(String path, Map<String, dynamic> fields) async {
+    setState(() => busy = true);
     try {
-      await context.read<AppState>().api.post('/orders/${widget.orderId}/confirm');
-      await _load();
-      if (mounted) AppSnack.show(context, 'Order marked as completed. Thanks for shopping local!');
-    } on ApiException catch (e) {
-      if (mounted) AppSnack.show(context, e.message, error: true);
+      await context.read<AppState>().api.post(path, fields);
+      await load();
+      if (mounted) AppSnack.show(context, 'Order updated.');
+    } catch (e) {
+      if (mounted) AppSnack.show(context, '$e', error: true);
     } finally {
-      if (mounted) setState(() => acting = false);
+      if (mounted) setState(() => busy = false);
     }
-  }
-
-  Future<void> _rate() async {
-    int stars = 5;
-    final commentCtrl = TextEditingController();
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-          child: Container(
-            decoration: const BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Rate this order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (i) {
-                    final filled = i < stars;
-                    return IconButton(
-                      onPressed: () => setSheetState(() => stars = i + 1),
-                      icon: Icon(filled ? Icons.star_rounded : Icons.star_border_rounded, color: AppColors.accent, size: 34),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: commentCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(hintText: 'Share your experience (optional)'),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        await context.read<AppState>().api.post('/orders/${widget.orderId}/rating', {
-                          'stars': stars,
-                          if (commentCtrl.text.trim().isNotEmpty) 'comment': commentCtrl.text.trim(),
-                        });
-                        if (ctx.mounted) Navigator.of(ctx).pop(true);
-                      } on ApiException catch (e) {
-                        if (ctx.mounted) AppSnack.show(ctx, e.message, error: true);
-                      }
-                    },
-                    child: const Text('Submit review'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (result == true) _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
-    if (order == null) {
-      return Scaffold(appBar: AppBar(), body: const EmptyState(icon: Icons.error_outline_rounded, title: 'Not found', subtitle: 'This order is unavailable.'));
+    if (loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
-    final status = order!['status'] as String;
-    final info = statusInfo(status);
-    final step = stepOf(status);
-    final failed = status == 'DELIVERY_FAILED' || status == 'RETURNED';
-
+    if (data == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Order')),
+        body: Center(child: Text(error ?? 'Order unavailable')),
+      );
+    }
+    final o = data!['order'] as Map,
+        items = List.from(data!['items']),
+        status = '${o['status']}',
+        address = data!['address'] as Map?;
     return Scaffold(
-      appBar: AppBar(title: Text('Order #${order!['id']}')),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        color: AppColors.primary,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: info.color.withValues(alpha: .08), borderRadius: BorderRadius.circular(16)),
-              child: Row(
-                children: [
-                  Icon(failed ? Icons.error_outline_rounded : Icons.local_shipping_outlined, color: info.color),
-                  const SizedBox(width: 12),
-                  Expanded(
+      appBar: AppBar(title: Text('Order #${widget.orderId}')),
+      body: PageBody(
+        child: RefreshIndicator(
+          onRefresh: load,
+          child: ListView(
+            padding: const EdgeInsets.all(22),
+            children: [
+              SheetCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Eyebrow('YOUR DELIVERY'),
+                    const SizedBox(height: 12),
+                    StatusBadge(status: status),
+                    const SizedBox(height: 12),
+                    SelectableText(
+                      '${o['tracking_code']}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 19,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => Clipboard.setData(
+                        ClipboardData(text: '${o['tracking_code']}'),
+                      ),
+                      icon: const Icon(Icons.copy, size: 15),
+                      label: const Text('Copy tracking code'),
+                    ),
+                    Text(
+                      '${o['seller_name'] ?? 'Local seller'}',
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const SectionHeading('Your items'),
+              ...items.map(
+                (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SheetCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(info.label, style: TextStyle(color: info.color, fontWeight: FontWeight.w800, fontSize: 15)),
-                        Text('Tracking code: ${order!['tracking_code']}', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                        if (failed && order!['failure_reason'] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text('${order!['failure_reason']}', style: const TextStyle(color: AppColors.danger, fontSize: 12.5)),
+                        Row(
+                          children: [
+                            AppPhoto(
+                              i['image_url'] ?? i['image'],
+                              width: 62,
+                              height: 70,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                '${i['name']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '× ${i['quantity']}\n${money(i['unit_price'])}',
+                              textAlign: TextAlign.right,
+                            ),
+                          ],
+                        ),
+                        if (status == 'COMPLETED')
+                          TextButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ReviewEditor(item: i, review: i['review']),
+                              ),
+                            ).then((_) => load()),
+                            icon: const Icon(Icons.star_outline),
+                            label: Text(
+                              i['review'] == null
+                                  ? 'Review this product'
+                                  : 'View / edit review',
+                            ),
                           ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            if (!failed) ...[
-              const SizedBox(height: 20),
-              _TrackingTimeline(currentStep: step),
-            ],
-            const SizedBox(height: 24),
-            const Text('Items', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-            const SizedBox(height: 10),
-            ...items.map((it) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.line)),
-                    child: Row(
-                      children: [
-                        SizedBox(width: 48, height: 48, child: ProductArt(seed: '${it['product_id']}${it['name']}')),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text('${it['name']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('x${it['quantity']}', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                            Text(money(it['unit_price']), style: const TextStyle(fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
-            const SizedBox(height: 14),
-            _infoCard('Deliver to', address == null
-                ? '—'
-                : '${address!['recipient']} · ${address!['phone']}\n${address!['street']}, ${address!['barangay']}, ${address!['city']}, ${address!['province']}'),
-            const SizedBox(height: 10),
-            _infoCard('Payment', payment == null ? '—' : '${_paymentLabel(payment!['method'])} — ${_paymentStatusLabel(payment!['status'])}'),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.line)),
-              child: Column(
-                children: [
-                  _row('Discount', money(order!['discount'])),
-                  const SizedBox(height: 8),
-                  _row('Total', money(order!['total']), bold: true),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (status == 'DELIVERED')
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: acting ? null : _confirmReceived,
-                  icon: const Icon(Icons.check_circle_outline_rounded),
-                  label: acting ? const Text('Please wait…') : const Text('Confirm order received'),
                 ),
               ),
-            if (status == 'COMPLETED' && rating == null)
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(onPressed: _rate, icon: const Icon(Icons.star_border_rounded), label: const Text('Rate this order')),
+              const SectionHeading('Delivery journey'),
+              SheetCard(
+                child: Column(
+                  children: (List.from(data!['history'] ?? []))
+                      .map(
+                        (h) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.check_circle_outline,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${h['to_status']}'.replaceAll('_', ' '),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${h['created_at']}',
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    if (h['reason'] != null)
+                                      Text(
+                                        '${h['reason']}',
+                                        style: const TextStyle(
+                                          color: AppColors.danger,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-            if (status == 'COMPLETED' && rating != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: .1), borderRadius: BorderRadius.circular(14)),
+              if (status == 'OUT_FOR_DELIVERY')
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: SheetCard(
+                    child: Text(
+                      'Your rider is on the way. Open Notifications for your delivery OTP. Share it only after receiving your parcel.',
+                    ),
+                  ),
+                ),
+              if (o['proof_url'] != null) ...[
+                const SectionHeading('Proof of delivery'),
+                SheetCard(
+                  child: AppPhoto(
+                    '${o['proof_url']}',
+                    height: 280,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    private: true,
+                  ),
+                ),
+              ],
+              const SectionHeading('Delivery & payment'),
+              SheetCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      ...List.generate(5, (i) => Icon(i < (rating!['stars'] ?? 0) ? Icons.star_rounded : Icons.star_border_rounded, color: AppColors.accent, size: 18)),
-                      const SizedBox(width: 6),
-                      const Text('Your review', style: TextStyle(fontWeight: FontWeight.w700)),
-                    ]),
-                    if ((rating!['comment'] ?? '').toString().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text('${rating!['comment']}', style: const TextStyle(color: AppColors.muted)),
-                    ],
-                  ],
-                ),
-              ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ComplaintFormScreen(orderId: order!['id']))),
-                icon: const Icon(Icons.report_outlined),
-                label: const Text('Report a problem with this order'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _paymentLabel(String m) => m == 'cod' ? 'Cash on delivery' : 'Manual payment';
-  String _paymentStatusLabel(String s) => s.replaceAll('_', ' ');
-
-  Widget _infoCard(String title, String body) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.line)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(color: AppColors.muted, fontSize: 12, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(body, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.4)),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(color: bold ? AppColors.ink : AppColors.muted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
-        Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 16 : 14)),
-      ],
-    );
-  }
-}
-
-class _TrackingTimeline extends StatelessWidget {
-  final int currentStep;
-  const _TrackingTimeline({required this.currentStep});
-
-  static const _labels = ['Placed', 'Preparing', 'Picked up', 'Sorting', 'Delivering', 'Delivered'];
-  static const _icons = [
-    Icons.receipt_long_rounded,
-    Icons.inventory_2_outlined,
-    Icons.local_shipping_outlined,
-    Icons.warehouse_outlined,
-    Icons.two_wheeler_rounded,
-    Icons.home_rounded,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.line)),
-      child: Row(
-        children: List.generate(_labels.length, (i) {
-          final n = i + 1;
-          final done = n <= currentStep;
-          return Expanded(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    if (i > 0) Expanded(child: Container(height: 2, color: done ? AppColors.primary : AppColors.line)),
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(color: done ? AppColors.primary : AppColors.line, shape: BoxShape.circle),
-                      child: Icon(_icons[i], size: 15, color: done ? Colors.white : AppColors.muted),
+                    if (address != null)
+                      Text(
+                        '${address['recipient']} · ${address['phone']}\n${address['street']}, ${address['barangay']}, ${address['city']}, ${address['province']}',
+                      ),
+                    const Divider(height: 28),
+                    Text(
+                      'Cash on delivery · ${data!['payment']?['status'] ?? ''}',
+                      style: const TextStyle(color: AppColors.muted),
                     ),
-                    if (i < _labels.length - 1) Expanded(child: Container(height: 2, color: n < currentStep ? AppColors.primary : AppColors.line)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Total ${money(o['total'])}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 23,
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(_labels[i], textAlign: TextAlign.center, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: done ? AppColors.ink : AppColors.muted)),
+              ),
+              const SizedBox(height: 20),
+              if (['PLACED', 'CONFIRMED', 'PREPARING'].contains(status))
+                OutlinedButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final reason = await askText(
+                            context,
+                            'Why cancel this order?',
+                            hint: 'At least 10 characters',
+                            minLength: 10,
+                          );
+                          if (reason != null) {
+                            await action('/orders/${widget.orderId}/cancel', {
+                              'reason': reason,
+                            });
+                          }
+                        },
+                  child: const Text('Cancel order'),
+                ),
+              if (status == 'DELIVERED') ...[
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          if (await confirmAction(
+                            context,
+                            'Everything arrived safely?',
+                            'Confirming receipt completes your order. Request a return first if there is an issue.',
+                            label: 'Confirm received',
+                          )) {
+                            await action(
+                              '/orders/${widget.orderId}/confirm',
+                              {},
+                            );
+                          }
+                        },
+                  child: const Text('Confirm received'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => data!['return_request'] == null
+                          ? ReturnEditor(orderId: widget.orderId)
+                          : const ReturnsScreen(),
+                    ),
+                  ).then((_) => load()),
+                  child: Text(
+                    data!['return_request'] == null
+                        ? 'Request return'
+                        : 'View returns',
+                  ),
+                ),
               ],
-            ),
-          );
-        }),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ComplaintFormScreen(orderId: widget.orderId),
+                  ),
+                ),
+                child: const Text('Get help with this order'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

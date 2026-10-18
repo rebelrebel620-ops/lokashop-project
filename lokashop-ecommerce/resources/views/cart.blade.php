@@ -54,7 +54,7 @@
 @if(($field==='voucher' && $voucher->seller_id && $rows->contains('seller_id',$voucher->seller_id)) || ($field==='platform_voucher' && !$voucher->seller_id && $voucher->type!=='shipping') || ($field==='shipping_voucher' && !$voucher->seller_id && $voucher->type==='shipping'))
 <option value="{{$voucher->code}}" @selected(old($field)===$voucher->code)>{{$voucher->code}} · {{$voucher->type==='percent'?$voucher->value.'%':'₱'.number_format($voucher->value,2)}} off · minimum ₱{{number_format($voucher->minimum_spend,2)}}</option>
 @endif @endforeach</select></label>@endforeach
-<label>Note to seller<textarea name="note" maxlength="200"></textarea></label><p>Vouchers are optional. Shipping uses the logistics rate for your address.</p><button class="btn lime" style="width:100%">Place order</button>
+<label>Note to seller<textarea name="note" maxlength="200"></textarea></label><p>Vouchers are optional. Shipping uses the active logistics rate for your address, or a flat ₱50 per seller shipment when no active rate matches.</p><button class="btn lime" style="width:100%">Place order</button>
    </form>
   </div>
  </div>

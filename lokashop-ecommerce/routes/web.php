@@ -46,7 +46,7 @@ Route::middleware(['auth','role:admin'])->group(function(){
 });
 Route::get('/application/resubmit',[\App\Http\Controllers\ReviewController::class,'form']);
 Route::post('/application/resubmit',[\App\Http\Controllers\ReviewController::class,'resubmit'])->middleware('throttle:5,1');
-Route::middleware(['auth','role:buyer|seller'])->get('/orders/{id}/proof',function(int $id){$o=\App\Services\Support::ownsOrder($id);$p=\Illuminate\Support\Facades\DB::table('parcels')->where('order_id',$id)->first();abort_unless($p&&$p->proof_path,404);return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($p->proof_path));});
+Route::middleware(['auth','role:buyer|seller'])->get('/orders/{id}/proof',[\App\Http\Controllers\DeliveryProofController::class,'show']);
 
 Route::middleware(['auth','role:seller|admin'])->get('/seller/reports',[\App\Http\Controllers\ReportController::class,'index']);
 

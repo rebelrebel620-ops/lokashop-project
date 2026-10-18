@@ -52,3 +52,23 @@ Route::middleware('api.buyer')->group(function(){
 });
 
 Route::middleware('api.buyer')->group(function(){Route::get('/appeal',[\App\Http\Controllers\AppealController::class,'form']);Route::post('/appeal',[\App\Http\Controllers\AppealController::class,'submit'])->middleware('throttle:5,1');});
+
+Route::middleware('api.buyer')->get('/orders/{id}/proof',[\App\Http\Controllers\DeliveryProofController::class,'show']);
+
+// Native buyer parity with the web workspace.
+Route::get('/catalog/categories',[\App\Http\Controllers\Api\MobileBuyerController::class,'categories']);
+Route::middleware('api.buyer')->group(function(){
+ $m=\App\Http\Controllers\Api\MobileBuyerController::class;
+ Route::post('/checkout/quote',[$m,'quote']);
+ Route::get('/wishlist',[$m,'wishlist']);Route::get('/following',[$m,'stores']);
+ Route::get('/stores/{id}',[$m,'store'])->whereNumber('id');
+ Route::get('/vouchers',[$m,'vouchers']);Route::get('/reviews',[$m,'reviews']);Route::get('/returns',[$m,'returns']);
+ Route::get('/returns/{id}/photos/{index}',[$m,'returnPhoto'])->whereNumber(['id','index']);
+ Route::get('/messages/{id}/attachment',[$m,'attachment'])->whereNumber('id');
+ Route::post('/addresses/delete',[\App\Http\Controllers\MarketController::class,'addressDelete']);
+ Route::post('/account/password',[$m,'password'])->middleware('throttle:5,1');
+ Route::post('/account/contact/request',[$m,'contactRequest'])->middleware('throttle:3,1');
+ Route::post('/account/contact/verify',[$m,'contactVerify'])->middleware('throttle:10,1');
+});
+
+Route::get('/public/stores/{id}',[\App\Http\Controllers\Api\MobileBuyerController::class,'store'])->whereNumber('id');

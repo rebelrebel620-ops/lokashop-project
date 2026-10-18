@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
-import '../theme.dart';
 import '../widgets/common.dart';
-import 'login_screen.dart';
+import '../widgets/design.dart';
+import '../theme.dart';
 import 'order_detail_screen.dart';
+import 'login_screen.dart';
 
 class OrdersTab extends StatefulWidget {
   const OrdersTab({super.key});
@@ -13,27 +14,26 @@ class OrdersTab extends StatefulWidget {
 }
 
 class _OrdersTabState extends State<OrdersTab> {
-  bool loading = true;
   List orders = [];
-
+  bool loading = true;
+  String filter = 'All';
+  String? error;
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    load();
   }
 
-  Future<void> _load() async {
-    final app = context.read<AppState>();
-    if (!app.isLoggedIn) {
+  Future<void> load() async {
+    if (!context.read<AppState>().isLoggedIn) {
       setState(() => loading = false);
       return;
     }
-    setState(() => loading = true);
     try {
-      final res = await app.api.get('/orders');
-      setState(() => orders = List.from(res));
-    } catch (_) {
-      if (mounted) AppSnack.show(context, 'Could not load orders.', error: true);
+      final data = await context.read<AppState>().api.get('/orders');
+      if (mounted) setState(() => orders = List.from(data));
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -42,80 +42,151 @@ class _OrdersTabState extends State<OrdersTab> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-
-    if (!app.isLoggedIn) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('My orders')),
-        body: EmptyState(
-          icon: Icons.receipt_long_outlined,
-          title: 'Log in to see your orders',
-          subtitle: 'Track deliveries and order history here.',
-          action: ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-            child: const Padding(padding: EdgeInsets.symmetric(horizontal: 24), child: Text('Log in')),
-          ),
-        ),
-      );
-    }
-
+    final rows = orders
+        .where(
+          (o) =>
+              filter == 'All' ||
+              (filter == 'On the way' &&
+                  ![
+                    'COMPLETED',
+                    'CANCELLED',
+                    'DELIVERED',
+                    'RETURN_RECEIVED',
+                  ].contains(o['status'])) ||
+              (filter == 'Delivered' && o['status'] == 'DELIVERED') ||
+              (filter == 'Completed' && o['status'] == 'COMPLETED'),
+        )
+        .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('My orders')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : orders.isEmpty
-              ? const EmptyState(icon: Icons.receipt_long_outlined, title: 'No orders yet', subtitle: 'Your orders will show up here once you check out.')
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  color: AppColors.primary,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                    itemCount: orders.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      final o = orders[i];
-                      final status = statusInfo(o['status']);
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () async {
-                          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: o['id'])));
-                          _load();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.line)),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Order #${o['id']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: status.color.withValues(alpha: .12), borderRadius: BorderRadius.circular(20)),
-                                    child: Text(status.label, style: TextStyle(color: status.color, fontWeight: FontWeight.w700, fontSize: 11.5)),
+      appBar: AppBar(title: const Text('Your local deliveries')),
+      body: PageBody(
+        child: !app.isLoggedIn
+            ? EmptyState(
+                icon: Icons.receipt_long_outlined,
+                title: 'Your orders live here',
+                subtitle: 'Sign in to track your deliveries.',
+                action: FilledButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  ),
+                  child: const Text('Sign in'),
+                ),
+              )
+            : loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: load,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(22),
+                  children: [
+                    const Eyebrow('FROM LOCAL SELLERS TO YOUR DOOR'),
+                    const SizedBox(height: 16),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children:
+                            ['All', 'On the way', 'Delivered', 'Completed']
+                                .map(
+                                  (f) => Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(f),
+                                      selected: filter == f,
+                                      onSelected: (_) =>
+                                          setState(() => filter = f),
+                                    ),
                                   ),
-                                ],
+                                )
+                                .toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (error != null) Text(error!),
+                    if (rows.isEmpty)
+                      const EmptyState(
+                        icon: Icons.local_shipping_outlined,
+                        title: 'No orders in this view',
+                        subtitle: 'Your shopping journey will appear here.',
+                      ),
+                    ...rows.map(
+                      (o) => Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: InkWell(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    OrderDetailScreen(orderId: o['id']),
                               ),
-                              const SizedBox(height: 6),
-                              Text('${o['seller_name'] ?? 'Seller'}', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
-                              const SizedBox(height: 4),
-                              Text('Tracking: ${o['tracking_code']}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                              const Divider(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(money(o['total']), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.primary)),
-                                  const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                                ],
-                              ),
-                            ],
+                            );
+                            load();
+                          },
+                          borderRadius: BorderRadius.circular(22),
+                          child: SheetCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.inventory_2_outlined,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        '${o['seller_name'] ?? 'Local seller'}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      money(o['total']),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 18),
+                                StatusBadge(status: '${o['status']}'),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Order #${o['id']} · ${o['tracking_code']}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Track delivery & view details',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(Icons.arrow_forward, size: 17),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+      ),
     );
   }
 }

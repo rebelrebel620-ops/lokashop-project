@@ -6,8 +6,11 @@
 <link rel="icon" href="/favicon.jpg">
 @vite('resources/css/app.css')
 @yield('page-styles')
+<link rel="stylesheet" href="{{ asset('css/public-navigation.css') }}">
+<link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
+<script src="{{ asset('js/workspace-design.js') }}" defer></script>
 </head>
-<body>
+<body class="@yield('body-class')">
 <div class="topribbon">&#128666; Free delivery on selected orders &middot; Shop local, live better.</div>
 <header class="site">
  <a class="brand" href="/"><img src="/logo.jpg" alt="LokaShop logo">LokaShop<small>Shop Local. Live Better.</small></a>

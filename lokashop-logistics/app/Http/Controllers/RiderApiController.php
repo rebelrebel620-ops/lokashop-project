@@ -65,6 +65,8 @@ class RiderApiController extends Controller
 
     public function assignments(Request $r): JsonResponse
     {
+        \App\Services\PickupRequests::refresh();
+        \App\Services\DeliveryOffers::refresh();
         $q = $this->base($r->user()->id);
         match ($r->query('filter', 'all')) {
             'active' => $q->whereIn('s.status', ['offered', 'accepted']),
@@ -72,8 +74,8 @@ class RiderApiController extends Controller
             default => null,
         };
 
-        $rows = $q->orderByDesc('s.id')->limit(100)->get();
-        return response()->json(['data' => $this->shape($rows)]);
+        $page=$q->orderByDesc('s.id')->paginate(12);
+        return response()->json(['data'=>$this->shape($page->items()),'current_page'=>$page->currentPage(),'last_page'=>$page->lastPage(),'total'=>$page->total()]);
     }
 
     /** Same rule as LogisticsController::accept(). */
@@ -113,6 +115,8 @@ class RiderApiController extends Controller
             return response()->json(['message' => 'No parcel found for that QR code.'], 404);
         }
 
+        \App\Services\PickupRequests::refresh($parcel->id);
+        \App\Services\DeliveryOffers::refresh($parcel->id);
         $row = $this->base($r->user()->id)
             ->where('s.parcel_id', $parcel->id)
             ->orderByRaw("s.status in ('offered','accepted') desc")
@@ -138,7 +142,7 @@ class RiderApiController extends Controller
         return response()->json([
             'total' => (float) (clone $q)->sum('s.earnings'),
             'count' => (clone $q)->count(),
-            'data' => $q->orderByDesc('s.updated_at')->orderByDesc('s.id')->limit(100)
+            'data' => $q->orderByDesc('s.updated_at')->orderByDesc('s.id')
                 ->get(['s.id', 's.parcel_id', 's.kind', 's.earnings', 's.updated_at as completed_at', 'p.tracking_code'])
                 ->map(fn ($e) => [
                     'id' => (int) $e->id,
@@ -155,23 +159,12 @@ class RiderApiController extends Controller
 
     private function riderJson($u): array
     {
-        return ['id' => (int) $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone, 'vehicle' => $u->vehicle,'courier_type'=>$u->courier_type,'company_id'=>$u->company_id,'profile_photo_url'=>\App\Services\Support::imageUrl($u->profile_photo)];
+        return ['id' => (int) $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone, 'vehicle' => $u->vehicle,'online'=>(bool)$u->online,'latitude'=>$u->latitude,'longitude'=>$u->longitude,'license_number'=>$u->license_number,'license_expires_at'=>$u->license_expires_at,'plate_number'=>$u->plate_number,'courier_type'=>$u->courier_type,'company_id'=>$u->company_id,'profile_photo_url'=>\App\Services\Support::imageUrl($u->profile_photo)];
     }
 
     private function trackingCode(string $raw): string
     {
-        $raw = trim($raw);
-        if (preg_match('~^https?://~i', $raw)) {
-            $parts = parse_url($raw) ?: [];
-            if (!empty($parts['query'])) {
-                parse_str($parts['query'], $query);
-                if (!empty($query['code']) && is_string($query['code'])) return trim($query['code']);
-            }
-            if (!empty($parts['path']) && preg_match('~/track/([^/?#]+)~i', $parts['path'], $m)) {
-                return trim(urldecode($m[1]));
-            }
-        }
-        return $raw;
+        return \App\Services\ParcelCode::parse($raw);
     }
 
     /** One row per assignment, joined with parcel / order / buyer address / seller / latest payment. */
@@ -185,7 +178,7 @@ class RiderApiController extends Controller
             ->leftJoin('payments as pay', 'pay.id', '=', DB::raw('(select max(id) from payments where order_id = o.id)'))
             ->where('s.rider_id', $riderId)
             ->select(
-                's.id', 's.parcel_id', 's.kind', 's.status', 's.earnings', 's.created_at',
+                's.id', 's.parcel_id', 's.kind', 's.status', 's.earnings', 's.created_at', 's.expires_at',
                 'p.tracking_code', 'p.status as parcel_status', 'p.failure_reason',
                 'o.id as order_id','o.address_snapshot',
                 'a.recipient', 'a.phone as recipient_phone', 'a.street', 'a.barangay', 'a.city', 'a.province', 'a.postal_code',
@@ -197,6 +190,7 @@ class RiderApiController extends Controller
     /** Buttons the rider may press right now. Mirrors rider_assignments.blade.php exactly. */
     private function actions(object $r): array
     {
+        if ($r->status === 'offered' && $r->expires_at && now()->gte($r->expires_at)) return [];
         if ($r->status === 'offered') {
             return [['type' => 'accept', 'status' => null, 'label' => 'Accept assignment', 'needs_reason' => false]];
         }
@@ -211,7 +205,7 @@ class RiderApiController extends Controller
         }
         if ($r->kind === 'delivery' && $r->parcel_status === 'OUT_FOR_DELIVERY') {
             return [
-                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false],
+                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => true, 'needs_cod_amount' => true, 'proof_field' => 'proof'],
                 ['type' => 'status', 'status' => 'DELIVERY_FAILED', 'label' => 'Delivery failed', 'needs_reason' => true],
             ];
         }
@@ -231,7 +225,7 @@ class RiderApiController extends Controller
             ->get(['order_id', 'name', 'quantity'])->groupBy('order_id');
 
         return $rows->map(function ($r) use ($items) {
-            if($r->kind==='transfer'){$parcel=DB::table('parcels')->find($r->parcel_id);$centers=DB::table('sorting_centers')->whereIn('id',array_filter([$parcel->center_id,$parcel->destination_center_id]))->get();$out=['id'=>$r->id,'parcel_id'=>$r->parcel_id,'kind'=>'transfer','status'=>$r->status,'parcel_status'=>$r->parcel_status,'tracking_code'=>$r->tracking_code,'actions'=>$this->actions($r),'centers'=>$centers->map(fn($c)=>['name'=>$c->name,'city'=>$c->city,'province'=>$c->province,'address'=>Municipalities::address($c->user_id)])->all()];return $out;}
+            if($r->kind==='transfer'){$parcel=DB::table('parcels')->find($r->parcel_id);$centers=DB::table('sorting_centers')->whereIn('id',array_filter([$parcel->center_id,$parcel->destination_center_id]))->get();$out=['id'=>$r->id,'parcel_id'=>$r->parcel_id,'order_id'=>$r->order_id,'expires_at'=>$r->expires_at,'earnings'=>(float)$r->earnings,'created_at'=>$r->created_at,'kind'=>'transfer','status'=>$r->status,'parcel_status'=>$r->parcel_status,'tracking_code'=>$r->tracking_code,'actions'=>$this->actions($r),'centers'=>$centers->map(fn($c)=>['stage'=>$c->id==$parcel->center_id?'Origin':'Destination','name'=>$c->name,'city'=>$c->city,'province'=>$c->province,'address'=>Municipalities::address($c->user_id)])->all()];return $out;}
             $snapshot=json_decode($r->address_snapshot??'null',true);if($snapshot){$r->recipient=$snapshot['recipient'];$r->recipient_phone=$snapshot['phone'];foreach(['street','barangay','city','province','postal_code'] as $field)$r->$field=$snapshot[$field]??null;}
             $actions = $this->actions($r);
             $detail = $r->status === 'accepted' && !empty($actions);
@@ -244,6 +238,7 @@ class RiderApiController extends Controller
                 'status' => $r->status,
                 'earnings' => (float) $r->earnings,
                 'created_at' => $r->created_at,
+                'expires_at' => $r->expires_at,
                 'tracking_code' => $r->tracking_code,
                 'parcel_status' => $r->parcel_status,
                 'failure_reason' => $r->failure_reason,

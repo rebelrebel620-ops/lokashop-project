@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +12,12 @@ class Session extends ChangeNotifier {
   /// Android emulator -> your PC's localhost. Override at build time with
   ///   flutter run --dart-define=API_BASE_URL=https://your-domain
   /// or just change it on the login screen ("Server" section).
-  static const defaultServerUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8001');
+  static const defaultServerUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8001',
+  );
+
+  static const _secure = FlutterSecureStorage();
 
   static const _kUrl = 'server_url';
   static const _kToken = 'token';
@@ -36,7 +42,16 @@ class Session extends ChangeNotifier {
   Future<void> init() async {
     final prefs = _prefs = await SharedPreferences.getInstance();
     api.baseUrl = prefs.getString(_kUrl) ?? defaultServerUrl;
-    api.token = prefs.getString(_kToken);
+    try {
+      api.token = await _secure.read(key: _kToken) ?? prefs.getString(_kToken);
+      if (api.token != null) {
+        await _secure.write(key: _kToken, value: api.token);
+      }
+      await prefs.remove(_kToken);
+    } catch (_) {
+      api.token = null;
+      await prefs.remove(_kToken);
+    }
 
     if (api.token != null) {
       try {
@@ -50,6 +65,9 @@ class Session extends ChangeNotifier {
           rider = _cachedRider();
           if (rider == null) await _clear();
         }
+      } catch (_) {
+        rider = _cachedRider();
+        if (rider == null) await _clear();
       }
     }
     ready = true;
@@ -59,15 +77,21 @@ class Session extends ChangeNotifier {
   Future<void> login(String serverUrl, String email, String password) async {
     api.baseUrl = ApiClient.normalizeUrl(serverUrl);
     final result = await api.login(email.trim(), password);
+    await _secure.write(key: _kToken, value: result.token);
     api.token = result.token;
     rider = result.rider;
     await _prefs?.setString(_kUrl, api.baseUrl);
-    await _prefs?.setString(_kToken, result.token);
+    await _prefs?.remove(_kToken);
     await _saveRider();
     notifyListeners();
   }
 
   Future<void> logout() async {
+    try {
+      await api.post('/api/rider/logout', {});
+    } catch (_) {
+      /* Local logout still works offline. */
+    }
     await _clear();
     onSignedOut?.call();
     notifyListeners();
@@ -90,6 +114,9 @@ class Session extends ChangeNotifier {
   Future<void> _clear() async {
     api.token = null;
     rider = null;
+    try {
+      await _secure.delete(key: _kToken);
+    } catch (_) {}
     await _prefs?.remove(_kToken);
     await _prefs?.remove(_kRider);
   }

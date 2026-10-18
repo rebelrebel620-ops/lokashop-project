@@ -6,6 +6,9 @@
 <title>@yield('title','LokaShop Logistics')</title>
 <link rel="icon" type="image/png" href="{{ asset('images/logistics-logo.png') }}">
 @vite('resources/css/app.css')
+<link rel="stylesheet" href="{{ asset('css/logistics-operations.css') }}">
+<link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
+<script src="{{ asset('js/workspace-design.js') }}" defer></script>
 </head>
 <body class="logi">
 @php
@@ -71,6 +74,10 @@
       @if(session('success'))<p class="notice">{{ session('success') }}</p>@endif
       @if($errors->any())
         <div class="error">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>
+      @endif
+
+      @if(auth()->user()->role === 'rider' && request()->is('ops/availability'))
+        @include('courier-availability')
       @endif
 
       @hasSection('panel')

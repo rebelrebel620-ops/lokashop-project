@@ -12,7 +12,11 @@
  <p style="margin:0"><b class="price" style="font-size:1rem">Total: ₱{{number_format($o->total,2)}}</b></p>
  @if($o->failure_reason)<p style="color:var(--red)"><small>Delivery issue: {{$o->failure_reason}}</small></p>@endif
 <ul>@foreach(\Illuminate\Support\Facades\DB::table('order_items')->where('order_id',$o->id)->get() as $item)<li>{{$item->name}} × {{$item->quantity}}</li>@endforeach</ul>
- @if(in_array($o->status,['DELIVERED','COMPLETED']))<p><a href="/orders/{{$o->id}}/proof">View delivery proof</a></p>@endif
+ @if(in_array($o->status,['DELIVERED','COMPLETED']) && $o->proof_path)
+ <section style="margin:16px 0"><h3 style="cursor:pointer;font-weight:700">Proof of delivery for this order</h3>
+ <p>The courier's delivery photo covers the items listed above.</p>
+ <a href="/orders/{{$o->id}}/proof" target="_blank" rel="noopener"><img src="/orders/{{$o->id}}/proof" alt="Delivery proof for order {{$o->id}}" loading="lazy" style="display:block;width:100%;max-width:420px;max-height:360px;object-fit:contain;border-radius:12px"><span>Open delivery photo</span></a>
+ </section>@endif
  @if($o->status==='DELIVERED')
  <form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Confirm received</button></form>
  @endif

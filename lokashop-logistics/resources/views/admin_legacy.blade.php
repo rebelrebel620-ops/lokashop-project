@@ -1,0 +1,10 @@
+@extends('dashboard')
+@section('title','Legacy courier accounts')
+@section('panel')
+<div class="page-head"><div><h1>Legacy courier accounts</h1><p>Connect older rider and driver accounts that do not yet belong to a sorting center.</p></div></div>
+<div class="ops-workspace"><section class="ops-card"><h2>Unlinked couriers <span class="ops-pill">{{$couriers->total()}}</span></h2>
+<form method="get" class="ops-filter"><label>Search name or email<input name="q" maxlength="150" value="{{request('q')}}" placeholder="Find an unlinked courier"></label><div class="ops-actions"><button>Search</button><a class="btn alt" href="/ops/legacy">Reset</a></div></form>
+<div class="ops-table"><table class="data"><thead><tr><th>Courier</th><th>Type</th><th>Approval</th></tr></thead><tbody>@forelse($couriers as $c)<tr><td><b>{{$c->name}}</b><small class="ops-muted">{{$c->email}} · #{{$c->id}}</small></td><td>{{ucfirst($c->courier_type)}}</td><td>{{ucfirst(str_replace('_',' ',$c->approval_status))}}</td></tr>@empty<tr><td colspan="3"><b>No unlinked couriers</b><p class="ops-muted">All existing courier accounts are linked, or no accounts match your search.</p></td></tr>@endforelse</tbody></table></div>{{$couriers->links('components.pagination')}}</section>
+<section class="ops-card"><h2>Link a courier</h2><p class="ops-muted">Select an unlinked courier and an approved sorting center. Riders use motorcycles or tricycles; drivers use trucks. The courier inherits the center's registered address.</p>@include('tool-form',['form'=>$form])</section></div>
+<script>(()=>{const type=document.querySelector('[name="courier_type"]'),vehicle=document.querySelector('[name="vehicle"]');function sync(){if(!type||!vehicle)return;const allowed=type.value==='driver'?['4-wheel truck','6-wheel truck','8-wheel truck','10-wheel truck']:['motorcycle','tricycle'];Array.from(vehicle.options).forEach(o=>{o.disabled=!allowed.includes(o.value);o.hidden=o.disabled;});if(!allowed.includes(vehicle.value))vehicle.value=allowed[0];}type?.addEventListener('change',sync);sync();})();</script>
+@endsection

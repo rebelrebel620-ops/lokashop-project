@@ -1,24 +1,18 @@
 @extends('app')
-@section('title','Messages - LokaShop')
+@section('title','Messages')
 @section('content')
-<div class="page-head"><div><h1>Messages</h1><p>Talk directly with buyers, sellers and the LokaShop team.</p></div></div>
-
-<div class="panel-grid">
- <div class="section-card">
-  <div class="shead"><h3>Conversation</h3></div>
-  @forelse($messages as $m)
-  <div class="list-row"><div class="ic">&#128172;</div><div><b>User #{{$m->sender_id}} &rarr; User #{{$m->recipient_id}}</b><br>{{$m->body}}<br><small>{{\Illuminate\Support\Carbon::parse($m->created_at)->diffForHumans()}}</small></div></div>
-  @empty
-  <div class="empty">No messages yet.</div>
-  @endforelse
- </div>
- <div class="form-card">
-  <h3>Send a message</h3>
-  <form action="/messages" method="post" enctype="multipart/form-data">@csrf
-   <label>To<select name="recipient_id">@foreach($users as $u)<option value="{{$u->id}}">{{$u->name}} ({{$u->role}})</option>@endforeach</select></label>
-   <label>Message<textarea name="body" maxlength="1000" required maxlength="2000"></textarea><input type="file" name="attachment" accept=".jpg,.jpeg,.png"></label>
-   <button class="btn" style="width:100%">Send</button>
-  </form>
- </div>
+<div class="page-head"><div><span class="design-eyebrow">STAY CONNECTED</span><h1>Messages</h1><p>A dedicated conversation for every person you work with.</p></div></div>
+<div class="messaging-workspace">
+ <aside class="conversation-sidebar"><div class="conversation-search"><h2>Conversations</h2><label class="visually-hidden" for="contact-search">Search people</label><input id="contact-search" type="search" placeholder="Search a name…" autocomplete="off"></div>
+ <nav class="conversation-list" aria-label="Conversations">@forelse($users as $contact)<a class="conversation-contact {{$selected && $selected->id===$contact->id?'is-selected':''}}" href="/messages?with={{$contact->id}}" data-contact-name="{{mb_strtolower($contact->name)}}" @if($selected && $selected->id===$contact->id) aria-current="page" @endif><span class="contact-avatar">@if($contact->profile_photo)<img src="{{\App\Services\Support::imageUrl($contact->profile_photo)}}" alt="">@else{{mb_strtoupper(mb_substr($contact->name,0,1))}}@endif</span><span class="contact-copy"><strong>{{$contact->name}}</strong><small>{{ucfirst(str_replace('_',' ',$contact->role))}}</small><span>{{\Illuminate\Support\Str::limit($contact->last_message->body??'Start a conversation',45)}}</span></span></a>@empty<div class="design-empty"><h3>No contacts yet</h3><p>Your available contacts will appear here.</p></div>@endforelse</nav><p id="contact-search-empty" class="design-empty" hidden>No matching people.</p>
+ </aside>
+ <section class="conversation-main">
+  @if($selected)
+  <header class="conversation-header"><span class="contact-avatar">{{mb_strtoupper(mb_substr($selected->name,0,1))}}</span><div><h2>{{$selected->name}}</h2><p>{{ucfirst(str_replace('_',' ',$selected->role))}} · {{$selected->can_message?'Conversation':'Message history'}}</p></div></header>
+  <div class="conversation-thread" id="conversation-thread" role="log" aria-label="Message history">@forelse($messages as $m)<article class="chat-message {{$m->sender_id==auth()->id()?'is-mine':'is-theirs'}}"><div class="chat-bubble"><span class="chat-sender">{{$m->sender_id==auth()->id()?'You':$selected->name}}</span><p>{{$m->body}}</p>@if($m->attachment)<a class="chat-attachment" href="/messages/{{$m->id}}/attachment" target="_blank" rel="noopener"><img src="/messages/{{$m->id}}/attachment" alt="Message attachment" loading="lazy"><span>Open attached photo</span></a>@endif<time datetime="{{$m->created_at}}">{{\Illuminate\Support\Carbon::parse($m->created_at)->format('M j · g:i A')}}</time></div></article>@empty<div class="conversation-welcome"><span class="welcome-monogram">{{mb_strtoupper(mb_substr($selected->name,0,1))}}</span><h3>Say hello to {{$selected->name}}</h3><p>Send your first message below to get the conversation started.</p></div>@endforelse</div>
+  @if($selected->can_message)<form class="message-composer" action="/messages" method="post" enctype="multipart/form-data">@csrf<input type="hidden" name="recipient_id" value="{{$selected->id}}"><label class="visually-hidden" for="message-body">Your message</label><textarea id="message-body" name="body" maxlength="1000" rows="3" placeholder="Write a message…" required>{{old('body')}}</textarea><div class="composer-footer"><label class="attach-label">Attach photo<input id="message-attachment" type="file" name="attachment" accept="image/jpeg,image/png"></label><small id="attachment-name">JPG or PNG · up to 5 MB</small><button class="btn" type="submit">Send message</button></div></form>@else<p class="design-hint" style="padding:20px">This contact is currently unavailable for new messages. Your conversation history is retained.</p>@endif
+  @else<div class="conversation-welcome"><h2>Your conversations start here</h2><p>Available people appear in the conversation list.</p></div>@endif
+ </section>
 </div>
+
 @endsection

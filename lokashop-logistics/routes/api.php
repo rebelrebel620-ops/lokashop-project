@@ -29,3 +29,17 @@ Route::middleware('rider.api')->post('/rider/location',[\App\Http\Controllers\Op
 Route::middleware('rider.api')->post('/rider/remit/topup',[\App\Http\Controllers\OperationsController::class,'topup']);
 
 Route::middleware('rider.api')->post('/rider/transfers/{id}/depart',[\App\Http\Controllers\TransferController::class,'depart']);
+
+Route::middleware('rider.api')->prefix('rider')->group(function(){
+ $m=\App\Http\Controllers\MobileRiderController::class;
+ Route::get('/overview',[$m,'overview']);
+ Route::get('/cod',[$m,'cod']);
+ Route::get('/notifications',[$m,'notifications']);
+ Route::post('/notifications/read',[$m,'read']);
+ Route::get('/messages',[$m,'messages']);
+ Route::post('/messages',[\App\Http\Controllers\CommonController::class,'sendMessage'])->middleware('throttle:30,1');
+ Route::get('/messages/{id}/attachment',[$m,'attachment'])->whereNumber('id');
+ Route::post('/address',[$m,'address']);
+ Route::get('/assignments/{id}',[$m,'detail'])->whereNumber('id');
+ Route::get('/assignments/{id}/proof',[$m,'proof'])->whereNumber('id');
+});

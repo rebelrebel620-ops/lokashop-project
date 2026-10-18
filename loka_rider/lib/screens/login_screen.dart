@@ -15,8 +15,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  late final TextEditingController _url =
-      TextEditingController(text: widget.session.serverUrl);
+  late final TextEditingController _url = TextEditingController(
+    text: widget.session.serverUrl,
+  );
 
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -43,14 +44,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await widget.session.login(
-        _url.text,
-        _email.text,
-        _password.text,
-      );
-    } on ApiException catch (e) {
+      await widget.session.login(_url.text, _email.text, _password.text);
+    } catch (e) {
       if (mounted) {
-        setState(() => _error = e.message);
+        setState(() => _error = '$e');
       }
     } finally {
       if (mounted) {
@@ -70,9 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() => _serverNote = 'Connected ✓');
       }
-    } on ApiException catch (e) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _serverNote = e.message);
+        setState(() => _serverNote = '$e');
       }
     }
   }
@@ -106,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'LokaShop Rider',
+                      'LokaShop Courier',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w800,
@@ -114,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Log in with your approved rider account',
+                      'Your route. Your pace. Your next delivery.\nSign in with your approved rider or driver account.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -172,9 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 12),
                       Text(
                         _error!,
-                        style: TextStyle(
-                          color: theme.colorScheme.error,
-                        ),
+                        style: TextStyle(color: theme.colorScheme.error),
                       ),
                     ],
                     const SizedBox(height: 18),
@@ -204,7 +199,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.url,
                           decoration: const InputDecoration(
                             labelText: 'Server address',
-                            helperText: 'Emulator: http://10.0.2.2:8001\n'
+                            helperText:
+                                'Emulator: http://10.0.2.2:8001\n'
                                 'USB phone: http://127.0.0.1:8001',
                             border: OutlineInputBorder(),
                           ),

@@ -4,13 +4,12 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
-    <!-- usesCleartextTraffic lets the app talk to a local http:// dev server
-         (php artisan serve). Remove it once your server is on https://. -->
+    <!-- Local HTTP is enabled only by the debug manifest. -->
     <application
         android:label="LokaShop Rider"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
