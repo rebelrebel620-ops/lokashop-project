@@ -9,14 +9,16 @@ class Workflow {
    $o=DB::table('orders')->where('id',$p->order_id)->lockForUpdate()->first();$actor=DB::table('users')->find($actorId);abort_unless($actor&&(($system&&$to==='COMPLETED')||($actor->active&&$actor->approval_status==='approved')),403);
    $map=['PLACED'=>['CONFIRMED'=>'seller'],'CONFIRMED'=>['PREPARING'=>'seller'],'PREPARING'=>['READY_FOR_PICKUP'=>'seller'],'READY_FOR_PICKUP'=>['PICKED_UP'=>'rider'],'PICKED_UP'=>['AT_SORTING_CENTER'=>'sorting_center'],'AT_SORTING_CENTER'=>['SORTED'=>'sorting_center'],'SORTED'=>['ASSIGNED_TO_RIDER'=>'sorting_center'],'ASSIGNED_TO_RIDER'=>['OUT_FOR_DELIVERY'=>'rider'],'OUT_FOR_DELIVERY'=>['DELIVERED'=>'rider','DELIVERY_FAILED'=>'rider'],'DELIVERED'=>['COMPLETED'=>'buyer'],'DELIVERY_FAILED'=>['ASSIGNED_TO_RIDER'=>'sorting_center','RETURN_TO_SENDER'=>'sorting_center'],'RETURN_TO_SENDER'=>['RETURNED'=>'sorting_center'],'RETURNED'=>['RETURN_RECEIVED'=>'seller']];
    if($p->status===$to){$already=DB::table('status_history')->where('parcel_id',$p->id)->where('to_status',$to)->where('actor_id',$actorId)->exists();abort_unless($already,403);return null;}
-   if(($map[$p->status][$to]??null)!==$actor->role)Support::fail('status','This status change is not allowed. Follow the order sequence.');
+   $centerReadiness=$p->status==='PREPARING'&&$to==='READY_FOR_PICKUP'&&$actor->role==='sorting_center';
+   $riderReturn=$p->status==='PICKED_UP'&&$to==='AT_SORTING_CENTER'&&$actor->role==='rider';
+   if(!$riderReturn&&!$centerReadiness&&($map[$p->status][$to]??null)!==$actor->role)Support::fail('status','This status change is not allowed. Follow the order sequence.');
    if($actor->role==='rider' && request()->filled('scanned_code') && !hash_equals($p->tracking_code, \App\Services\ParcelCode::parse((string)request()->input('scanned_code'))))Support::fail('scanned_code','The scanned label does not match this parcel.');
    if($actor->role==='seller')abort_unless($o->seller_id==$actorId,403);
    if($actor->role==='buyer')abort_unless($o->buyer_id==$actorId,403);
    if($actor->role==='sorting_center')abort_unless(DB::table('sorting_centers')->where('id',$centerId??$p->center_id)->where('user_id',$actorId)->exists()&&(!$p->center_id||$p->center_id==($centerId??$p->center_id)),403);
    $assignment=null;
    if($actor->role==='rider'){
-    $kind=$to==='PICKED_UP'?'pickup':'delivery';
+    $kind=in_array($to,['PICKED_UP','AT_SORTING_CENTER'])?'pickup':'delivery';
     Municipalities::courier($actor,$p,$kind);$assignment=DB::table('assignments')->where('parcel_id',$p->id)->where('rider_id',$actorId)->where('kind',$kind)->where('status','accepted')->lockForUpdate()->first();abort_unless($assignment,403);
     $company=DB::table('sorting_centers')->where('id',$p->center_id)->value('user_id');abort_unless($actor->company_id&&$company==$actor->company_id,403);
    }
@@ -50,7 +52,7 @@ class Workflow {
     DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'failed','updated_at'=>now()]);
     if($reason==='Refused'||$extra['attempts']>=3)$to='RETURN_TO_SENDER';
    }
-   if($to==='PICKED_UP')DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'completed','updated_at'=>now()]);
+   if($to==='AT_SORTING_CENTER')DB::table('assignments')->where('parcel_id',$p->id)->where('kind','pickup')->where('status','accepted')->update(['status'=>'completed','earnings'=>0,'updated_at'=>now()]);
    if($to==='COMPLETED'){
     if(DB::table('return_requests')->where('order_id',$o->id)->whereIn('status',['requested','approved','disputed'])->exists())Support::fail('order','Resolve the active return request first.');
     $orderExtra['completed_at']=now();

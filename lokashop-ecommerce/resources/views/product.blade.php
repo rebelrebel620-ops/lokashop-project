@@ -27,6 +27,7 @@
  </div>
  <div class="card product-summary">
   <h1>{{$p->name}}</h1>
+  <p><strong>Store:</strong> {{$p->store_name ?? 'LokaShop seller'}}<br><strong>Seller:</strong> {{$p->seller_name ?? 'Seller'}}</p>
   <p>{{$p->description}}</p>
   @php $vacation=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$p->seller_id)->value('vacation'); @endphp
   @if($vacation)<p>Store is on vacation. Orders are paused.</p>@endif

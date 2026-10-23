@@ -23,7 +23,7 @@ if(config('app.site_kind')==='ecommerce') {
  ok(App\Services\ParcelCode::parse('https://example.test/track?code=LKS-TEST')==='LKS-TEST','QR query links parse');
  ok(App\Services\ParcelCode::parse('https://example.test/track/LKS-TEST')==='LKS-TEST','Printed QR path links parse');
  ok(App\Services\ParcelCode::parse(' LKS-TEST ')==='LKS-TEST','Printed tracking code fallback parses');
- loginAs($rider);$request=requestFor(['code'=>'https://example.test/track/'.$completedParcel->tracking_code]);$response=$controller->scan($request);ok(str_contains($response->getTargetUrl(),'#assignment-'),'Web QR lookup finds owned assignment');
+ loginAs($rider);try{$controller->scan(requestFor(['code'=>$completedParcel->tracking_code]));throw new RuntimeException('Completed job scanned');}catch(ValidationException $e){ok(isset($e->errors()['code']),'Scan only applies to accepted assignments');}
  $stranger=user('rider','qrstranger');loginAs($stranger);try{$controller->scan(requestFor(['code'=>$completedParcel->tracking_code]));throw new RuntimeException('Unassigned courier lookup allowed');}catch(ValidationException $ex){ok(isset($ex->errors()['code']),'Unassigned courier cannot scan another job');}
  loginAs($buyer);Cart::add(requestFor(['product_id'=>$p,'quantity'=>1]));$ids=Commerce::checkout(requestFor(['address_id'=>$address,'payment_method'=>'cod','_request_key'=>(string)Illuminate\Support\Str::uuid()]));$testOrder=$ids[0];$parcel=DB::table('parcels')->where('order_id',$testOrder)->first();
  loginAs($seller);Workflow::move($parcel->id,'CONFIRMED',$seller);Workflow::move($parcel->id,'PREPARING',$seller);DB::table('parcels')->where('id',$parcel->id)->update(['center_id'=>$center]);

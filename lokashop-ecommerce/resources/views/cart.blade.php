@@ -13,7 +13,10 @@
     @include('product-photo',['photoProduct'=>$x,'photoSize'=>64])
     <div class="grow"><b>{{$x->name}} {{$x->variation}}</b>
      <form id="cart-update-{{$x->id}}" class="cart-quantity" method="post" action="/cart/{{$x->id}}/update">@csrf
-      <label for="cart-quantity-{{$x->id}}">Quantity</label><input id="cart-quantity-{{$x->id}}" name="quantity" type="number" min="1" max="99999" value="{{$x->quantity}}" required>
+      <label for="cart-quantity-{{$x->id}}">Quantity</label><div style="display:flex;align-items:center;gap:8px">
+      <button type="button" data-quantity-step="-1" aria-label="Decrease quantity">−</button>
+      <input id="cart-quantity-{{$x->id}}" name="quantity" type="number" min="1" max="99999" value="{{$x->quantity}}" required style="width:80px">
+      <button type="button" data-quantity-step="1" aria-label="Increase quantity">+</button></div>
      </form>
      <div class="cart-actions">
       <button class="cart-update" type="submit" form="cart-update-{{$x->id}}">Update</button>
@@ -59,4 +62,12 @@
   </div>
  </div>
 </div>
+<script>
+document.querySelectorAll('[data-quantity-step]').forEach(button=>button.addEventListener('click',()=>{
+ const form=button.closest('form'), input=form.querySelector('[name="quantity"]');
+ const quantity=Math.min(Number(input.max),Math.max(Number(input.min),Number(input.value||1)+Number(button.dataset.quantityStep)));
+ if(quantity===Number(input.value))return;
+ input.value=quantity; form.requestSubmit();
+}));
+</script>
 @endsection

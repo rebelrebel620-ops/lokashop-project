@@ -1,0 +1,17 @@
+<?php
+require __DIR__.'/workflow_checks.php';
+use Illuminate\Support\Facades\{DB,Hash,Auth};
+use App\Services\{Cart,Commerce};
+use App\Http\Controllers\Api\MobileBuyerController;
+$before=$n;loginAs($buyer);Cart::add(requestFor(['product_id'=>$p,'quantity'=>1]));
+$stock=DB::table('products')->find($p)->stock;$ordersBefore=DB::table('orders')->count();$notices=DB::table('notifications')->count();$keyCount=DB::table('request_keys')->count();
+$controller=new MobileBuyerController();$quote=$controller->quote(requestFor(['address_id'=>$address,'payment_method'=>'cod','selection_required'=>1,'cart_ids'=>DB::table('cart_items')->where('buyer_id',$buyer)->pluck('id')->all()]))->getData(true);
+ok($quote['total']===165.0||$quote['total']===165,'Quote includes configured shipping and product price');ok(DB::table('products')->find($p)->stock===$stock,'Quote does not reserve or consume stock');ok(DB::table('orders')->count()===$ordersBefore,'Quote creates no order');ok(DB::table('notifications')->count()===$notices&&DB::table('request_keys')->count()===$keyCount,'Quote creates no notifications or idempotency records');
+$created=Commerce::checkout(requestFor(['address_id'=>$address,'payment_method'=>'cod','_request_key'=>(string)Illuminate\Support\Str::uuid()]));ok(DB::table('orders')->whereIn('id',$created)->sum('total')==$quote['total'],'Placed order total agrees with quote');
+DB::table('wishlists')->insert(['buyer_id'=>$buyer,'product_id'=>$p]);$wish=$controller->wishlist()->getData(true);ok(count($wish)===1&&isset($wish[0]['effective_price']),'Wishlist returns real products with effective prices');
+$categories=$controller->categories()->getData(true);ok(count($categories['main_categories'])===12&&count($categories['subcategories'])>=72,'Mobile categories expose twelve parents and children');
+$private=DB::table('return_requests')->insertGetId(['order_id'=>$created[0],'buyer_id'=>$buyer,'seller_id'=>$seller,'reason'=>'Damaged','description'=>'Test return evidence','photos'=>'["returns/private-test.png"]']);loginAs($other);try{$controller->returnPhoto($private,0);throw new RuntimeException('Another buyer read proof');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){ok($e->getStatusCode()===404,'Return evidence cannot be read by another buyer');}
+$photoId=DB::table('messages')->insertGetId(['sender_id'=>$buyer,'recipient_id'=>$seller,'body'=>'Photo test','attachment'=>'chat/test.png']);try{$controller->attachment($photoId);throw new RuntimeException('Unrelated message read');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){ok($e->getStatusCode()===404,'Private message photos enforce participant ownership');}
+loginAs($buyer);DB::table('users')->where('id',$buyer)->update(['remember_token'=>'HASHED','api_token_expires_at'=>now()->addMinutes(30)]);requestFor();$controller->password(requestFor(['current_password'=>'Test@1234','password'=>'Updated@1234','password_confirmation'=>'Updated@1234']));$changed=DB::table('users')->find($buyer);ok(Hash::check('Updated@1234',$changed->password)&&$changed->remember_token===null,'Native password update verifies old password and revokes bearer token');
+$routes=$app['router']->getRoutes();foreach(['/api/checkout/quote','/api/account/contact/request','/api/account/contact/verify'] as $path){$route=$routes->match(Illuminate\Http\Request::create($path,'POST'));ok(str_contains($route->getActionName(),'MobileBuyerController'),'Native API route installed: '.$path);}
+echo 'PASS: '.($n-$before)." mobile API / quote checks.\n";

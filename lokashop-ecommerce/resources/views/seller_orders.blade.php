@@ -16,8 +16,8 @@
  <ul>@foreach(\Illuminate\Support\Facades\DB::table('order_items')->where('order_id',$o->id)->get() as $item)<li><b>{{$item->name}}</b> × {{$item->quantity}}</li>@endforeach</ul>
  @if($pickup && in_array($o->status,['PREPARING','READY_FOR_PICKUP']))
  <p><strong>Pickup: {{ucfirst($pickup->status)}}</strong>
- @if($pickupOpen) · Collect before {{\App\Services\PickupRequests::deadline($pickup)->format('M j, Y g:i A')}} (12 hours from request).
- @elseif(in_array($pickup->status,['expired','declined','failed','reassigned'])) · Pickup unsuccessful. Select a rider below and request again.
+ @if($pickup->status==='offered') · Accept before {{\App\Services\PickupRequests::deadline($pickup)->format('M j, Y g:i A')}} (3 hours from center assignment).
+ @elseif(in_array($pickup->status,['expired','declined','failed','reassigned'])) · Pickup unsuccessful. Request pickup again below.
  @endif</p>
  @endif
  <div class="inline-form">
@@ -29,7 +29,7 @@
   @endforeach
   @if(in_array($o->status,['PREPARING','READY_FOR_PICKUP']) && !$pickupOpen)
   <form method="post" action="/seller/orders/{{$o->id}}/pickup" class="inline-form">@csrf
-   <select name="rider_id">@foreach($riders as $rider)<option value="{{$rider->id}}">{{$rider->name}}</option>@endforeach</select>
+   <small>Your municipality sorting center assigns an eligible area rider.</small>
    <button class="btn sm alt">{{$pickup ? 'Request another rider' : 'Request pickup'}}</button>
   </form>
   @endif

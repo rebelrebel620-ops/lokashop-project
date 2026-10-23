@@ -14,6 +14,7 @@
       <div><label>Region</label><input name="region" value="{{old('region')}}" required></div>
       <div><label>Province</label><input name="province" value="{{old('province',$registeredCenter->province)}}" required></div>
       <div><label>City / Municipality</label><input name="city" value="{{old('city',$registeredCenter->city)}}" required></div>
+      <div><label>Barangay</label><input name="barangay" value="{{old('barangay')}}" required></div>
       <div>
         <label>Assigned rider</label>
         <select name="rider_id">
@@ -32,7 +33,7 @@
       @forelse($areas as $a)
         <div class="row-item">
           <span class="ico"><x-icon name="map-pin"/></span>
-          <div class="info"><b>{{ $a->name }}</b><small>{{ $a->city }}, {{ $a->province }}</small></div>
+          <div class="info"><b>{{ $a->name }}</b><small>{{ $a->barangay ?? 'Set a barangay for this legacy area' }}, {{ $a->city }}, {{ $a->province }}</small></div>
           <span class="badge blue">Rider #{{ $a->rider_id }}</span>
         </div>
       @empty

@@ -53,7 +53,7 @@
   $d = $map[$label] ?? '<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/>';
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'.$d.'</svg>';
  };
- $cartCount = $isBuyer ? \Illuminate\Support\Facades\DB::table('cart_items')->where('buyer_id',auth()->id())->sum('quantity') : 0;
+ $cartCount = $isBuyer ? \Illuminate\Support\Facades\DB::table('cart_items')->where('buyer_id',auth()->id())->distinct()->count('product_id') : 0;
  $unread = \Illuminate\Support\Facades\DB::table('notifications')->where('user_id',auth()->id())->whereNull('read_at')->count();
  $initial = mb_strtoupper(mb_substr(auth()->user()->name,0,1));
 @endphp
@@ -71,7 +71,7 @@
  <div class="ticons">
   <a href="/notifications" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
   <a href="/cart" title="Cart">&#128722;@if($cartCount)<span class="badge-dot">{{$cartCount}}</span>@endif</a>
-  <div class="who"><div class="av">{{$initial}}</div><div><b>{{auth()->user()->name}}</b><small>Buyer</small></div></div>
+  <div class="who"><a class="av" href="/profile" aria-label="Your profile">@if(auth()->user()->profile_photo)<img src="{{\App\Services\Support::imageUrl(auth()->user()->profile_photo)}}" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%">@else{{$initial}}@endif</a><div><b>{{auth()->user()->name}}</b><small>Buyer</small></div></div>
  </div>
 </header>
 @endif
@@ -105,7 +105,7 @@
    </form>
    <div class="ticons">
     <a href="/notifications" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
-    <div class="who"><div class="av">{{$initial}}</div><div><b>{{auth()->user()->name}}</b><small>{{ucfirst(str_replace('_',' ',$role))}}</small></div></div>
+    <div class="who"><a class="av" href="/profile" aria-label="Your profile">@if(auth()->user()->profile_photo)<img src="{{\App\Services\Support::imageUrl(auth()->user()->profile_photo)}}" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%">@else{{$initial}}@endif</a><div><b>{{auth()->user()->name}}</b><small>{{ucfirst(str_replace('_',' ',$role))}}</small></div></div>
    </div>
   </header>
   @endunless
