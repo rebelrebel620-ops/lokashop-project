@@ -2,7 +2,7 @@
 @section('title',$title)
 @section(config('app.site_kind')==='logistics'?'panel':'content')
 <div class="page-head"><div><span class="design-eyebrow">YOUR WORKSPACE</span><h1>{{$title}}</h1><p>View your records and manage the details below.</p></div></div>
-@if(isset($report))<section class="design-card"><h2>Filter report</h2><form method="get" class="design-field-grid"><label>Search / tracking<input name="q" value="{{request('q')}}"></label><label>From<input type="date" name="from" value="{{request('from')}}"></label><label>To<input type="date" name="to" value="{{request('to')}}"></label><button>Apply filters</button></form><p><a href="{{request()->fullUrlWithQuery(['format'=>'csv'])}}">Download CSV</a> · <a href="{{request()->fullUrlWithQuery(['format'=>'xlsx'])}}">Download spreadsheet</a></p></section>@endif
+@if(isset($report))<section class="design-card"><h2>Filter report</h2><form method="get" class="design-field-grid"><label>Search / tracking<input name="q" value="{{request('q')}}"></label><label>From<input type="date" name="from" value="{{request('from')}}"></label><label>To<input type="date" name="to" value="{{request('to')}}"></label><button>Apply filters</button></form><p><a class="btn" href="{{request()->fullUrlWithQuery(['format'=>'pdf'])}}">Download PDF</a></p></section>@endif
 @php $workspaceCards=\App\Services\WorkspaceRecords::cards($records); @endphp
 <div class="workspace-records">
 @forelse($workspaceCards as $card)

@@ -3,7 +3,7 @@
 @section('panel')
 @php
  $savedAddress=\App\Services\Municipalities::address($user->id);
- $canPhoto=in_array($user->role,['buyer','seller','rider','sorting_center']);
+ $canPhoto=in_array($user->role,['buyer','seller','rider','sorting_center','admin','logistics_admin']);
  $isCommerce=config('app.site_kind')==='ecommerce';
  $roleName=$user->role==='rider'?ucfirst($user->courier_type??'rider'):ucfirst(str_replace('_',' ',$user->role));
 @endphp

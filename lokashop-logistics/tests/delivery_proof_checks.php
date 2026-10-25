@@ -41,7 +41,7 @@ if(config('app.site_kind')==='ecommerce') {
  $data=['status'=>'DELIVERED','scanned_code'=>$parcel->tracking_code,'otp'=>'654321','cod_amount'=>$amount];
  try{$controller->riderStep(requestFor($data),$parcel->id);throw new RuntimeException('Missing proof accepted');}catch(ValidationException $ex){ok(isset($ex->errors()['proof']),'Delivery requires proof image');}
  $request=requestFor($data,['proof'=>new UploadedFile($upload,'proof.png','image/png',null,true)]);$controller->riderStep($request,$parcel->id);$result=DB::table('parcels')->find($parcel->id);ok($result->status==='DELIVERED'&&Storage::disk('local')->exists($result->proof_path),'Web delivery stores photo and updates shared order');
- $html=$controller->assignments()->render();ok(str_contains($html,'Scan QR from photo')&&str_contains($html,$parcel->tracking_code),'Courier assignment screen renders scanner and real parcel codes');
+ $request=requestFor(['tab'=>'completed']);$html=$controller->assignments()->render();ok(str_contains($html,'Scan QR from photo')&&str_contains($html,$parcel->tracking_code),'Courier assignment screen renders scanner and real parcel codes');
  loginAs($buyer);Workflow::move($parcel->id,'COMPLETED',$buyer);ok(DB::table('orders')->find($testOrder)->status==='COMPLETED','Buyer can confirm courier delivery');@unlink($upload);
 }
 echo 'PASS: '.($n-$before)." delivery proof / QR integration checks.\n";

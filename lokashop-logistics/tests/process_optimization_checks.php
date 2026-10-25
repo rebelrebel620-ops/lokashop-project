@@ -1,0 +1,32 @@
+<?php
+require __DIR__.'/workflow_checks.php';
+use Illuminate\Support\Facades\DB;
+use App\Services\{Cart,Commerce,Workflow,PickupRequests,Dispatch,Municipalities};
+use App\Http\Controllers\{LogisticsController,TransferController,ProcessController};
+$before=$n;
+$destCompany=user('sorting_center','destinationprocess');$destRider=user('rider','destinationrider');
+DB::table('users')->where('id',$destRider)->update(['company_id'=>$destCompany,'courier_type'=>'rider','online'=>1,'last_seen_at'=>now()]);
+$destCenter=DB::table('sorting_centers')->insertGetId(['user_id'=>$destCompany,'name'=>'Cebu destination','city'=>'Cebu City','province'=>'Cebu','municipality_key'=>Municipalities::key('Cebu','Cebu City')]);
+DB::table('addresses')->insert(['user_id'=>$destRider,'recipient'=>'Delivery rider','phone'=>'09170000000','street'=>'Street','barangay'=>'Lahug','city'=>'Cebu City','province'=>'Cebu','is_default'=>1]);
+DB::table('delivery_areas')->insert(['center_id'=>$destCenter,'name'=>'Lahug delivery','city'=>'Cebu City','province'=>'Cebu','barangay'=>'Lahug','rider_id'=>$destRider]);
+$destAddress=DB::table('addresses')->insertGetId(['user_id'=>$buyer,'recipient'=>'Buyer','phone'=>'09171111111','street'=>'Buyer street','barangay'=>'Lahug','city'=>'Cebu City','province'=>'Cebu','is_default'=>0]);
+loginAs($buyer);DB::table('cart_items')->where('buyer_id',$buyer)->delete();Cart::add(requestFor(['product_id'=>$p,'quantity'=>1]));$ids=Commerce::checkout(requestFor(['address_id'=>$destAddress,'payment_method'=>'cod','_request_key'=>(string)Illuminate\Support\Str::uuid()]));$orderId=$ids[0];$parcel=DB::table('parcels')->where('order_id',$orderId)->first();
+loginAs($seller);Workflow::move($parcel->id,'CONFIRMED',$seller);Workflow::move($parcel->id,'PREPARING',$seller);PickupRequests::request($orderId,$seller);
+$pickup=DB::table('assignments')->where('parcel_id',$parcel->id)->first();DB::table('users')->where('id',$rider)->update(['online'=>1,'last_seen_at'=>now()]);loginAs($company);PickupRequests::offer($pickup->id,$company,$rider);
+loginAs($rider);Dispatch::accept($pickup->id,$rider);requestFor(['scanned_code'=>$parcel->tracking_code]);Workflow::move($parcel->id,'PICKED_UP',$rider);requestFor();Workflow::move($parcel->id,'AT_SORTING_CENTER',$rider);
+loginAs($company);$controller=new LogisticsController();$transfer=new TransferController();
+$html=$controller->deliveries()->render();ok(!str_contains($html,$parcel->tracking_code),'Origin delivery queue excludes buyer in another municipality');
+$html=$transfer->index()->render();ok(str_contains($html,$parcel->tracking_code)&&str_contains($html,'Cebu destination'),'Transfer automatically finds destination center');
+$driver=user('rider','processdriver');DB::table('users')->where('id',$driver)->update(['company_id'=>$company,'courier_type'=>'driver','vehicle'=>'6-wheel truck','online'=>1,'last_seen_at'=>now()]);
+$transfer->offer(requestFor(['rider_id'=>$driver]),$parcel->id);$job=DB::table('assignments')->where('parcel_id',$parcel->id)->where('kind','transfer')->first();ok(DB::table('orders')->find($orderId)->status==='TRANSFER_OFFERED','Ecommerce order follows transfer offer');
+loginAs($driver);$req=requestFor();$html=$controller->assignments()->render();ok(str_contains($html,$parcel->tracking_code),'New jobs shows offered transfer without scanning');Dispatch::accept($job->id,$driver);$req=requestFor(['tab'=>'progress']);$html=$controller->assignments()->render();ok(str_contains($html,'Depart for destination sorting center'),'In progress shows next transfer action');$transfer->depart($parcel->id);ok(DB::table('orders')->find($orderId)->status==='IN_TRANSIT_CENTER','Ecommerce order follows driver departure');
+$transfer->handover(requestFor(['confirm_handover'=>1]),$parcel->id);
+loginAs($destCompany);requestFor(['confirm_receipt'=>1]);$html=$transfer->index()->render();ok(str_contains($html,'Confirm parcel received'),'Destination center sees incoming receipt action');$response=$transfer->receive($parcel->id);ok(str_contains($response->getTargetUrl(),'/center/delivery'),'Receiving transfer opens local Deliveries');
+$fresh=DB::table('parcels')->find($parcel->id);ok($fresh->center_id===$destCenter&&DB::table('orders')->find($orderId)->status==='AT_SORTING_CENTER','Shared order and parcel move to destination center together');
+$html=$controller->deliveries()->render();ok(str_contains($html,$parcel->tracking_code)&&str_contains($html,'Lahug delivery'),'Destination delivery queue matches local buyer area');$controller->assignDelivery(requestFor(['rider_id'=>$destRider]),$parcel->id);ok(DB::table('orders')->find($orderId)->status==='ASSIGNED_TO_RIDER','Ecommerce order follows local delivery assignment');
+loginAs($company);requestFor();$overview=(new ProcessController())->overview()->render();ok(str_contains($overview,'Pickups')&&str_contains($overview,'Transfers')&&str_contains($overview,'Deliveries'),'Overview explains three-step process');
+$history=(new ProcessController())->history()->render();$closed=DB::table('parcels')->find($pid);ok(str_contains($history,$closed->tracking_code),'Closed parcel appears in History');$active=$controller->deliveries()->render();ok(!str_contains($active,$closed->tracking_code),'Completed history does not appear in active deliveries');
+$links=(new App\Http\Controllers\CommonController())->links();ok(array_keys($links)===['Pickups','Transfers','Deliveries','History','Setup'],'Sorting center has concise operational navigation');
+// Source no longer sees parcel in outgoing after destination receipt.
+$html=$transfer->index()->render();ok(!str_contains($html,$parcel->tracking_code),'Transferred parcel leaves origin work queue');
+echo 'PASS: '.($n-$before)." process optimization and cross-municipality integration checks.\n";

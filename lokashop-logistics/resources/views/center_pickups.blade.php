@@ -12,7 +12,7 @@
         <div class="row-item">
           <span class="ico"><x-icon name="box"/></span>
           <div class="info">
-            <b>{{ $x->tracking_code }}</b>
+            <b>{{ $x->tracking_code }} · Order #{{$x->order_id}}</b>
             <small>Pickup: {{ $origins[$x->id]->barangay ?? '' }}, {{ $origins[$x->id]->city ?? '' }} &middot; Destination: {{ $x->city }}, {{ $x->province }}</small>
           </div>
           <x-badge :status="$x->status" />
@@ -24,7 +24,7 @@
               <button class="sm" @disabled($eligible[$x->id]->isEmpty())><x-icon name="check" size="15"/> Assign pickup rider</button>
             </form>
             @else
-              <small>Rider #{{$x->rider_id}} · {{$x->parcel_status==='PICKED_UP'?'Collected; returning to center':ucfirst($x->status)}}@if($x->status==='offered') · Accept before {{\App\Services\PickupRequests::deadline($x)->format('M j g:i A')}}@endif</small>
+              <small>Rider #{{$x->rider_id}} · {{$x->parcel_status==='PICKED_UP'?'Next: rider returns parcel to center':($x->status==='accepted'?'Next: rider collects and scans parcel':'Next: rider accepts pickup')}}@if($x->status==='offered') · Accept before {{\App\Services\PickupRequests::deadline($x)->format('M j g:i A')}}@endif</small>
             @endif
           </div>
         </div>

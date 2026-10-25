@@ -17,6 +17,8 @@ $m4=require __DIR__.'/../database/migrations/2026_10_15_000004_usability_and_ter
 foreach(glob(__DIR__.'/../database/migrations/2026_10_16_*.php') as $file){$new=require $file;$new->up();}
 $latest=require __DIR__.'/../database/migrations/2026_10_23_000001_municipal_pickup_and_commission.php';$latest->up();
 $cycleMigration=require __DIR__.'/../database/migrations/2026_10_23_000002_pickup_acceptance_window.php';$cycleMigration->up();
+$bulkMigration=require __DIR__.'/../database/migrations/2026_10_24_000001_bulk_driver_trips.php';$bulkMigration->up();$bulkMigration->up();
+$handoverMigration=require __DIR__.'/../database/migrations/2026_10_25_000001_transport_handover_confirmation.php';$handoverMigration->up();$handoverMigration->up();
 $n=0;function ok($x,$label){global $n;if(!$x)throw new RuntimeException('FAIL: '.$label);$n++;}
 function requestFor(array $data=[],array $files=[]):Request{global $app;$r=Request::create('/test','POST',$data,[], $files,['HTTP_ACCEPT'=>'application/json']);$r->setLaravelSession($app['session']->driver());$r->setUserResolver(fn()=>Auth::user());$app->instance('request',$r);return $r;}
 function user(string $role,string $name){$id=DB::table('users')->insertGetId(['name'=>$name,'email'=>$name.'@example.test','password'=>Hash::make('Test@1234'),'role'=>$role,'approval_status'=>'approved','active'=>1,'last_seen_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);return $id;}
@@ -66,7 +68,7 @@ if(config('app.site_kind')==='ecommerce'){
  // Public tracking must not render buyer address or phone.
  Auth::logout();$html=(new \App\Http\Controllers\CommonController())->track(DB::table('parcels')->find($pid)->tracking_code)->render();ok(!str_contains($html,'Private Street')&&!str_contains($html,'09171234567'),'Public tracking conceals private details');
  loginAs($seller);$report=new \App\Http\Controllers\ReportController();ok(strlen($report->index(requestFor())->render())>100,'Sales report renders');
- $xr=requestFor(['format'=>'xlsx']);$file=$report->index($xr);$zip=new ZipArchive();ok($zip->open($file->getFile()->getPathname())===true,'XLSX export is a readable ZIP');ok($zip->locateName('xl/worksheets/sheet1.xml')!==false,'XLSX export contains worksheet');$zip->close();@unlink($file->getFile()->getPathname());
+ $xr=requestFor(['format'=>'pdf']);$file=$report->index($xr);ok($file->headers->get('Content-Type')==='application/pdf','Report exports PDF');ok(str_starts_with($file->getContent(),'%PDF-1.4'),'PDF export contains PDF document');
 }else{
  $controller=new \App\Http\Controllers\OperationsController();
  loginAs($company);foreach(['riders','rates','cod','tracking','returns','overview'] as $module){ok(strlen($controller->panel(requestFor(),$module)->render())>100,'Rendered company '.$module);}

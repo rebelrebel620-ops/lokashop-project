@@ -43,3 +43,12 @@ Route::middleware('rider.api')->prefix('rider')->group(function(){
  Route::get('/assignments/{id}',[$m,'detail'])->whereNumber('id');
  Route::get('/assignments/{id}/proof',[$m,'proof'])->whereNumber('id');
 });
+
+Route::middleware('rider.api')->prefix('rider')->group(function(){
+ $t=\App\Http\Controllers\DriverTripController::class;
+ Route::get('/trips',[$t,'index']);Route::get('/trips/{id}',[$t,'show'])->whereNumber('id');
+ foreach(['accept','decline','depart'] as $action)Route::post('/trips/{id}/'.$action,[$t,$action])->whereNumber('id');
+});
+
+Route::middleware('rider.api')->post('/rider/trip-stops/{id}/handover',[\App\Http\Controllers\DriverTripController::class,'handover']);
+Route::middleware('rider.api')->post('/rider/transfers/{id}/handover',[\App\Http\Controllers\TransferController::class,'handover']);

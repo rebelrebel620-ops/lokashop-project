@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\DB;
 class Dispatch {
  public static function accept(int $id,int $rider):void {
   $candidate=DB::table('assignments')->where('id',$id)->where('rider_id',$rider)->first();
+  if($candidate&&$candidate->trip_id){BulkTrips::accept($candidate->trip_id,$rider);return;}
   if($candidate && $candidate->kind==='pickup')PickupRequests::refresh($candidate->parcel_id);
   if($candidate && $candidate->kind==='delivery')DeliveryOffers::refresh($candidate->parcel_id);
   DB::transaction(function()use($id,$rider){
@@ -13,7 +14,7 @@ class Dispatch {
    if($a->status!=='offered'||($a->expires_at&&now()->gte($a->expires_at)))Support::fail('assignment','This offer has expired or is no longer available.');
    if(!$u->active||!$u->online||$u->approval_status!=='approved'||!$u->last_seen_at||now()->diffInMinutes($u->last_seen_at,true)>=30)Support::fail('online','Go Online to accept jobs.');
    $center=DB::table('parcels')->where('id',$a->parcel_id)->value('center_id');$company=DB::table('sorting_centers')->where('id',$center)->value('user_id');abort_unless($u->company_id==$company,403);
-   $jobs=DB::table('assignments')->where('rider_id',$rider)->where('status','accepted')->count();if($jobs>=3)Support::fail('assignment','You already have 3 active jobs.');
+   $jobs=BulkTrips::workload($rider,['accepted']);if($jobs>=3)Support::fail('assignment','You already have 3 active jobs.');
    DB::table('assignments')->where('id',$id)->update(['status'=>'accepted','expires_at'=>$a->kind==='pickup'?null:$a->expires_at,'updated_at'=>now()]);
   });
  }

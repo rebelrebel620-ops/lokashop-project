@@ -3,6 +3,7 @@
 @section('panel')
 <link rel="stylesheet" href="{{ asset('css/courier-delivery.css') }}">
 <div class="page-head"><div><h1>Courier assignments</h1><p>New assignments appear here automatically. Accept or decline pickup offers within 3 hours.</p></div></div>
+<nav class="courier-buttons" aria-label="Job stages">@foreach(['new'=>'New jobs','progress'=>'In progress','completed'=>'Completed'] as $key=>$label)<a class="btn {{$tab===$key?'':'alt'}}" href="/rider/assignments?tab={{$key}}" @if($tab===$key) aria-current="page" @endif>{{$label}}</a>@endforeach</nav>
 <section class="panel-card courier-scan" id="assignment-scanner" hidden>
  <h2>Scan parcel QR</h2><p>Use the label printed by the seller. Scanning identifies your assignment; it does not mark a parcel delivered.</p>
  <div class="courier-buttons"><button type="button" id="start-scan">Open camera scanner</button><button type="button" id="stop-scan" hidden>Stop camera</button><label class="btn" for="qr-photo">Scan QR from photo</label><input id="qr-photo" type="file" accept="image/*" hidden></div>
@@ -36,7 +37,8 @@
   @endif
   @if($a->kind==='pickup' && $a->parcel_status==='PICKED_UP')<p>Parcel collected. Return it to your sorting center, then complete pickup.</p><form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<button name="status" value="AT_SORTING_CENTER">Complete pickup — returned to center</button></form>@endif
   @if($a->kind==='transfer' && $a->parcel_status==='TRANSFER_OFFERED')<form method="post" action="/rider/transfers/{{$a->parcel_id}}/depart">@csrf<button>Depart for destination sorting center</button></form>@endif
-  @if($a->kind==='transfer' && $a->parcel_status==='IN_TRANSIT_CENTER')<p>Drive to the destination sorting center. Its staff must confirm receipt.</p>@endif
+  @if($a->kind==='transfer' && $a->parcel_status==='IN_TRANSIT_CENTER')@if(!$a->handed_over_at)<form method="post" action="/rider/transfers/{{$a->parcel_id}}/handover">@csrf<label class="acknowledge"><input type="checkbox" name="confirm_handover" value="1" required> I handed this parcel to the destination center.</label><button>Confirm handover at destination</button></form>@else<p class="handover-state waiting">Handover confirmed. Waiting for destination staff to confirm receipt.</p>@endif
+@endif
   @if($a->kind==='pickup' && $a->parcel_status==='READY_FOR_PICKUP')
   <form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<input type="hidden" name="status" value="PICKED_UP"><label>Scanned label or printed tracking code<input name="scanned_code" value="{{$scanValue}}" required maxlength="2000" placeholder="Scan above, or type the label code"></label><button>Confirm pickup from seller</button></form>
   @endif
@@ -62,7 +64,7 @@
  @if($a->status==='completed' && $a->kind==='pickup')<p class="notice">Pickup complete. Parcel returned to sorting center.</p>@endif
  @if($a->status==='completed' && $a->kind==='delivery')<p class="notice">Delivery recorded. The buyer can now view the proof on My orders.</p>@endif
 </article>
-@empty<div class="panel-card empty">No assignments yet. Go Online and ask your sorting center to assign a parcel.</div>@endforelse
+@empty<div class="panel-card empty">No {{strtolower(['new'=>'new jobs','progress'=>'jobs in progress','completed'=>'completed jobs'][$tab])}}. @if($tab==='new')Go Online to receive jobs from your sorting center.@endif</div>@endforelse
 {{ $assignments->links('components.pagination') }}
 <script src="{{asset('js/vendor/jsQR.js')}}" defer></script>
 <script src="{{asset('js/courier-delivery.js')}}" defer></script>

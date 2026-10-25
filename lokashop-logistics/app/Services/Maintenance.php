@@ -3,6 +3,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 class Maintenance {
  public static function run():void {
+  BulkTrips::refresh();
   PickupRequests::refresh();
   DeliveryOffers::refresh();
   foreach(DB::table('promotions')->where('type','flash')->where('active',1)->where('reminder_sent',0)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $promo){DB::transaction(function()use($promo){$locked=DB::table('promotions')->where('id',$promo->id)->lockForUpdate()->first();if($locked->reminder_sent)return;$ids=DB::table('wishlists')->where('product_id',$promo->product_id)->pluck('buyer_id')->merge(DB::table('store_follows')->where('seller_id',$promo->seller_id)->pluck('buyer_id'))->unique()->all();Support::notify($ids,'Flash sale started for product #'.$promo->product_id);DB::table('promotions')->where('id',$promo->id)->update(['reminder_sent'=>1]);});}

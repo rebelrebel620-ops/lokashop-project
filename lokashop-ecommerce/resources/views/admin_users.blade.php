@@ -14,7 +14,7 @@
 </div>
 <div class="table-card" style="overflow-x:auto">
  <table>
-  <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Email verification</th><th>Approval</th><th>Status</th><th>Created at</th><th>Account action</th></tr></thead>
+  <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Email verification</th><th>Approval</th><th>Status</th><th>Created at</th><th>Profile</th><th>Account management</th></tr></thead>
   <tbody>
    @forelse($users as $u)
    <tr>
@@ -22,20 +22,19 @@
     <td><span class="badge blue">{{ucfirst($u->role)}}</span></td>
     <td>@if($u->email_verified_at)<span class="badge green">Verified</span>@else<span class="badge orange">Unverified</span>@endif</td>
     <td>@if($u->role==='seller')@if($u->approval_status==='unverified')<span class="badge orange">Awaiting email verification</span>@else<span class="badge {{$u->approval_status==='approved'?'green':($u->approval_status==='pending'?'orange':'gray')}}">{{ucfirst($u->approval_status)}}</span>@endif @else<span class="badge gray">Not required</span>@endif</td>
-    <td><span class="badge {{$u->active?'green':'gray'}}">{{ucfirst($u->account_status)}}</span></td><td>{{$u->created_at}}</td><td>@if($u->account_status==='banned')Permanently banned @else<form method="post" action="/admin/users/{{$u->id}}/status">@csrf
-<select name="status" aria-label="Account action">@foreach(['active'=>'Active/Restored','suspended'=>'Suspend','banned'=>'Banned','archived'=>'Archive'] as $value=>$label)<option value="{{$value}}" @selected(($u->account_status??'active')===$value)>{{$label}}</option>@endforeach</select>
-<input name="reason" required minlength="5" maxlength="300" placeholder="Reason for change"><button class="btn sm">Save status</button></form>@endif</td>
+    <td><span class="badge {{$u->active?'green':'gray'}}">{{ucfirst($u->account_status)}}</span></td><td>{{$u->created_at}}</td><td><a class="admin-view-profile" href="{{url('/admin/users/'.$u->id).(request()->query()?'?'.http_build_query(request()->only(['search','role','state','approval','page'])):'')}}" aria-label="View profile for {{$u->name}}">View profile</a></td><td>@include('admin-account-action')</td>
    </tr>
    @if($u->role==='seller')
    @php $legacyStore=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$u->id)->first(); @endphp
    @if($legacyStore&&!in_array($legacyStore->category,config('registration.categories'),true))
-   <tr><td colspan="9"><form method="post" action="/admin/users/{{$u->id}}/initial-category">@csrf<label>Assign permanent category for legacy store {{$legacyStore->name}} (previous: {{$legacyStore->category}})<select name="category" required><option value="">Choose carefully — permanent</option>@foreach(config('registration.categories') as $main)<option>{{$main}}</option>@endforeach</select></label><button class="btn">Assign main category</button></form></td></tr>
+   <tr><td colspan="10"><form method="post" action="/admin/users/{{$u->id}}/initial-category">@csrf<label>Assign permanent category for legacy store {{$legacyStore->name}} (previous: {{$legacyStore->category}})<select name="category" required><option value="">Choose carefully — permanent</option>@foreach(config('registration.categories') as $main)<option>{{$main}}</option>@endforeach</select></label><button class="btn">Assign main category</button></form></td></tr>
    @endif @endif
    @empty
-   <tr><td colspan="8" class="empty">No accounts match your filters. Try another name or reset the filters.</td></tr>
+   <tr><td colspan="10" class="empty">No accounts match your filters. Try another name or reset the filters.</td></tr>
    @endforelse
   </tbody>
  </table>
 </div>
 {{$users->links('components.pagination')}}
+<script src="{{asset('js/admin-account-actions.js')}}" defer></script>
 @endsection

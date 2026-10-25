@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="{{ asset('css/account-cart-fixes.css') }}">
 <link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
+<link rel="stylesheet" href="{{asset('css/avatar-courier-fixes.css')}}">
+<link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
 </head>
 <body>
 @php

@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="{{ asset('css/logistics-operations.css') }}">
 <link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
+<link rel="stylesheet" href="{{asset('css/avatar-courier-fixes.css')}}">
+<link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
 </head>
 <body class="logi">
 @php
@@ -58,7 +60,7 @@
       <a class="icon-btn" href="/profile"><x-icon name="bell" size="18"/><span class="dot"></span></a>
       <details class="user-menu">
         <summary>
-          <span class="av">{{ $initials }}</span>
+          <span class="av">@if(auth()->user()->profile_photo)<img src="{{\App\Services\Support::imageUrl(auth()->user()->profile_photo)}}" alt="Your profile photo">@else{{ $initials }}@endif</span>
           <span class="who"><b>{{ auth()->user()->name }}</b><small>{{ $roleLabel }}</small></span>
         </summary>
         <div class="menu">
@@ -74,10 +76,6 @@
       @if(session('success'))<p class="notice">{{ session('success') }}</p>@endif
       @if($errors->any())
         <div class="error">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>
-      @endif
-
-      @if(auth()->user()->role === 'rider' && request()->is('ops/availability'))
-        @include('courier-availability')
       @endif
 
       @hasSection('panel')
