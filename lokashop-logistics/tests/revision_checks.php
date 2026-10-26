@@ -49,7 +49,7 @@ if(config('app.site_kind')==='logistics'){
  $transfer->offer(requestFor(['rider_id'=>$driver]),$parcelId);ok(DB::table('parcels')->find($parcelId)->destination_center_id===$destCenter,'Transfer selects center serving buyer municipality');
  loginAs($driver);$offer=DB::table('assignments')->where('parcel_id',$parcelId)->where('kind','transfer')->where('status','offered')->first();Dispatch::accept($offer->id,$driver);$transfer->depart($parcelId);ok(DB::table('parcels')->find($parcelId)->status==='IN_TRANSIT_CENTER','Accepted driver can depart source center');
  // A driver cannot confirm center receipt through the staff endpoint.
- try{$transfer->receive($parcelId);throw new RuntimeException('Driver received parcel at center');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){ok($e->getStatusCode()===403,'Only destination center staff can confirm receipt');}
+ $transfer->handover(requestFor(['confirm_handover'=>1]),$parcelId);requestFor(['confirm_receipt'=>1]);try{$transfer->receive($parcelId);throw new RuntimeException('Driver received parcel at center');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){ok($e->getStatusCode()===403,'Only destination center staff can confirm receipt');}
  loginAs($destUser);$transfer->receive($parcelId);$received=DB::table('parcels')->find($parcelId);ok($received->center_id===$destCenter&&$received->status==='AT_SORTING_CENTER','Destination receipt changes center and restores sorting stage');
  ok(DB::table('assignments')->where('id',$offer->id)->value('status')==='completed','Center receipt completes driver assignment once');
  loginAs($company);ok(strlen($transfer->index()->render())>100,'Transfer page renders');

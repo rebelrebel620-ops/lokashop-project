@@ -17,7 +17,7 @@
       <form method="post" enctype="multipart/form-data" action="/seller/products/{{$p->id}}" class="inline-form">@csrf<input type="hidden" name="_request_key" value="{{(string)\Illuminate\Support\Str::uuid()}}">
        <input name="name" value="{{$p->name}}" required>
        <input name="price" type="number" step="0.01" value="{{$p->price}}" required>
-       <input name="stock" type="number" value="{{$p->stock}}" min="0" required>
+       <input type="hidden" name="original_stock" value="{{$p->stock}}"><input name="stock" type="number" value="{{$p->stock}}" min="0" data-stock-product="{{$p->id}}" required><small data-stock-label="{{$p->id}}">{{$p->stock}} available</small>
        <input name="discount_percent" type="number" step="0.01" value="{{$p->discount_percent}}" required>
        <select name="category_id" required><option value="" disabled @selected(!$categories->contains('id',$p->category_id))>Choose subcategory</option>@foreach($categories as $category)<option value="{{$category->id}}" @selected($category->id===$p->category_id)>{{$category->name}}</option>@endforeach</select><textarea name="description" required>{{$p->description}}</textarea><input name="weight" type="number" step="0.001" value="{{$p->weight}}" required><input type="file" name="images[]" multiple accept=".jpg,.jpeg,.png"><label>Purchase limit<input name="purchase_limit" type="number" min="1" value="{{$p->purchase_limit}}"></label><label><input type="checkbox" name="draft" value="1" @checked($p->draft)> Save as draft</label><button class="btn sm">Update</button><button type="submit" form="remove-product-{{$p->id}}" name="action" value="delete" class="btn sm" style="background:#dc2626;color:white" onclick="return confirm('Remove this product?')">Remove</button>
       </form>
@@ -67,4 +67,18 @@
 @php $form=['label'=>'Update variant / add variant image','action'=>'/tools/variant','fields'=>['id?','product_id:number','name','sku','options','price_adjustment:number','stock:number','image:file?']]; @endphp @include('tool-form')
 @php $form=['label'=>'Remove variant','action'=>'/tools/variant/delete','fields'=>['id:number']]; @endphp @include('tool-form')
 </section>
+<script>
+async function refreshStock(){
+ if(document.hidden)return;
+ try{const response=await fetch('/seller/stock',{headers:{Accept:'application/json'},cache:'no-store'});if(!response.ok)return;
+ for(const product of await response.json()){
+  const input=document.querySelector(`[data-stock-product="${product.id}"]`);if(!input)continue;
+  const original=input.form.querySelector('[name="original_stock"]');
+  document.querySelector(`[data-stock-label="${product.id}"]`).textContent=product.stock+' available';
+  if(document.activeElement!==input&&input.value===original.value){input.value=product.stock;original.value=product.stock;}
+ }
+ }catch(error){/* Next refresh retries after a temporary network failure. */}
+}
+setInterval(refreshStock,15000);window.addEventListener('focus',refreshStock);
+</script>
 @endsection

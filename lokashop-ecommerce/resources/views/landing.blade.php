@@ -22,6 +22,14 @@ body.landing-page::before {
     background: url("{{ asset('images/account-background.webp') }}")
         center / cover no-repeat;
 }
+
+.landing-page .partner-opportunities{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:stretch}
+.landing-page .partner-opportunities>.band{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;padding:32px 24px}
+.landing-page .partner-opportunities>.band h2{margin-top:0}
+.landing-page .partner-opportunities>.band p{flex:1;margin-bottom:20px}
+.landing-page .partner-opportunities>.band .btn{max-width:100%;white-space:normal}
+@media(max-width:600px){.landing-page .partner-opportunities{grid-template-columns:1fr;gap:16px}}
+
 </style>
 @endsection
 
@@ -286,6 +294,7 @@ body.landing-page::before {
     </div>
 </section>
 
+<div class="partner-opportunities">
 <section class="band">
     <h2>Sell your products on LokaShop</h2>
 
@@ -297,4 +306,12 @@ body.landing-page::before {
         Become a seller
     </a>
 </section>
+
+@php $logisticsUrl = config('logistics.url') ?: request()->getScheme().'://'.request()->getHost().':8001'; @endphp
+<section class="band logistics-partner-band">
+    <h2>Deliver with LokaShop Logistics</h2>
+    <p>Visit our logistics website to join a sorting center or manage your courier work.</p>
+    <a class="btn lime lg" href="{{rtrim($logisticsUrl,'/')}}" target="_blank" rel="noopener">Visit logistics website &rarr;</a>
+</section>
+</div>
 @endsection

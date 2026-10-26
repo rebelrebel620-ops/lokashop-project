@@ -7,32 +7,39 @@ use Illuminate\Support\Facades\DB;
 
 class LogisticsAdminController extends Controller
 {
+    public function commissions() {
+        abort_unless(auth()->user()->role==='logistics_admin',403);
+        $records=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->whereIn('o.status',['DELIVERED','COMPLETED'])->whereNull('o.refunded_at')->select('o.id','p.tracking_code','o.status','o.shipping_fee','o.shipping_commission',DB::raw('(o.shipping_fee-o.shipping_commission) as delivery_rider_earnings'))->orderByDesc('o.id')->paginate(30);
+        return view('list',['title'=>'Shipping commission (20%) — successful deliveries','links'=>app(CommonController::class)->links(),'records'=>$records]);
+    }
+
     private function accounts()
     {
         return DB::table('users')->whereIn('role', ['sorting_center', 'rider']);
     }
 
+    private function applications() {
+        $u=auth()->user();
+        abort_unless(in_array($u->role,['logistics_admin','sorting_center']),403);
+        $q=DB::table('users');
+        if($u->role==='logistics_admin')return $q->where('role','sorting_center');
+        $center=DB::table('sorting_centers')->where('user_id',$u->id)->first();
+        return $q->where('role','rider')->where('company_id',$u->id)->whereIn('id',DB::table('addresses')->where('city',$center->city)->where('province',$center->province)->select('user_id'));
+    }
+
     public function approvals()
     {
-        $users = $this->accounts()->where('approval_status', 'pending')->orderBy('id')->paginate(12)->withQueryString();
+        $users = $this->applications()->where('approval_status', 'pending')->orderBy('id')->paginate(12)->withQueryString();
         return view('admin_approvals', [
             'links' => app(CommonController::class)->links(), 'users' => $users,
+            'approvalBase' => auth()->user()->role==='sorting_center'?'/center':'/admin',
             'docs' => DB::table('registration_documents')->whereIn('user_id', $users->pluck('id'))->get()->groupBy('user_id'),
         ]);
     }
 
     public function approve(Request $request, int $id)
     {
-        $values = $request->validate(['decision' => 'required|in:approved,rejected']);
-        DB::transaction(function () use ($id, $values) {
-            abort_unless($this->accounts()->where('id', $id)->where('approval_status', 'pending')
-                ->update(['approval_status' => $values['decision'], 'updated_at' => now()]), 422);
-            DB::table('notifications')->insert([
-                'user_id' => $id, 'body' => 'Your registration is '.$values['decision'],
-                'created_at' => now(), 'updated_at' => now(),
-            ]);
-        });
-        return back()->with('success', 'Decision saved.');
+        return app(ReviewController::class)->approve($request,$id);
     }
 
     public function document(int $id)
@@ -40,6 +47,8 @@ class LogisticsAdminController extends Controller
         $document = DB::table('registration_documents as d')->join('users as u', 'u.id', '=', 'd.user_id')
             ->where('d.id', $id)->whereIn('u.role', ['sorting_center', 'rider'])->select('d.*')->first();
         abort_unless($document, 404);
+        $user=DB::table('users')->find($document->user_id);
+        abort_unless(auth()->user()->role==='logistics_admin' ? $user->role==='sorting_center' : ($user->role==='rider' && $user->company_id==auth()->id() && \App\Services\Municipalities::matches(\App\Services\Municipalities::address($user->id),DB::table('sorting_centers')->where('user_id',auth()->id())->first())),403);
         return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($document->path));
     }
 

@@ -5,10 +5,11 @@ Route::get('/',[L::class,'landing']);Route::get('/track',[L::class,'track']);
 Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login']);Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register']);
 Route::post('/logout',[C::class,'logout'])->middleware('auth');
 Route::middleware(['auth','role:sorting_center|rider|logistics_admin'])->group(function(){Route::get('/dashboard',[C::class,'dashboard']);Route::get('/profile',[C::class,'profile']);Route::post('/profile',[C::class,'updateProfile']);Route::get('/messages',[C::class,'messages']);Route::post('/messages',[C::class,'sendMessage']);});
-Route::middleware(['auth','role:sorting_center'])->prefix('center')->group(function(){Route::get('/areas',[L::class,'areas']);Route::post('/areas',[L::class,'area']);Route::get('/pickups',[L::class,'pickups']);Route::post('/pickups/{id}/verify',[L::class,'verifyPickup']);Route::get('/parcels',[L::class,'parcels']);Route::post('/parcels/{id}/receive',[L::class,'receive']);Route::post('/parcels/{id}/sort',[L::class,'sort']);Route::post('/parcels/{id}/assign',[L::class,'assign']);Route::post('/parcels/{id}/return',[L::class,'returned']);Route::get('/reports',[L::class,'report']);});
+Route::middleware(['auth','role:sorting_center'])->prefix('center')->group(function(){Route::get('/approvals',[A::class,'approvals']);Route::get('/documents/{id}',[A::class,'document']);Route::post('/approvals/{id}',[\App\Http\Controllers\ReviewController::class,'approve']);Route::get('/areas',[L::class,'areas']);Route::post('/areas',[L::class,'area']);Route::get('/pickups',[L::class,'pickups']);Route::get('/delivery',[L::class,'deliveries']);Route::get('/history',[\App\Http\Controllers\ProcessController::class,'history']);Route::get('/setup',[\App\Http\Controllers\ProcessController::class,'setup']);Route::post('/delivery/{id}/assign',[L::class,'assignDelivery']);Route::post('/pickups/{id}/verify',[L::class,'verifyPickup']);Route::get('/parcels',[L::class,'parcels']);Route::post('/parcels/{id}/receive',[L::class,'receive']);Route::post('/parcels/{id}/sort',[L::class,'sort']);Route::post('/parcels/{id}/assign',[L::class,'assign']);Route::post('/parcels/{id}/return',[L::class,'returned']);Route::get('/reports',[L::class,'report']);});
 Route::middleware(['auth','role:rider'])->prefix('rider')->group(function(){Route::get('/assignments',[L::class,'assignments']);Route::post('/assignments/{id}/accept',[L::class,'accept']);Route::post('/parcels/{id}/status',[L::class,'riderStep']);Route::get('/earnings',[L::class,'earnings']);});
 
 Route::middleware(['auth','role:logistics_admin'])->prefix('admin')->group(function(){
+ Route::get('/commissions',[A::class,'commissions']);
  Route::get('/approvals',[A::class,'approvals']);
  Route::get('/documents/{id}',[A::class,'document']);
  Route::post('/approvals/{id}',[A::class,'approve']);
@@ -69,3 +70,20 @@ Route::get('/media/{path}',function(string $path){
 Route::get('/register/courier',[\App\Http\Controllers\PublicCourierController::class,'form']);
 
 Route::middleware(['auth','role:rider'])->post('/rider/scan',[L::class,'scan']);
+
+Route::middleware(['auth','role:sorting_center'])->group(function(){
+ Route::get('/center/trips/history',[\App\Http\Controllers\DriverTripController::class,'history']);
+ Route::post('/center/trips',[\App\Http\Controllers\DriverTripController::class,'create']);
+ Route::post('/center/trips/{id}/cancel',[\App\Http\Controllers\DriverTripController::class,'cancel']);
+ Route::post('/center/trip-stops/{id}/receive',[\App\Http\Controllers\DriverTripController::class,'receive']);
+});
+Route::middleware(['auth','role:rider'])->group(function(){
+ Route::get('/driver/trips',[\App\Http\Controllers\DriverTripController::class,'index']);
+ foreach(['accept','decline','depart'] as $action)Route::post('/driver/trips/{id}/'.$action,[\App\Http\Controllers\DriverTripController::class,$action]);
+});
+
+Route::middleware(['auth','role:rider'])->post('/driver/trip-stops/{id}/handover',[\App\Http\Controllers\DriverTripController::class,'handover']);
+Route::middleware(['auth','role:rider'])->post('/rider/transfers/{id}/handover',[\App\Http\Controllers\TransferController::class,'handover']);
+
+// Read-only user profiles are restricted to this website's administrator.
+Route::middleware(['auth','role:logistics_admin'])->get('/admin/users/{id}',[\App\Http\Controllers\AdminUserDetailsController::class,'show'])->whereNumber('id');

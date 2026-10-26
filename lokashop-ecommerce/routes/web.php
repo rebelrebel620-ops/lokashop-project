@@ -103,3 +103,8 @@ Route::middleware(['auth','role:admin'])->post('/admin/users/{id}/initial-catego
 });
 
 Route::middleware(['auth','role:seller'])->get('/seller/address',fn()=>view('seller-address',['links'=>app(C::class)->links()]));
+
+Route::middleware(['auth','role:seller'])->get('/seller/stock',[\App\Http\Controllers\SellerController::class,'stock']);
+
+// Read-only user profiles are restricted to this website's administrator.
+Route::middleware(['auth','role:admin'])->get('/admin/users/{id}',[\App\Http\Controllers\AdminUserDetailsController::class,'show'])->whereNumber('id');

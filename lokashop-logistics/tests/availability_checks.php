@@ -7,9 +7,9 @@ loginAs($rider);DB::table('users')->where('id',$rider)->update(['online'=>0]);
 $controller->availability(requestFor(['online'=>1]));
 ok((int)DB::table('users')->find($rider)->online===1,'Go Active persists online state');
 ok(DB::table('users')->find($rider)->last_seen_at!==null,'Go Active updates availability heartbeat');
-loginAs($rider);$html=view('courier-availability')->render();ok(str_contains($html,'Active / Online')&&str_contains($html,'name="online" value="0"'),'Active UI offers explicit Not active action');
+loginAs($rider);$html=view('courier-availability')->render();ok(str_contains($html,'Online — ready for jobs')&&str_contains($html,'name="online" value="0"'),'Active UI offers explicit Not active action');
 $controller->availability(requestFor(['online'=>0]));ok((int)DB::table('users')->find($rider)->online===0,'Go Not active persists offline state');
-loginAs($rider);$html=view('courier-availability')->render();ok(str_contains($html,'Not active / Offline')&&str_contains($html,'Go Active'),'Inactive UI offers Active action');
+loginAs($rider);$html=view('courier-availability')->render();ok(str_contains($html,'Offline — not receiving jobs')&&str_contains($html,'Go Online'),'Inactive UI offers Active action');
 ok((int)DB::table('users')->find($rider)->active===1,'Availability does not disable courier account');
 $job=DB::table('assignments')->where('rider_id',$rider)->where('kind','delivery')->first();DB::table('assignments')->where('id',$job->id)->update(['status'=>'accepted']);$controller->availability(requestFor(['online'=>1]));
 try{$controller->availability(requestFor(['online'=>0]));throw new RuntimeException('Offline with accepted job allowed');}catch(ValidationException $e){ok(isset($e->errors()['online']),'Accepted jobs block going Not active');}

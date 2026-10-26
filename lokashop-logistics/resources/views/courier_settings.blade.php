@@ -1,0 +1,18 @@
+@extends('dashboard')
+@section('title','Courier setup')
+@section('panel')
+<div class="setup-heading"><span class="design-eyebrow">{{$isDriver?'DRIVER':'RIDER'}} WORKSPACE</span><h1>Ready for your next {{$isDriver?'trip':'delivery'}}?</h1><p>{{$isDriver?'Transport bulk parcels between sorting centers.':'Collect from local sellers and deliver to buyers in your assigned area.'}}</p></div>
+
+<div class="courier-setup-grid"><section class="design-card">
+@if($module==='availability')
+<h2>Choose when you work</h2><p class="design-hint">Go Online when you are ready to receive jobs. Accepted work must be finished before going Offline.</p>
+@include('courier-availability')
+<details class="setup-details"><summary>Optional · Update my location</summary><p class="design-hint">Use your current coordinates for dispatch. This does not change your registered municipality.</p><form method="post" action="/ops/location">@csrf<div class="design-field-grid"><label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any" required value="{{old('latitude',$user->latitude)}}"></label><label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any" required value="{{old('longitude',$user->longitude)}}"></label></div><button>Save location</button></form></details>
+@else
+<h2>Vehicle and documents</h2><p class="design-hint">{{$isDriver?'Select the truck used for center-to-center transport.':'Select a motorcycle or tricycle for local pickup and delivery.'}}</p>
+<form method="post" action="/ops/vehicle" enctype="multipart/form-data">@csrf
+<div class="design-field-grid"><label>Vehicle<select name="vehicle" required>@foreach($isDriver?['4-wheel truck','6-wheel truck','8-wheel truck','10-wheel truck']:['motorcycle','tricycle'] as $vehicle)<option value="{{$vehicle}}" @selected(old('vehicle',$user->vehicle)===$vehicle)>{{ucfirst($vehicle)}}</option>@endforeach</select></label><label>Plate number<input name="plate_number" maxlength="20" required value="{{old('plate_number',$user->plate_number)}}"></label><label>Driver's license number<input name="license_number" placeholder="A01-22-123456" required value="{{old('license_number',$user->license_number)}}"><small>Format: A01-22-123456</small></label><label>License valid until<input name="license_expires_at" type="date" required value="{{old('license_expires_at',$user->license_expires_at?\Illuminate\Support\Carbon::parse($user->license_expires_at)->toDateString():'')}}"></label></div>
+<fieldset class="setup-documents"><legend>Replace documents (optional)</legend><p class="design-hint">Leave these empty to keep your existing documents. JPG, PNG or PDF, maximum 5 MB each.</p><label>Government ID<input name="id_document" type="file" accept=".jpg,.jpeg,.png,.pdf"></label><label>Vehicle permit<input name="permit_document" type="file" accept=".jpg,.jpeg,.png,.pdf"></label></fieldset><div class="design-form-footer"><small>Check the information before saving.</small><button>Save vehicle details</button></div></form>
+@endif
+</section><aside class="setup-help design-card"><h2>Your next steps</h2><p><strong>{{$jobs}}</strong> active {{$isDriver?'jobs / trips':'jobs'}}</p><ol>@if($isDriver)<li>Go Online.</li><li>Open Trips and accept a trip.</li><li>Start transport after loading.</li><li>Confirm handover at each destination.</li><li>Wait for each center to confirm receipt.</li>@else<li>Go Online.</li><li>Accept an area assignment.</li><li>Scan or type the parcel code.</li><li>Complete pickup at the center, or complete buyer delivery.</li>@endif</ol><a class="btn" href="{{$isDriver?'/driver/trips':'/rider/assignments'}}">Open {{$isDriver?'Trips':'Assignments'}} →</a></aside></div>
+@endsection

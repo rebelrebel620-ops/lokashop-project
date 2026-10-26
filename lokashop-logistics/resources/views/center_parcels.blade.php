@@ -29,7 +29,9 @@
       @forelse($parcels as $p)
         <tr>
           <td class="mono">{{ $p->tracking_code }}</td>
-          <td>{{ $p->city }}, {{ $p->province }}</td>
+          <td>@php $destination=\App\Services\AreaRouting::address($p);$matchedAreas=\App\Services\AreaRouting::areas($p); @endphp
+           {{$destination->barangay ?? ''}}, {{$destination->city ?? ''}}, {{$destination->province ?? ''}}
+           <br><small>Area: {{$matchedAreas->pluck('name')->implode(', ') ?: 'No local match — check coverage or center transfer'}}</small></td>
           <td><x-badge :status="$p->status" /></td>
           <td>
             @if($p->status==='PICKED_UP')
@@ -37,22 +39,8 @@
                 <button class="sm"><x-icon name="scan" size="15"/> Scan received</button>
               </form>
             @endif
-            @if($p->status==='AT_SORTING_CENTER')
-              <form class="inline" method="post" action="/center/parcels/{{ $p->id }}/sort" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">@csrf
-                <select name="area_id" style="width:auto;margin:0;padding:8px 10px">
-                  @foreach($areas as $area)<option value="{{ $area->id }}">{{ $area->name }} — {{ $area->city }}</option>@endforeach
-                </select>
-                <button class="sm"><x-icon name="box" size="15"/> Sort parcel</button>
-              </form>
-            @endif
-            @if(in_array($p->status,['SORTED','DELIVERY_FAILED']))
-              <form class="inline" method="post" action="/center/parcels/{{ $p->id }}/assign">@csrf
-                <button class="sm"><x-icon name="user" size="15"/> Assign rider</button>
-              </form>
-            @endif
-            @if($p->status==='ASSIGNED_TO_RIDER')
-              @php $liveDelivery=\Illuminate\Support\Facades\DB::table('assignments')->where('parcel_id',$p->id)->where('kind','delivery')->whereIn('status',['offered','accepted'])->exists(); @endphp
-              @if(!$liveDelivery)<form class="inline" method="post" action="/center/parcels/{{$p->id}}/assign">@csrf<button class="sm">Resend delivery offer</button></form>@else<small>Awaiting rider acceptance or departure.</small>@endif
+            @if(in_array($p->status,['AT_SORTING_CENTER','SORTED','DELIVERY_FAILED','ASSIGNED_TO_RIDER','OUT_FOR_DELIVERY']))
+              <a class="btn sm" href="/center/delivery">Open Delivery</a>
             @endif
             @if($p->status==='DELIVERY_FAILED')
               <form class="inline" method="post" action="/center/parcels/{{ $p->id }}/return">@csrf

@@ -23,7 +23,7 @@ if(config('app.site_kind')==='ecommerce') {
  ok(App\Services\ParcelCode::parse('https://example.test/track?code=LKS-TEST')==='LKS-TEST','QR query links parse');
  ok(App\Services\ParcelCode::parse('https://example.test/track/LKS-TEST')==='LKS-TEST','Printed QR path links parse');
  ok(App\Services\ParcelCode::parse(' LKS-TEST ')==='LKS-TEST','Printed tracking code fallback parses');
- loginAs($rider);$request=requestFor(['code'=>'https://example.test/track/'.$completedParcel->tracking_code]);$response=$controller->scan($request);ok(str_contains($response->getTargetUrl(),'#assignment-'),'Web QR lookup finds owned assignment');
+ loginAs($rider);try{$controller->scan(requestFor(['code'=>$completedParcel->tracking_code]));throw new RuntimeException('Completed job scanned');}catch(ValidationException $e){ok(isset($e->errors()['code']),'Scan only applies to accepted assignments');}
  $stranger=user('rider','qrstranger');loginAs($stranger);try{$controller->scan(requestFor(['code'=>$completedParcel->tracking_code]));throw new RuntimeException('Unassigned courier lookup allowed');}catch(ValidationException $ex){ok(isset($ex->errors()['code']),'Unassigned courier cannot scan another job');}
  loginAs($buyer);Cart::add(requestFor(['product_id'=>$p,'quantity'=>1]));$ids=Commerce::checkout(requestFor(['address_id'=>$address,'payment_method'=>'cod','_request_key'=>(string)Illuminate\Support\Str::uuid()]));$testOrder=$ids[0];$parcel=DB::table('parcels')->where('order_id',$testOrder)->first();
  loginAs($seller);Workflow::move($parcel->id,'CONFIRMED',$seller);Workflow::move($parcel->id,'PREPARING',$seller);DB::table('parcels')->where('id',$parcel->id)->update(['center_id'=>$center]);
@@ -41,7 +41,7 @@ if(config('app.site_kind')==='ecommerce') {
  $data=['status'=>'DELIVERED','scanned_code'=>$parcel->tracking_code,'otp'=>'654321','cod_amount'=>$amount];
  try{$controller->riderStep(requestFor($data),$parcel->id);throw new RuntimeException('Missing proof accepted');}catch(ValidationException $ex){ok(isset($ex->errors()['proof']),'Delivery requires proof image');}
  $request=requestFor($data,['proof'=>new UploadedFile($upload,'proof.png','image/png',null,true)]);$controller->riderStep($request,$parcel->id);$result=DB::table('parcels')->find($parcel->id);ok($result->status==='DELIVERED'&&Storage::disk('local')->exists($result->proof_path),'Web delivery stores photo and updates shared order');
- $html=$controller->assignments()->render();ok(str_contains($html,'Scan QR from photo')&&str_contains($html,$parcel->tracking_code),'Courier assignment screen renders scanner and real parcel codes');
+ $request=requestFor(['tab'=>'completed']);$html=$controller->assignments()->render();ok(str_contains($html,'Scan QR from photo')&&str_contains($html,$parcel->tracking_code),'Courier assignment screen renders scanner and real parcel codes');
  loginAs($buyer);Workflow::move($parcel->id,'COMPLETED',$buyer);ok(DB::table('orders')->find($testOrder)->status==='COMPLETED','Buyer can confirm courier delivery');@unlink($upload);
 }
 echo 'PASS: '.($n-$before)." delivery proof / QR integration checks.\n";

@@ -2,7 +2,7 @@
 @section('title','Partner applications')
 @section('panel')
 <div class="page-head">
-  <div><h1>Partner applications</h1><p>Review sorting center and rider registrations.</p></div>
+  <div><h1>Partner applications</h1><p>{{auth()->user()->role==='sorting_center'?'Review rider applications in your municipality.':'Review sorting center applications.'}}</p></div>
 </div>
 
 <div class="grid">
@@ -16,11 +16,11 @@
         </div>
       </div>
       @foreach($docs[$u->id] ?? [] as $d)
-        <a href="/admin/documents/{{ $d->id }}" style="display:flex;align-items:center;gap:6px;font-size:.87rem;margin-bottom:4px">
+        <a href="{{$approvalBase}}/documents/{{ $d->id }}" style="display:flex;align-items:center;gap:6px;font-size:.87rem;margin-bottom:4px">
           <x-icon name="clipboard" size="15"/> View {{ $d->kind }} document
         </a>
       @endforeach
-      <form method="post" action="/admin/approvals/{{ $u->id }}" style="margin-top:10px">
+      <form method="post" action="{{$approvalBase}}/approvals/{{ $u->id }}" style="margin-top:10px">
         @csrf <input name="reason" placeholder="Reason for rejection (10–300 characters)" minlength="10" maxlength="300">
         <button name="decision" value="approved" class="sm"><x-icon name="check" size="15"/> Approve</button>
         <button name="decision" value="rejected" class="sm danger">Reject</button>

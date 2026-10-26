@@ -44,12 +44,15 @@ class RiderApiController extends Controller
 
     public function me(Request $r): JsonResponse
     {
+        \App\Services\BulkTrips::refresh();
+        \App\Services\PickupRequests::refresh();
         $id = $r->user()->id;
         $open = ['offered', 'accepted'];
         $count = fn (string $kind) => DB::table('assignments')->where('rider_id', $id)->where('kind', $kind)->whereIn('status', $open)->count();
 
         return response()->json([
             'rider' => $this->riderJson($r->user()),
+            'trips_endpoint'=>$r->user()->courier_type==='driver'?url('/api/rider/trips'):null,
             'stats' => [
                 'pickups_assigned' => $count('pickup'),
                 'deliveries_in_progress' => $count('delivery'),
@@ -65,9 +68,10 @@ class RiderApiController extends Controller
 
     public function assignments(Request $r): JsonResponse
     {
+        \App\Services\BulkTrips::refresh();
         \App\Services\PickupRequests::refresh();
         \App\Services\DeliveryOffers::refresh();
-        $q = $this->base($r->user()->id);
+        $q = $this->base($r->user()->id)->whereNull('s.trip_id')->whereNotIn('s.status',['expired','declined','reassigned','cancelled']);
         match ($r->query('filter', 'all')) {
             'active' => $q->whereIn('s.status', ['offered', 'accepted']),
             'completed' => $q->where('s.status', 'completed'),
@@ -88,10 +92,11 @@ class RiderApiController extends Controller
     public function status(Request $r, int $id): JsonResponse
     {
         $v = $r->validate([
-            'status' => 'required|in:PICKED_UP,OUT_FOR_DELIVERY,DELIVERED,DELIVERY_FAILED',
+            'status' => 'required|in:PICKED_UP,AT_SORTING_CENTER,OUT_FOR_DELIVERY,DELIVERED,DELIVERY_FAILED',
             'reason' => 'required_if:status,DELIVERY_FAILED|nullable|string|max:2000',
         ]);
 
+        if($v['status']==='PICKED_UP'){$r->validate(['scanned_code'=>'required|string|max:2000']);}
         Workflow::move($id, $v['status'], $r->user()->id, $v['reason'] ?? null);
 
         $row = $this->base($r->user()->id)->where('s.parcel_id', $id)->orderByDesc('s.id')->first();
@@ -118,7 +123,7 @@ class RiderApiController extends Controller
         \App\Services\PickupRequests::refresh($parcel->id);
         \App\Services\DeliveryOffers::refresh($parcel->id);
         $row = $this->base($r->user()->id)
-            ->where('s.parcel_id', $parcel->id)
+            ->where('s.parcel_id', $parcel->id)->where('s.status','accepted')
             ->orderByRaw("s.status in ('offered','accepted') desc")
             ->orderByDesc('s.id')
             ->first();
@@ -143,7 +148,7 @@ class RiderApiController extends Controller
             'total' => (float) (clone $q)->sum('s.earnings'),
             'count' => (clone $q)->count(),
             'data' => $q->orderByDesc('s.updated_at')->orderByDesc('s.id')
-                ->get(['s.id', 's.parcel_id', 's.kind', 's.earnings', 's.updated_at as completed_at', 'p.tracking_code'])
+                ->get(['s.handed_over_at','s.handed_over_by','s.id', 's.parcel_id', 's.kind', 's.earnings', 's.updated_at as completed_at', 'p.tracking_code'])
                 ->map(fn ($e) => [
                     'id' => (int) $e->id,
                     'parcel_id' => (int) $e->parcel_id,
@@ -178,7 +183,7 @@ class RiderApiController extends Controller
             ->leftJoin('payments as pay', 'pay.id', '=', DB::raw('(select max(id) from payments where order_id = o.id)'))
             ->where('s.rider_id', $riderId)
             ->select(
-                's.id', 's.parcel_id', 's.kind', 's.status', 's.earnings', 's.created_at', 's.expires_at',
+                's.handed_over_at','s.handed_over_by','s.id', 's.parcel_id', 's.kind', 's.status', 's.earnings', 's.created_at', 's.expires_at',
                 'p.tracking_code', 'p.status as parcel_status', 'p.failure_reason',
                 'o.id as order_id','o.address_snapshot',
                 'a.recipient', 'a.phone as recipient_phone', 'a.street', 'a.barangay', 'a.city', 'a.province', 'a.postal_code',
@@ -196,7 +201,9 @@ class RiderApiController extends Controller
         }
         if ($r->status !== 'accepted') return [];
 
+        if($r->kind==='transfer'&&$r->parcel_status==='IN_TRANSIT_CENTER'&&!$r->handed_over_at)return [['type'=>'transfer_handover','endpoint'=>'/api/rider/transfers/'.$r->parcel_id.'/handover','label'=>'Confirm handover at destination','requires_confirmation'=>'confirm_handover']];
         if ($r->kind === 'transfer' && $r->parcel_status === 'TRANSFER_OFFERED') return [['type'=>'transfer_depart','endpoint'=>'/api/rider/transfers/'.$r->parcel_id.'/depart','label'=>'Depart for destination sorting center']];
+        if($r->kind==='pickup'&&$r->parcel_status==='PICKED_UP')return [['type'=>'status','status'=>'AT_SORTING_CENTER','label'=>'Complete pickup — returned to center','needs_reason'=>false]];
         if ($r->kind === 'pickup' && $r->parcel_status === 'READY_FOR_PICKUP') {
             return [['type' => 'status', 'status' => 'PICKED_UP', 'label' => 'Confirm pickup from seller', 'needs_reason' => false]];
         }

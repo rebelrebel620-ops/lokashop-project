@@ -10,19 +10,21 @@ class MobileRiderController extends Controller
 {
     public function overview(Request $r)
     {
+        \App\Services\BulkTrips::refresh();
         \App\Services\PickupRequests::refresh();
         \App\Services\DeliveryOffers::refresh();
         $id=auth()->id();
         $q=DB::table('assignments')->where('rider_id',$id);
         return response()->json([
-            'offered'=>(clone $q)->where('status','offered')->count(),
-            'active'=>(clone $q)->where('status','accepted')->count(),
+            'offered'=>\App\Services\BulkTrips::workload($id,['offered']),
+            'active'=>\App\Services\BulkTrips::workload($id,['accepted']),
             'completed'=>(clone $q)->where('status','completed')->count(),
             'today_completed'=>(clone $q)->where('status','completed')->whereDate('updated_at',today())->count(),
             'earnings'=>(float)(clone $q)->where('status','completed')->sum('earnings'),
             'today_earnings'=>(float)(clone $q)->where('status','completed')->whereDate('updated_at',today())->sum('earnings'),
             'cod_unremitted'=>(float)DB::table('cod_collections')->where('rider_id',$id)->whereNull('remittance_id')->sum('amount'),
             'unread'=>DB::table('notifications')->where('user_id',$id)->whereNull('read_at')->count(),
+            'completed_trips'=>DB::table('driver_trips')->where('driver_id',$id)->where('status','completed')->count(),
             'center'=>DB::table('sorting_centers')->where('user_id',auth()->user()->company_id)->first(['name','city','province']),
             'address'=>Municipalities::address($id),
         ]);
