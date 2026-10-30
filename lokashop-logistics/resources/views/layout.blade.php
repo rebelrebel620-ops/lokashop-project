@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="{{ asset('css/logistics-public.css') }}">
 <link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
+@if(session('mobile_workspace'))<link rel="stylesheet" href="{{ asset('css/mobile-workspace.css') }}">@endif
 </head>
 <body class="logi logistics-public @yield('body-class')">
 <header class="m-header">

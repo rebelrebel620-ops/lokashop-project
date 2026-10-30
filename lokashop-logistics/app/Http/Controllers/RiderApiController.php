@@ -212,7 +212,7 @@ class RiderApiController extends Controller
         }
         if ($r->kind === 'delivery' && $r->parcel_status === 'OUT_FOR_DELIVERY') {
             return [
-                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => true, 'needs_cod_amount' => true, 'proof_field' => 'proof'],
+                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => false, 'needs_cod_amount' => true, 'proof_field' => 'proof'],
                 ['type' => 'status', 'status' => 'DELIVERY_FAILED', 'label' => 'Delivery failed', 'needs_reason' => true],
             ];
         }

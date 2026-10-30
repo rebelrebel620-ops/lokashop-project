@@ -87,3 +87,8 @@ Route::middleware(['auth','role:rider'])->post('/rider/transfers/{id}/handover',
 
 // Read-only user profiles are restricted to this website's administrator.
 Route::middleware(['auth','role:logistics_admin'])->get('/admin/users/{id}',[\App\Http\Controllers\AdminUserDetailsController::class,'show'])->whereNumber('id');
+
+// The single-use ticket is the credential; no bearer token is put into a URL.
+Route::post('/mobile/session',[\App\Http\Controllers\MobileWorkspaceController::class,'enter'])
+ ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+ ->middleware('throttle:30,1');

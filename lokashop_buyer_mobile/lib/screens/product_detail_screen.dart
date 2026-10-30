@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
+import '../services/contracts.dart';
 import '../widgets/design.dart';
 import '../widgets/common.dart';
 import '../theme.dart';
 import 'buyer_features.dart';
 import 'login_screen.dart';
+import 'checkout_screen.dart';
 import 'message_thread_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -71,10 +73,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     final p = data!['product'] as Map,
         variations = List.from(data!['variations'] ?? []);
-    final photos = (p['image_urls'] as List? ?? []);
+    final photos = [if (variant?['image'] != null) mediaUrl('${variant!['image']}'), ...(p['image_urls'] as List? ?? [])];
     final price =
         variant?['effective_price'] ?? p['effective_price'] ?? p['price'];
-    final stock = int.tryParse('${variant?['stock'] ?? p['stock']}') ?? 0;
+    final productStock = int.tryParse('${p['stock']}') ?? 0;
+    final variantStock = int.tryParse('${variant?['stock'] ?? p['stock']}') ?? 0;
+    final stock = productStock < variantStock ? productStock : variantStock;
+    final vacation = data!['store_on_vacation'] == true;
     return Scaffold(
       appBar: AppBar(
         title: const Text('A closer look'),
@@ -114,6 +119,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: photos.isEmpty
                   ? AppPhoto(productPhoto(p))
                   : PageView(
+                      key: ValueKey(variant?['id'] ?? 0),
                       children: photos
                           .map((url) => AppPhoto('$url', fit: BoxFit.contain))
                           .toList(),
@@ -130,6 +136,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 fontWeight: FontWeight.w900,
               ),
             ),
+            const SizedBox(height: 12),
+            Row(children: [const Icon(Icons.star_rounded, size: 19, color: Color(0xFFC58C20)), const SizedBox(width: 5),
+              Text('${data!['rating_avg'] ?? 0} · ${data!['rating_count'] ?? 0} ratings', style: const TextStyle(color: AppColors.muted, fontSize: 12))]),
             const SizedBox(height: 14),
             Row(
               children: [
@@ -162,15 +171,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     .map(
                       (v) => DropdownMenuItem<int>(
                         value: v['id'],
+                        enabled: (int.tryParse('${v['stock']}') ?? 0) > 0,
                         child: Text('${v['name']} · ${v['stock']} available'),
                       ),
                     )
                     .toList(),
-                onChanged: (id) => setState(
-                  () => variant = Map.from(
-                    variations.firstWhere((v) => v['id'] == id),
-                  ),
-                ),
+                onChanged: busy ? null : (id) => setState(() {
+                  variant = Map.from(variations.firstWhere((v) => v['id'] == id));
+                  final available = int.tryParse('${variant?['stock']}') ?? 0;
+                  final max = available < productStock ? available : productStock;
+                  if (quantity > max) quantity = max > 0 ? max : 1;
+                }),
               ),
             const SizedBox(height: 16),
             Row(
@@ -212,10 +223,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.storefront_outlined),
-                    title: Text('${data!['seller_name'] ?? 'Local seller'}'),
-                    subtitle: const Text(
-                      'Browse the store and follow for more finds',
-                    ),
+                    title: Text('${data!['store_name'] ?? data!['seller_name'] ?? 'Local store'}'),
+                    subtitle: Text('${data!['seller_person_name'] ?? 'Seller'} · View store'),
                     onTap: () async {
                       if (await signed() && context.mounted) {
                         Navigator.push(
@@ -255,9 +264,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(18),
-          child: FilledButton.icon(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            OutlinedButton.icon(
+              onPressed: busy || vacation || stock <= 0 || quantity > stock || variations.isNotEmpty && variant == null ? null : () async {
+                if (!await signed() || !mounted) return;
+                setState(() => busy = true);
+                try {
+                  final app = context.read<AppState>();
+                  final result = await app.api.post('/cart/buy-now', {'product_id': widget.productId, 'quantity': quantity,
+                    if (variant != null) 'variation_id': variant!['id'], '_request_key': requestKey()});
+                  await app.refreshCart();
+                  if (!mounted) return;
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutScreen(cartIds: [int.parse('${result['cart_id']}')])));
+                } catch (e) { if (mounted) AppSnack.show(context, '$e', error: true); }
+                finally { if (mounted) setState(() => busy = false); }
+              },
+              icon: const Icon(Icons.bolt_outlined), label: const Text('Buy now'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
             onPressed:
-                busy || stock <= 0 || variations.isNotEmpty && variant == null
+                busy || vacation || stock <= 0 || quantity > stock || variations.isNotEmpty && variant == null
                 ? null
                 : () async {
                     if (!await signed()) return;
@@ -284,11 +311,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             label: Text(
               busy
                   ? 'Adding…'
+                  : vacation
+                  ? 'Store is on vacation'
                   : stock <= 0
                   ? 'Out of stock'
                   : 'Add to bag · ${money((double.tryParse('$price') ?? 0) * quantity)}',
             ),
           ),
+          ]),
         ),
       ),
     );

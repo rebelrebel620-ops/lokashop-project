@@ -58,3 +58,37 @@
   $this->error('Database or shared-storage check failed: '.$error->getMessage());return 1;
  }
 })->purpose('Check the database and shared storage used by courier proof photos');
+
+
+\Illuminate\Support\Facades\Artisan::command('lokashop:check-config {--to= : Send a test message to your own email}', function () {
+    $failed = false;
+    $mailer = config('mail.default');
+    $this->line('Mailer: '.$mailer);
+    if ($mailer !== 'smtp') { $this->warn('Email is not using SMTP. Check MAIL_MAILER.'); $failed = true; }
+    foreach (['host','port','username','password'] as $key) {
+        $present = (string) config('mail.mailers.smtp.'.$key) !== '';
+        $this->line('SMTP '.$key.': '.($present ? 'configured' : 'MISSING'));
+        if (!$present) $failed = true;
+    }
+    $this->line('Application URL: '.config('app.url'));
+    try { \Illuminate\Support\Facades\DB::connection()->getPdo(); $this->info('Database connection OK.'); }
+    catch (\Throwable $e) { $this->error('Database connection failed. Check DB settings and that MySQL is running.'); $failed = true; }
+    foreach (['local','public'] as $disk) {
+        $path = config('filesystems.disks.'.$disk.'.root');
+        if (is_dir($path) && is_writable($path)) $this->info($disk.' storage is writable.');
+        else { $this->error($disk.' storage is missing or not writable. Check shared storage paths.'); $failed = true; }
+    }
+    $to = trim((string) $this->option('to'));
+    if ($to !== '') {
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) { $this->error('Enter a valid test email.'); return 1; }
+        if ($mailer !== 'smtp') { $this->error('Test not sent: configure SMTP first.'); return 1; }
+        try {
+            \Illuminate\Support\Facades\Mail::raw('LokaShop SMTP test. Your app can submit email to the configured SMTP server. Check your inbox and spam folder.', fn($m) => $m->to($to)->subject('LokaShop email connection test'));
+            $this->info('SMTP server accepted the message. Check your inbox/spam to confirm receipt.');
+        } catch (\Throwable $e) {
+            $this->error('Email submission failed. Check the Gmail app password, TLS/port, and network access.');
+            $this->line('Error type: '.get_class($e)); $failed = true;
+        }
+    } else $this->line('No test message sent. Add --to=YOUR_EMAIL to test delivery.');
+    return $failed ? 1 : 0;
+})->purpose('Check local database, storage and email configuration without displaying secrets');

@@ -46,7 +46,7 @@
      if(blob&&typeof DataTransfer!=='undefined'){const transfer=new DataTransfer();transfer.items.add(new File([blob],'delivery-proof.jpg',{type:'image/jpeg'}));input.files=transfer.files;}
     }finally{URL.revokeObjectURL(url);}
     if(input.files[0].size>5*1024*1024){input.setCustomValidity('Photo must be 5 MB or smaller.');note.textContent='Photo is too large. Choose a smaller JPG or PNG.';return;}
-    previewURL=URL.createObjectURL(input.files[0]);preview.src=previewURL;preview.hidden=false;note.textContent='Photo ready. Check the image, then enter the buyer OTP and COD collected.';
+    previewURL=URL.createObjectURL(input.files[0]);preview.src=previewURL;preview.hidden=false;note.textContent='Photo ready. Check the image, then enter the COD collected.';
    }catch(error){input.value='';note.textContent='This photo could not be opened. Take another photo or select JPG/PNG.';}finally{if(current===revision)pending=false;}
   });
   form.addEventListener('submit',event=>{if(pending){event.preventDefault();event.stopImmediatePropagation();form.dataset.submitted='';note.textContent='Please wait for the photo preview before submitting.';}},true);

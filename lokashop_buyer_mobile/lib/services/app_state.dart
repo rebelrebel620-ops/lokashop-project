@@ -55,6 +55,8 @@ class AppState extends ChangeNotifier {
     api.onUnauthorized = () async {
       await session.clear();
       cart = [];
+      selectedCartIds.clear();
+      _selectionReady = false;
       user = null;
       notifyListeners();
     };
@@ -81,6 +83,9 @@ class AppState extends ChangeNotifier {
       email: res['user']['email'],
       suspended: res['appeal_required'] == true,
     );
+    cart = [];
+    selectedCartIds.clear();
+    _selectionReady = false;
     user = Map<String, dynamic>.from(res['user']);
     if (!session.suspended) {
       try {

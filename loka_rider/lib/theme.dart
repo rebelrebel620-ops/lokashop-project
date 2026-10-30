@@ -27,6 +27,8 @@ ThemeData courierTheme() {
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
+      errorMaxLines: 3,
+      helperMaxLines: 3,
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.all(16),
@@ -37,7 +39,8 @@ ThemeData courierTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 50),
+        minimumSize: const Size(48, 52),
+        textStyle: const TextStyle(fontSize: 14,fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),

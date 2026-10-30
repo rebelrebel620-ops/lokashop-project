@@ -41,8 +41,8 @@
    @if(auth()->user()->role==='buyer')
    <form method="post" action="/cart" style="margin-top:16px">@csrf
     <input type="hidden" name="product_id" value="{{$p->id}}">
-    <label>Variation<select name="variation_id"><option value="">{{$variations->isEmpty()?'Standard':'Select a variation'}}</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled($v->stock<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{$v->stock}}" data-image="{{\App\Services\Support::imageUrl($v->image)}}">{{$v->name}} ({{$v->stock}} available)</option>@endforeach</select></label>
-    <label>Quantity<input type="number" min="1" name="quantity" value="1"></label>
+    <label>Variation<select name="variation_id" @required($variations->isNotEmpty())><option value="">{{$variations->isEmpty()?'Standard':'Select a variation'}}</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled($v->stock<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{$v->stock}}" data-image="{{\App\Services\Support::imageUrl($v->image)}}">{{$v->name}} ({{$v->stock}} available)</option>@endforeach</select></label>
+    <label>Quantity<input type="number" min="1" max="{{$p->stock}}" name="quantity" value="1"></label>
     <button class="btn lg" @disabled($vacation||$p->stock<=0)>Add to cart</button><button class="btn" formaction="/buy-now" @disabled($vacation||$p->stock<=0)>Buy now</button>
    </form>
    <form method="post" action="/tools/wishlist">@csrf<input type="hidden" name="product_id" value="{{$p->id}}"><input type="hidden" name="enabled" value="1"><button>Save to wishlist</button></form>
@@ -53,7 +53,7 @@
   @endauth
  </div>
 </div>
-<script>const variants=document.querySelector('[name="variation_id"]');variants?.addEventListener('change',()=>{const o=variants.selectedOptions[0];const info=document.getElementById('selected-variant');info.textContent=o.dataset.price?'Selected price: PHP '+Number(o.dataset.price).toFixed(2)+'; '+o.dataset.stock+' left':'';const image=document.getElementById('variant-image');image.hidden=!o.dataset.image;if(o.dataset.image)image.src=o.dataset.image;});</script>
+<script>const variants=document.querySelector('[name="variation_id"]');variants?.addEventListener('change',()=>{const o=variants.selectedOptions[0];const quantity=variants.form.querySelector('[name=quantity]');const stock=Math.min(@json((int)$p->stock),Number(o.dataset.stock??@json((int)$p->stock)));quantity.max=stock;if(Number(quantity.value)>stock)quantity.value=Math.max(1,stock);const info=document.getElementById('selected-variant');info.textContent=o.dataset.price?'Selected price: PHP '+Number(o.dataset.price).toFixed(2)+'; '+o.dataset.stock+' left':'';const image=document.getElementById('variant-image');image.hidden=!o.dataset.image;if(o.dataset.image)image.src=o.dataset.image;});</script>
 </div>
 <script>
 (()=>{

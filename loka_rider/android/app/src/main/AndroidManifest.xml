@@ -6,7 +6,7 @@
 
     <!-- Local HTTP is enabled only by the debug manifest. -->
     <application
-        android:label="LokaShop Rider"
+        android:label="LokaShop Logistics"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">

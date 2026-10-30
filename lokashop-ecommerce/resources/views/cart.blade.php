@@ -33,17 +33,7 @@
 
  <div>
   <div class="form-card">
-   <h3>Delivery address</h3>
-   <form method="post" action="/addresses">@csrf
-    @foreach(['recipient'=>'Recipient','phone'=>'Phone','street'=>'Street / house number','barangay'=>'Barangay','city'=>'City or municipality','province'=>'Province','postal_code'=>'Postal code'] as $name=>$label)
-    <label>{{$label}}<input name="{{$name}}" @if($name!=='postal_code') required @endif></label>
-    @endforeach
-    <button class="btn" style="width:100%">Save address</button>
-   </form>
-  </div>
-
-  <div class="form-card">
-   <h3>Checkout</h3>
+   <h3>Checkout</h3><p><a href="/addresses">Manage saved addresses</a></p>
    <form id="checkout-form" method="post" action="/checkout"><input type="hidden" name="selection_required" value="1">@csrf<input type="hidden" name="_request_key" value="{{(string)\Illuminate\Support\Str::uuid()}}">
 <p>Tick the products you want to buy. Unselected items stay in your cart.</p>
     <label>Delivery address<select name="address_id" required>

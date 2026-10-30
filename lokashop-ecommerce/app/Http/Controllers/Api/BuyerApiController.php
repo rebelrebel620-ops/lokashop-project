@@ -26,6 +26,26 @@ class BuyerApiController extends Controller
         $v = $r->validate(['email' => 'required|email', 'password' => 'required']);
         $user = DB::table('users')->where('email', $v['email'])->first();
 
+        // Pending registrations deliberately have no users row until email verification.
+        if (!$user) {
+            $pending = DB::table('pending_registrations')->where('email', $v['email'])
+                ->where('expires_at', '>', now())->orderByDesc('id')->get();
+            foreach ($pending as $registration) {
+                try {
+                    $payload = json_decode(\Illuminate\Support\Facades\Crypt::decryptString($registration->payload), true);
+                } catch (\Illuminate\Contracts\Encryption\DecryptException $e) { continue; }
+                $applicant = $payload['user'] ?? [];
+                if (($applicant['role'] ?? '') !== 'buyer' || !Hash::check($v['password'], $applicant['password'] ?? '')) continue;
+                $cooldown = $registration->sent_at ? max(0, 60 - (now()->timestamp - now()->parse($registration->sent_at)->timestamp)) : 0;
+                if ($cooldown === 0) {
+                    \App\Services\PendingRegistration::issueOtp($registration->id, $registration->email);
+                    $cooldown = 60;
+                }
+                return response()->json(['message'=>'Verify your email to finish creating your buyer account.',
+                    'verification_required'=>true,'verification_token'=>BuyerVerificationController::token($registration->id),
+                    'email'=>$registration->email,'retry_after'=>$cooldown],403);
+            }
+        }
         if (!$user || !Hash::check($v['password'], $user->password)) {
             throw ValidationException::withMessages(['email' => 'Incorrect login details.']);
         }
@@ -86,6 +106,9 @@ class BuyerApiController extends Controller
         return response()->json([
             'product' => \App\Http\Controllers\Api\MobileBuyerController::productCard($p),
             'seller_name' => $seller->name ?? null,
+            'store_name' => $seller->name ?? null,
+            'seller_person_name' => DB::table('users')->where('id', $p->seller_id)->value('name'),
+            'store_on_vacation' => (bool) ($seller->vacation ?? false),
             'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);return $v;}),
             'rating_avg' => round((clone $rating)->avg('stars') ?? 0, 1),
             'rating_count' => (clone $rating)->count(),
@@ -113,6 +136,23 @@ class BuyerApiController extends Controller
     public function cartAdd(Request $r){\App\Services\Cart::add($r);return response()->json($this->cartRows());}
 
     public function cartUpdate(Request $r,int $id){\App\Services\Cart::update($r,$id);return response()->json($this->cartRows());}
+
+
+    public function buyNow(Request $r)
+    {
+        $id = \App\Services\Support::once($r, 'buyer-buy-now', function () use ($r) {
+            \App\Services\Cart::add($r);
+            $query = DB::table('cart_items')->where('buyer_id', auth()->id())
+                ->where('product_id', $r->integer('product_id'))->where('variation_id', $r->input('variation_id'));
+            $row = $query->orderBy('id')->lockForUpdate()->first();
+            $quantity = $r->integer('quantity');
+            if ((int) $row->quantity === $quantity) return $row->id;
+            DB::table('cart_items')->where('id', $row->id)->decrement('quantity', $quantity);
+            return DB::table('cart_items')->insertGetId(['buyer_id'=>auth()->id(),'product_id'=>$row->product_id,
+                'variation_id'=>$row->variation_id,'quantity'=>$quantity,'created_at'=>now(),'updated_at'=>now()]);
+        });
+        return response()->json(['cart_id'=>$id]);
+    }
 
     public function cartRemove(int $id)
     {

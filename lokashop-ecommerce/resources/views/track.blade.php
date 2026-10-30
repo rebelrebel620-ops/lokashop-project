@@ -1,4 +1,5 @@
 <!doctype html>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Order {{$parcel->tracking_code}} · LokaShop</title>
 <style>
 body{font:16px/1.5 system-ui;background:#f3f6f4;margin:0;padding:24px}
@@ -46,7 +47,11 @@ td.label{color:#666;width:40%}
   </table>
 
   <table class="totals">
-    @if($order->discount > 0)<tr><td class="label">Discount</td><td style="text-align:right">-₱{{ number_format($order->discount,2) }}</td></tr>@endif
+    <tr><td class="label">Items subtotal</td><td style="text-align:right">₱{{ number_format($items->sum(fn($item) => $item->unit_price * $item->quantity),2) }}</td></tr>
+    <tr><td class="label">Shipping cost</td><td style="text-align:right">₱{{ number_format($order->shipping_fee ?? 0,2) }}</td></tr>
+    <tr><td class="label">Store discount</td><td style="text-align:right">-₱{{ number_format($order->store_discount ?? 0,2) }}</td></tr>
+    @if(($order->platform_discount ?? 0) > 0)<tr><td class="label">Platform discount</td><td style="text-align:right">-₱{{ number_format($order->platform_discount,2) }}</td></tr>@endif
+    @if(($order->shipping_discount ?? 0) > 0)<tr><td class="label">Shipping discount</td><td style="text-align:right">-₱{{ number_format($order->shipping_discount,2) }}</td></tr>@endif
     <tr><td>Total (buyer pays)</td><td style="text-align:right">₱{{ number_format($order->total,2) }}</td></tr>
   </table>
 
@@ -54,7 +59,7 @@ td.label{color:#666;width:40%}
   <div class="section-title">Payment</div>
   <table>
     <tr><td class="label">Method</td><td>{{ strtoupper($payment->method) }}</td></tr>
-    <tr><td class="label">Status</td><td>{{ ucfirst($payment->status) }}</td></tr>
+    <tr><td class="label">Status</td><td>{{ ucfirst(str_replace('_',' ',$payment->status)) }}</td></tr>
   </table>
   @endif
 </div>

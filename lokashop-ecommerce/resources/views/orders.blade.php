@@ -18,7 +18,7 @@
  <a href="/orders/{{$o->id}}/proof" target="_blank" rel="noopener"><img src="/orders/{{$o->id}}/proof" alt="Delivery proof for order {{$o->id}}" loading="lazy" style="display:block;width:100%;max-width:420px;max-height:360px;object-fit:contain;border-radius:12px"><span>Open delivery photo</span></a>
  </section>@endif
  @if($o->status==='DELIVERED')
- <form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Confirm received</button></form>
+ <form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Order received</button></form>
  @endif
  @if($o->status==='COMPLETED')<p><a href="/ratings">Review your purchased items.</a></p>@endif
  <p><a href="/track/{{$o->tracking_code}}">Order details</a> · <a href="/tools/returns">Returns</a></p>

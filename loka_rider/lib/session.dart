@@ -5,17 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'models.dart';
 
 /// Holds the logged-in rider, the saved server address and the API token.
 class Session extends ChangeNotifier {
-  /// Android emulator -> your PC's localhost. Override at build time with
-  ///   flutter run --dart-define=API_BASE_URL=https://your-domain
-  /// or just change it on the login screen ("Server" section).
-  static const defaultServerUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8001',
-  );
+  /// Logistics origin is fixed per build, with no in-app server controls.
+  static const defaultServerUrl = String.fromEnvironment('LOGISTICS_BASE_URL',
+    defaultValue: String.fromEnvironment('API_BASE_URL', defaultValue: 'https://logistics.lokashop.trade'));
 
   static const _secure = FlutterSecureStorage();
 
@@ -41,7 +38,12 @@ class Session extends ChangeNotifier {
 
   Future<void> init() async {
     final prefs = _prefs = await SharedPreferences.getInstance();
-    api.baseUrl = prefs.getString(_kUrl) ?? defaultServerUrl;
+    api.baseUrl = ApiClient.normalizeUrl(defaultServerUrl);
+    final previous = prefs.getString(_kUrl);
+    if (previous != null && ApiClient.normalizeUrl(previous) != api.baseUrl) {
+      await _clear();
+    }
+    await prefs.setString(_kUrl, api.baseUrl);
     try {
       api.token = await _secure.read(key: _kToken) ?? prefs.getString(_kToken);
       if (api.token != null) {
@@ -74,8 +76,8 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String serverUrl, String email, String password) async {
-    api.baseUrl = ApiClient.normalizeUrl(serverUrl);
+  Future<void> login(String email, String password) async {
+    api.baseUrl = ApiClient.normalizeUrl(defaultServerUrl);
     final result = await api.login(email.trim(), password);
     await _secure.write(key: _kToken, value: result.token);
     api.token = result.token;
@@ -88,7 +90,7 @@ class Session extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      await api.post('/api/rider/logout', {});
+      await api.post('/api/mobile/logout', {});
     } catch (_) {
       /* Local logout still works offline. */
     }
@@ -112,6 +114,7 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> _clear() async {
+    try { await WebViewCookieManager().clearCookies(); } catch (_) {}
     api.token = null;
     rider = null;
     try {

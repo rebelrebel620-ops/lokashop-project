@@ -26,17 +26,8 @@ class Workflow {
    if($to==='READY_FOR_PICKUP'&&!DB::table('assignments')->where('parcel_id',$p->id)->where('kind','pickup')->whereIn('status',['offered','accepted'])->exists())Support::fail('pickup','Logistics must verify the pickup request first.');
    if($to==='SORTED'&&!DB::table('delivery_areas')->where('id',$areaId)->where('center_id',$p->center_id)->exists())Support::fail('area_id','Choose an area belonging to your center.');
    $extra=[];$orderExtra=[];
-   if($to==='OUT_FOR_DELIVERY'){
-    $otp=(string)random_int(100000,999999);$extra['delivery_otp_hash']=Hash::make($otp);$extra['otp_attempts']=0;$extra['otp_locked_until']=null;
-    Support::notify([$o->buyer_id],"Order #{$o->id}: delivery OTP {$otp}. Give it to the rider only after receiving your parcel.");
-   }
    if($to==='DELIVERED'){
-    $r=request();$r->validate(['proof'=>['required','file','mimes:jpg,jpeg,png','extensions:jpg,jpeg,png','max:5120'],'otp'=>['required','regex:/^[0-9]{6}$/'],'cod_amount'=>'nullable|numeric|min:0']);
-    if($p->otp_locked_until&&now()->lt($p->otp_locked_until))return ['otp','OTP entry is locked for 15 minutes. Try again later.'];
-    if(!$p->delivery_otp_hash||!Hash::check((string)$r->otp,$p->delivery_otp_hash)){
-     $tries=($p->otp_locked_until&&now()->gte($p->otp_locked_until))?1:$p->otp_attempts+1;
-     DB::table('parcels')->where('id',$p->id)->update(['otp_attempts'=>$tries,'otp_locked_until'=>$tries>=5?now()->addMinutes(15):null]);return ['otp','Incorrect delivery OTP.'];
-    }
+    $r=request();$r->validate(['scanned_code'=>'required|string|max:2000','proof'=>['required','file','mimes:jpg,jpeg,png','extensions:jpg,jpeg,png','max:5120'],'cod_amount'=>'nullable|numeric|min:0']);
     $pay=DB::table('payments')->where('order_id',$o->id)->orderByDesc('id')->lockForUpdate()->first();
     if($pay&&$pay->method==='cod'){
      if(!$r->filled('cod_amount')||Support::money($r->cod_amount)!==Support::money($pay->amount))Support::fail('cod_amount','Enter the exact COD amount shown on this order.');
@@ -64,7 +55,6 @@ class Workflow {
    $riders=DB::table('assignments')->where('parcel_id',$p->id)->pluck('rider_id')->all();$company=DB::table('sorting_centers')->where('id',$centerId??$p->center_id)->value('user_id');
    Support::notify(array_merge([$o->buyer_id,$o->seller_id,$company],$riders),"Order #{$o->id} is {$to}.");return null;
   });
-  // Throw outside the transaction so incorrect-OTP counters are not rolled back.
   if($error)Support::fail($error[0],$error[1]);
  }
 }

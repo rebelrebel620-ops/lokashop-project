@@ -54,7 +54,7 @@
     <label>Take or upload delivery photo<input class="proof-input" name="proof" type="file" accept="image/jpeg,image/png" capture="environment" required></label>
     <small>On a phone, take a photo using the rear camera. JPG or PNG, maximum 5 MB. The buyer can view this photo after delivery.</small>
     <img class="proof-preview" hidden alt="Preview of your delivery proof"><p class="proof-message" role="status"></p>
-    <div class="delivery-fields"><label>Buyer's six-digit delivery OTP<input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" autocomplete="off" required></label><label>Exact COD collected (₱)<input name="cod_amount" type="number" step="0.01" min="0" placeholder="{{number_format($a->cod_total,2,'.','')}}" required></label></div>
+    <div class="delivery-fields"><label>Exact COD collected (₱)<input name="cod_amount" type="number" step="0.01" min="0" placeholder="{{number_format($a->cod_total,2,'.','')}}" required></label></div>
     <button>Submit proof and mark delivered</button>
    </form>
    <section class="delivery-failure"><h3>Unable to deliver?</h3><form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<input type="hidden" name="status" value="DELIVERY_FAILED"><label>Failure reason<select name="reason" required><option value="">Choose reason</option><option>Buyer not home</option><option>Wrong address</option><option>Refused</option></select></label><button class="danger">Report delivery failure</button></form></section>

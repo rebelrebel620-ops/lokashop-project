@@ -4,7 +4,7 @@ import '../services/app_state.dart';
 import '../services/api_service.dart';
 import '../widgets/design.dart';
 import '../widgets/common.dart';
-import '../widgets/address_form.dart';
+import 'addresses_screen.dart';
 import '../theme.dart';
 import 'home_shell.dart';
 
@@ -55,12 +55,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     'note': note.text.trim(),
   };
   Future<void> load() async {
+    quoteVersion++;
     try {
       final result = await context.read<AppState>().api.get('/addresses');
       if (!mounted) return;
       setState(() {
         addresses = List.from(result);
-        if (addresses.isNotEmpty) address ??= addresses.first['id'];
+        if (!addresses.any((a) => a['id'] == address)) {
+          address = addresses.isEmpty ? null : addresses.first['id'];
+        }
+        quote = null;
+        error = null;
         loading = false;
       });
       if (address != null) await calculate();
@@ -147,48 +152,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               children: [
                 const Eyebrow('SAFE CHECKOUT · CASH ON DELIVERY'),
                 const SectionHeading('Where should we deliver?'),
-                ...addresses.map(
-                  (a) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: SheetCard(
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        selected: address == a['id'],
-                        leading: Icon(
-                          address == a['id']
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                        ),
-                        onTap: busy || quoting
-                            ? null
-                            : () {
-                                setState(() => address = a['id']);
-                                calculate();
-                              },
-                        title: Text(
-                          '${a['recipient']}',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: Text(
-                          '${a['street']}, ${a['barangay']}, ${a['city']}\n${a['phone']}',
-                        ),
-                      ),
-                    ),
+                if (addresses.isEmpty)
+                  const SheetCard(child: Text('Add a delivery address in Addresses, then return here to choose it.'))
+                else ...[
+                  DropdownButtonFormField<int>(
+                    key: ValueKey(address), initialValue: address, isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Saved delivery address', prefixIcon: Icon(Icons.location_on_outlined)),
+                    items: addresses.map((a) => DropdownMenuItem<int>(value: a['id'], child: Text('${a['recipient']} · ${a['city']}', overflow: TextOverflow.ellipsis))).toList(),
+                    onChanged: busy || quoting ? null : (value) { setState(() => address = value); calculate(); },
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  ...addresses.where((a) => a['id'] == address).map((a) => SheetCard(child: Text('${a['street']}, ${a['barangay']}, ${a['city']}, ${a['province']} ${a['postal_code'] ?? ''}\n${a['phone']}'))),
+                ],
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () async {
-                          final saved = await showModalBottomSheet<bool>(
-                            context: context,
-                            isScrollControlled: true,
-                            builder: (_) => const AddressForm(),
-                          );
-                          if (saved == true) await load();
-                        },
-                  icon: const Icon(Icons.add_location_alt_outlined),
-                  label: const Text('Add delivery address'),
+                  onPressed: busy || quoting ? null : () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesScreen()));
+                    if (mounted) await load();
+                  },
+                  icon: const Icon(Icons.edit_location_alt_outlined), label: const Text('Manage saved addresses'),
                 ),
                 const SectionHeading('Make the most of your bag'),
                 SheetCard(

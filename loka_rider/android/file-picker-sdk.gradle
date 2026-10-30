@@ -1,0 +1,12 @@
+// Keep file_picker compatible with lifecycle libraries requiring Android 36.
+// Register before subprojects are evaluated, then change the final DSL value.
+subprojects { libraryProject ->
+    if (libraryProject.name == 'file_picker') {
+        libraryProject.pluginManager.withPlugin('com.android.library') {
+            def components = libraryProject.extensions.getByName('androidComponents')
+            components.finalizeDsl { androidDsl ->
+                androidDsl.compileSdk = Math.max(androidDsl.compileSdk ?: 0, 36)
+            }
+        }
+    }
+}

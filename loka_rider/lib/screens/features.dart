@@ -7,6 +7,7 @@ import '../models.dart';
 import '../widgets/common.dart';
 import '../widgets/place_fields.dart';
 import 'earnings_screen.dart';
+import 'workspace_screen.dart';
 
 String requestKey() => List.generate(
   24,
@@ -131,7 +132,7 @@ class OverviewScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '${session.rider?.courierType == 'driver' ? 'Center transfer driver' : 'Local delivery rider'} • ${session.rider?.online == true ? 'Active / Online' : 'Offline'}',
+              '${session.rider?.courierType == 'driver' ? 'Center transfer driver' : 'Local delivery rider'}',
               style: const TextStyle(color: Colors.white70),
             ),
           ],
@@ -178,12 +179,6 @@ class OverviewScreen extends StatelessWidget {
             ? 'No sorting center attached. Contact logistics.'
             : '${d['center']['name']}\n${d['center']['city']}, ${d['center']['province']}',
         icon: Icons.warehouse_outlined,
-      ),
-      InfoCard(
-        title: 'Availability',
-        text: 'Manage your Online / Offline status and service location.',
-        icon: Icons.toggle_on_outlined,
-        onTap: () => open(c, AvailabilityScreen(session: session)),
       ),
       InfoCard(
         title: 'Notifications',
@@ -490,12 +485,6 @@ class AccountScreen extends StatelessWidget {
           ),
         ),
         InfoCard(
-          title: 'Availability',
-          text: 'Online status and service location',
-          icon: Icons.toggle_on_outlined,
-          onTap: () => open(c, AvailabilityScreen(session: session)),
-        ),
-        InfoCard(
           title: 'Vehicle and documents',
           text: '${r.vehicle ?? ''} • ${r.extra['plate_number'] ?? ''}',
           icon: Icons.two_wheeler,
@@ -531,13 +520,8 @@ class AccountScreen extends StatelessWidget {
           icon: Icons.payments_outlined,
           onTap: () => open(c, EarningsScreen(session: session)),
         ),
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            'Connected to ${session.serverUrl}',
-            style: Theme.of(c).textTheme.bodySmall,
-          ),
-        ),
+        InfoCard(title: 'Complete logistics workspace', text: 'Open all web functions available to your account', icon: Icons.space_dashboard_outlined,
+          onTap: () => open(c, WorkspaceScreen(session: session))),
         OutlinedButton.icon(
           onPressed: () async {
             final yes = await showDialog<bool>(

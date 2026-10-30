@@ -8,7 +8,7 @@
  @php $a=$addresses[$p->id];$offer=$offers[$p->id]; @endphp
  <p>Destination: {{$a->barangay ?? ''}}, {{$a->city ?? ''}}, {{$a->province ?? ''}}</p>
  <p><strong>Matching areas:</strong> {{$matches[$p->id]->pluck('name')->implode(', ') ?: 'No matching area. Create one or transfer to the destination municipality.'}}</p>
- @if($p->status==='OUT_FOR_DELIVERY')<p>Next: rider completes delivery with proof, OTP and COD confirmation.</p>@endif
+ @if($p->status==='OUT_FOR_DELIVERY')<p>Next: rider completes delivery with a proof photo and COD confirmation. The buyer then confirms Order received.</p>@endif
  @if(in_array($p->status,['AT_SORTING_CENTER','SORTED','DELIVERY_FAILED','ASSIGNED_TO_RIDER']))
   @if($offer)<p>Next: {{$offer->status==='accepted'?'rider starts delivery':'rider accepts the job'}}. Rider #{{$offer->rider_id}}.</p>
   @else

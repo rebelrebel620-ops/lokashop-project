@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.9.0 <4.0.0'
+  flutter: '>=3.35.0'
 
 dependencies:
   flutter:
@@ -28,3 +29,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/lokashop_logo.png
+    - assets/places.json
+    - assets/images/buyer-shopping-banner.png
+    - assets/images/buyer-sage-background.png

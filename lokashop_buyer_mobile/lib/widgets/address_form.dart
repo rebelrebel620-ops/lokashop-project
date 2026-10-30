@@ -34,7 +34,7 @@ class _AddressFormState extends State<AddressForm> {
   }
 
   Future<void> save() async {
-    if (!form.currentState!.validate()) return;
+    if (busy || !form.currentState!.validate()) return;
     setState(() => busy = true);
     try {
       await context.read<AppState>().api.post('/addresses', {
@@ -93,13 +93,14 @@ class _AddressFormState extends State<AddressForm> {
                   decoration: const InputDecoration(
                     labelText: 'Contact number',
                   ),
-                  validator: (v) => RegExp(r'^09\d{9}$').hasMatch(v ?? '')
+                  validator: (v) => RegExp(r'^(09\d{9}|\+639\d{9})$').hasMatch(v ?? '')
                       ? null
-                      : 'Use 09 followed by 9 digits',
+                      : 'Use 09XXXXXXXXX or +639XXXXXXXXX',
                 ),
                 const SizedBox(height: 12),
                 PlaceFields(
                   initial: widget.initial ?? {},
+                  enabled: !busy,
                   onChanged: (v) => place = v,
                 ),
                 TextFormField(

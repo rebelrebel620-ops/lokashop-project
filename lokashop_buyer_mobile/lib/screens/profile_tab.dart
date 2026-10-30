@@ -39,7 +39,7 @@ class _ProfileTabState extends State<ProfileTab> {
     final app = context.watch<AppState>();
     final user = app.user ?? {};
     return Scaffold(
-      appBar: AppBar(title: const Text('Your little corner')),
+      appBar: AppBar(title: const Text('My account')),
       body: PageBody(
         child: !app.isLoggedIn
             ? EmptyState(
@@ -69,11 +69,11 @@ class _ProfileTabState extends State<ProfileTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (user['profile_photo_url'] != null)
-                            AppPhoto(
+                            ClipOval(child: AppPhoto(
                               '${user['profile_photo_url']}',
                               width: 70,
                               height: 70,
-                            )
+                            ))
                           else
                             CircleAvatar(
                               radius: 32,
@@ -160,7 +160,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     tile(
                       Icons.notifications_none,
                       'Notifications',
-                      'Order updates and delivery OTPs',
+                      'Order updates and delivery notifications',
                       const NotificationsScreen(),
                     ),
                     tile(
@@ -299,8 +299,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
             child: Column(
               children: [
                 if (photo != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
+                  ClipOval(
                     child: Image.file(
                       photo!,
                       width: 120,

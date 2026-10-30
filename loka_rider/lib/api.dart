@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -197,11 +198,23 @@ class ApiClient {
     throw ApiException(_messageOf(data, res.statusCode), res.statusCode);
   }
 
+  Future<({Uint8List bytes, String filename})> download(String path, Map<String,String> query) async {
+    final response = await http.get(_uri(path, query), headers: {
+      'Accept':'application/pdf,image/*', if(token != null) 'Authorization':'Bearer $token',
+    }).timeout(const Duration(seconds:45));
+    if(response.statusCode == 401) onUnauthorized?.call();
+    if(response.statusCode != 200) throw ApiException('Could not download this file.',response.statusCode);
+    final type = response.headers['content-type'] ?? '';
+    if(!type.contains('pdf') && !type.startsWith('image/')) throw const ApiException('The server did not return a report or document.');
+    final extension = type.contains('pdf') ? 'pdf' : type.contains('png') ? 'png' : 'jpg';
+    return (bytes: response.bodyBytes, filename: 'lokashop-${DateTime.now().millisecondsSinceEpoch}.$extension');
+  }
+
   // ------------------------------------------------------------------ calls
 
   Future<void> ping() async {
     final data = await _send('GET', '/api/ping', auth: false);
-    if (data['ok'] != true) {
+    if (data['ok'] != true || data['app'] != 'lokashop-logistics') {
       throw const ApiException(
         'That address does not look like a LokaShop Logistics server.',
       );
@@ -212,9 +225,10 @@ class ApiClient {
     String email,
     String password,
   ) async {
+    await ping();
     final data = await _send(
       'POST',
-      '/api/rider/login',
+      '/api/mobile/login',
       body: {'email': email, 'password': password},
       auth: false,
     );
@@ -225,7 +239,7 @@ class ApiClient {
   }
 
   Future<({Rider rider, RiderStats stats})> me() async {
-    final data = await _send('GET', '/api/rider/me');
+    final data = await _send('GET', '/api/mobile/me');
     return (
       rider: Rider.fromJson(data['rider'] as Map<String, dynamic>),
       stats: RiderStats.fromJson(
