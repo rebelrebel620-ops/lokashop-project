@@ -1,0 +1,2 @@
+@php $reviewPhotos=json_decode($review->photos??'[]',true);$reviewPhotos=is_array($reviewPhotos)?array_filter($reviewPhotos,fn($path)=>is_string($path)&&trim($path)!==''):[]; @endphp
+@if(count($reviewPhotos))<div class="customer-review-photos">@foreach($reviewPhotos as $path)<a href="{{\App\Services\Support::imageUrl($path)}}" target="_blank" rel="noopener"><img src="{{\App\Services\Support::imageUrl($path)}}" alt="Customer review photo {{$loop->iteration}}" loading="lazy"></a>@endforeach</div>@endif

@@ -1,6 +1,8 @@
 @extends('app')
 @section('title','Products - Admin')
 @section('content')
+<link rel="stylesheet" href="{{asset('css/product-media.css')}}">
+<script src="{{asset('js/product-media.js')}}" defer></script>
 <style>
 .review-tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}.review-tabs a{padding:12px 20px;border:1px solid #cddfd4;border-radius:12px;background:white;color:#145532;font-weight:700;text-decoration:none}.review-tabs a[aria-current="page"]{background:#145532;color:white}.review-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;align-items:end;margin-bottom:24px}.review-filter label{display:flex;flex-direction:column;gap:6px}.review-filter input,.review-filter select{width:100%;min-height:44px;box-sizing:border-box}.review-actions{display:flex;gap:10px;flex-wrap:wrap}.review-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:18px}.review-results .section-card{margin:0;overflow-wrap:anywhere}.review-results .shead{gap:12px;flex-wrap:wrap}
 </style>
@@ -20,9 +22,10 @@
 <p>{{$products->total()}} matching {{ $tab==='approved'?'approved products':'products awaiting review' }}</p>
 <div class="review-results">
 @forelse($products as $p)
-<article class="section-card">
+<article class="section-card admin-product">
+@include('product-gallery',['galleryProduct'=>$p])
 <div class="shead"><h3>{{$p->name}}</h3><span class="badge {{$tab==='approved'?'green':'orange'}}">{{$tab==='approved'?'Approved':'Awaiting review'}}</span></div>
-<p>{{$p->description}}</p>
+<details><summary>Product details &amp; description</summary><p class="product-description">{{$p->description}}</p><p>Product #{{$p->id}} · Weight: {{$p->weight}} kg</p></details>
 <p><strong>{{$p->seller_name??'Seller #'.$p->seller_id}}</strong><br><small>{{$p->seller_email}}</small></p>
 <p><small>{{$p->main_category??'Uncategorized'}} · {{$p->subcategory}}</small></p>
 <p>₱{{number_format($p->price,2)}} · {{$p->stock}} in stock</p>

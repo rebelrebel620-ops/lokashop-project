@@ -1,31 +1,37 @@
 @extends('app')
 @section('title','My Orders - LokaShop')
 @section('content')
-<div class="page-head"><div><h1>My orders</h1><p>Track every order from placement to delivery.</p></div></div>
-
+<link rel="stylesheet" href="{{asset('css/buyer-orders.css')}}">
+<div class="page-head"><div><span class="order-eyebrow">YOUR PURCHASES</span><h1>My orders</h1><p>Follow your purchases from seller acceptance to your doorstep.</p></div></div>
+<nav class="order-tabs" aria-label="Order categories">
+@foreach(['pending'=>'My Orders','receive'=>'To Receive','completed'=>'Completed'] as $key=>$label)
+<a href="{{url('/orders').'?'.http_build_query(['tab'=>$key])}}" @if($tab===$key) aria-current="page" @endif>{{$label}} <span>{{$counts[$key]}}</span></a>
+@endforeach
+</nav>
+<p class="order-tab-hint">{{['pending'=>'Orders waiting for the seller to accept.','receive'=>'Accepted orders being prepared, picked up, transported or delivered.','completed'=>'Delivered orders and closed order history. Cancelled and refunded orders keep their own status.'][$tab]}}</p>
+<div class="buyer-order-list">
 @forelse($orders as $o)
-<div class="section-card">
- <div class="shead">
-  <div><h3>Order #{{$o->id}}</h3><small>Tracking code {{$o->tracking_code}}</small></div>
-  <span class="badge {{ in_array($o->status,['DELIVERED','COMPLETED']) ? 'green' : (in_array($o->status,['DELIVERY_FAILED','RETURNED']) ? 'red' : 'blue') }}">{{ucfirst(strtolower(str_replace('_',' ',$o->status)))}}</span>
- </div>
- <p style="margin:0"><b class="price" style="font-size:1rem">Total: ₱{{number_format($o->total,2)}}</b></p>
- @if($o->failure_reason)<p style="color:var(--red)"><small>Delivery issue: {{$o->failure_reason}}</small></p>@endif
-<ul>@foreach(\Illuminate\Support\Facades\DB::table('order_items')->where('order_id',$o->id)->get() as $item)<li>{{$item->name}} × {{$item->quantity}}</li>@endforeach</ul>
- @if(in_array($o->status,['DELIVERED','COMPLETED']) && $o->proof_path)
- <section style="margin:16px 0"><h3 style="cursor:pointer;font-weight:700">Proof of delivery for this order</h3>
- <p>The courier's delivery photo covers the items listed above.</p>
- <a href="/orders/{{$o->id}}/proof" target="_blank" rel="noopener"><img src="/orders/{{$o->id}}/proof" alt="Delivery proof for order {{$o->id}}" loading="lazy" style="display:block;width:100%;max-width:420px;max-height:360px;object-fit:contain;border-radius:12px"><span>Open delivery photo</span></a>
- </section>@endif
- @if($o->status==='DELIVERED')
- <form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Order received</button></form>
- @endif
- @if($o->status==='COMPLETED')<p><a href="/ratings">Review your purchased items.</a></p>@endif
- <p><a href="/track/{{$o->tracking_code}}">Order details</a> · <a href="/tools/returns">Returns</a></p>
- @if(in_array($o->status,['PLACED','CONFIRMED','PREPARING']))<form method="post" action="/orders/{{$o->id}}/cancel">@csrf<label>Cancellation reason<input name="reason" minlength="10" maxlength="300" required></label><button>Cancel order</button></form>@endif
-
+@php $items=$orderItems->get($o->id,collect());$quantity=$items->sum('quantity');$closed=in_array($o->status,['CANCELLED','REFUNDED','RETURN_RECEIVED']); @endphp
+<article class="purchase-card">
+<header class="purchase-header"><div><strong>{{$o->store_name ?: 'LokaShop seller'}}</strong><small>Order #{{$o->id}} · {{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y')}}</small></div><span class="purchase-status {{$closed?'closed':''}}">{{\App\Services\BuyerOrders::label($o->status)}}</span></header>
+@foreach($items->take(1) as $item) @include('order-item-row',['item'=>$item]) @endforeach
+@if($items->count()>1)<details class="purchase-more"><summary>View {{$items->count()-1}} more {{ $items->count()-1===1?'product':'products' }}</summary>@foreach($items->skip(1) as $item) @include('order-item-row',['item'=>$item]) @endforeach</details>@endif
+<div class="purchase-total"><span>{{$quantity}} {{$quantity===1?'item':'items'}} · Cash on delivery</span><span>Order total <strong>₱{{number_format($o->total,2)}}</strong></span></div>
+@if($tab==='receive')
+<div class="purchase-update"><div><strong>{{\App\Services\BuyerOrders::label($o->status)}}</strong><small>{{$o->failure_reason ?: 'Tracking code: '.$o->tracking_code}}</small></div></div>
+@endif
+@if($o->status==='DELIVERED')<p class="receipt-hint">Delivery is recorded. Confirm receipt after checking your items, or visit Returns if there is a problem.</p>@endif
+<div class="purchase-actions" role="group" aria-label="Order actions">
+@if($tab==='receive')<a class="btn alt" href="/track/{{rawurlencode($o->tracking_code)}}">Track Order</a>@endif
+@if(in_array($o->status,['DELIVERED','COMPLETED'])&&$o->proof_path)<a class="btn alt" href="/orders/{{$o->id}}/proof" target="_blank" rel="noopener">Delivery photo</a>@endif
+@if($o->status==='DELIVERED')<form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Order received</button></form><a class="btn alt" href="/tools/returns">Returns</a>@endif
+@if($o->status==='COMPLETED')<a class="btn" href="/ratings">Review items</a>@endif
+@if(in_array($o->status,['PLACED','CONFIRMED','PREPARING']))<details class="cancel-order"><summary>Cancel order</summary><form method="post" action="/orders/{{$o->id}}/cancel">@csrf<label>Cancellation reason<textarea name="reason" minlength="10" maxlength="300" required placeholder="Tell us why (at least 10 characters)"></textarea></label><button class="btn danger">Confirm cancellation</button></form></details>@endif
 </div>
+</article>
 @empty
-<div class="section-card empty">No orders yet. <a href="/shop">Start shopping &rarr;</a></div>
+<section class="purchase-card order-empty"><h2>{{['pending'=>'No orders waiting for acceptance','receive'=>'No orders on the way','completed'=>'No completed orders yet'][$tab]}}</h2><p>Your orders will appear here as they progress.</p><a class="btn" href="/shop">Browse products</a></section>
 @endforelse
+</div>
+{{$orders->links('components.pagination')}}
 @endsection

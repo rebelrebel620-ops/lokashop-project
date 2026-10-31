@@ -1,0 +1,20 @@
+<?php
+// Disposable in-memory SQLite checks. Never connects to project MySQL.
+require __DIR__.'/../vendor/autoload.php';$app=require __DIR__.'/../bootstrap/app.php';$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+use Illuminate\Support\Facades\{DB,Auth};use Illuminate\Support\Carbon;use Illuminate\Http\Request;use Illuminate\Validation\ValidationException;use App\Models\User;use App\Services\VoucherDisplay;use App\Http\Controllers\{VoucherWorkspaceController,MarketController};
+config(['database.default'=>'sqlite','database.connections.sqlite'=>['driver'=>'sqlite','database'=>':memory:','prefix'=>''],'session.driver'=>'array']);DB::purge();Carbon::setTestNow('2026-11-01 12:00:00');
+DB::unprepared('CREATE TABLE users(id INTEGER PRIMARY KEY,name TEXT,role TEXT);CREATE TABLE vouchers(id INTEGER PRIMARY KEY,code TEXT UNIQUE,seller_id INTEGER,type TEXT,value REAL,discount_percent REAL,minimum_spend REAL,cap REAL,starts_at TEXT,expires_at TEXT,usage_limit INTEGER,per_buyer_limit INTEGER,used_count INTEGER,active INTEGER,claimable INTEGER,created_at TEXT,updated_at TEXT);CREATE TABLE voucher_claims(id INTEGER PRIMARY KEY,buyer_id INTEGER,voucher_id INTEGER,created_at TEXT,updated_at TEXT,UNIQUE(buyer_id,voucher_id));CREATE TABLE voucher_redemptions(id INTEGER PRIMARY KEY,buyer_id INTEGER,voucher_id INTEGER);');
+DB::table('users')->insert([['id'=>1,'name'=>'Buyer','role'=>'buyer'],['id'=>2,'name'=>'Admin','role'=>'admin']]);
+DB::table('vouchers')->insert(['id'=>1,'code'=>'LOKA15','seller_id'=>null,'type'=>'percent','value'=>15,'discount_percent'=>15,'minimum_spend'=>150,'cap'=>50,'starts_at'=>'2026-11-01 10:00:00','expires_at'=>'2026-11-30 23:59:00','usage_limit'=>100,'per_buyer_limit'=>1,'used_count'=>0,'active'=>1,'claimable'=>1]);
+Auth::setUser(User::find(1));$n=0;function check($x,$m){global $n;if(!$x)throw new RuntimeException($m);$n++;}function req($data){return Request::create('/test','POST',$data,[],[],['HTTP_ACCEPT'=>'application/json']);}function blocked($fn,$m){try{$fn();throw new RuntimeException($m);}catch(ValidationException $e){check(true,$m);}}
+$c=new VoucherWorkspaceController;$c->claim(req(['voucher_id'=>1]));$c->claim(req(['voucher_id'=>1]));check(DB::table('voucher_claims')->count()===1,'Repeated claim is idempotent');
+DB::table('vouchers')->where('id',1)->update(['starts_at'=>'2026-11-02 10:00:00']);blocked(fn()=>$c->claim(req(['voucher_id'=>1])),'Future vouchers cannot be claimed');
+DB::table('vouchers')->where('id',1)->update(['starts_at'=>'2026-11-01 10:00:00','expires_at'=>'2026-11-01 12:00:00']);blocked(fn()=>$c->claim(req(['voucher_id'=>1])),'Exact expiry is expired');
+DB::table('vouchers')->where('id',1)->update(['expires_at'=>'2026-11-30 23:59:00','used_count'=>100]);blocked(fn()=>$c->claim(req(['voucher_id'=>1])),'Fully redeemed cannot be claimed');
+DB::table('vouchers')->where('id',1)->update(['used_count'=>0]);DB::table('voucher_redemptions')->insert(['buyer_id'=>1,'voucher_id'=>1]);blocked(fn()=>$c->claim(req(['voucher_id'=>1])),'Per buyer usage limit enforced');DB::table('voucher_redemptions')->delete();
+$v=DB::table('vouchers')->find(1);check(VoucherDisplay::label($v)==='LokaShop','Platform label is LokaShop');$v->type='shipping';check(VoucherDisplay::kind($v)==='shipping','Shipping kind');$v->seller_id=99;check(VoucherDisplay::kind($v)==='store','Seller ownership determines store kind');
+Auth::setUser(User::find(2));$data=['id'=>1,'code'=>'LOKA15','type'=>'percent','value'=>'15.00','discount_percent'=>15,'minimum_spend'=>'150.00','cap'=>'50.00','starts_at'=>'2026-11-01T10:00:00','expires_at'=>'2026-12-30T23:59:00','usage_limit'=>200,'per_buyer_limit'=>1,'claimable'=>1];
+(new MarketController)->voucher(req($data));check(DB::table('vouchers')->where('id',1)->value('usage_limit')===200,'Claimed offer permits increase with normalized dates/decimals');
+blocked(fn()=>(new MarketController)->voucher(req(array_replace($data,['value'=>25]))),'Claimed discount cannot be changed');
+blocked(fn()=>(new MarketController)->voucher(req(array_replace($data,['usage_limit'=>50]))),'Claimed usage cannot be reduced');
+echo "Passed $n voucher checks.\n";

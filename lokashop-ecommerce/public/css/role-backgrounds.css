@@ -1,0 +1,24 @@
+/* Role-specific full-page photography; white cards keep content readable. */
+body[data-workspace-role]{--workspace-photo:none;--workspace-position:center;--workspace-veil:rgba(242,248,244,.70);background:#f1f6f2;isolation:isolate;min-height:100vh;min-height:100dvh}
+body[data-workspace-role="buyer"]{--workspace-photo:url('../images/workspaces/buyer-desktop.webp');--workspace-position:62% center;--workspace-veil:rgba(243,249,244,.66)}
+body[data-workspace-role="seller"]{--workspace-photo:url('../images/workspaces/seller-desktop.webp');--workspace-position:65% center;--workspace-veil:rgba(246,248,241,.68)}
+body[data-workspace-role="admin"]{--workspace-photo:url('../images/workspaces/admin-desktop.webp');--workspace-position:60% center;--workspace-veil:rgba(239,246,243,.76)}
+body[data-workspace-role]:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:#f1f6f2;background-image:linear-gradient(var(--workspace-veil),var(--workspace-veil)),var(--workspace-photo);background-size:cover;background-position:var(--workspace-position);background-repeat:no-repeat}
+body[data-workspace-role] .appshell,body[data-workspace-role] .main{background:transparent;min-width:0}
+body[data-workspace-role] .main-in{width:100%;max-width:none;min-width:0}
+body[data-workspace-role] .page-head{background:rgba(255,255,255,.94);border:1px solid #dbe7df;border-radius:16px;padding:20px 24px}
+body[data-workspace-role] .page-head h1{color:#143c29}
+body[data-workspace-role] .page-head p{color:#4e6658}
+body[data-workspace-role] .sidebar,body[data-workspace-role] .topbar{background-color:#fff}
+@media(max-width:1024px){
+body[data-workspace-role="buyer"]{--workspace-photo:url('../images/workspaces/buyer-tablet.webp')}
+body[data-workspace-role="seller"]{--workspace-photo:url('../images/workspaces/seller-tablet.webp')}
+body[data-workspace-role="admin"]{--workspace-photo:url('../images/workspaces/admin-tablet.webp')}
+body[data-workspace-role] .page-head{padding:18px 20px}}
+@media(max-width:600px){
+body[data-workspace-role="buyer"]{--workspace-photo:url('../images/workspaces/buyer-mobile.webp')}
+body[data-workspace-role="seller"]{--workspace-photo:url('../images/workspaces/seller-mobile.webp')}
+body[data-workspace-role="admin"]{--workspace-photo:url('../images/workspaces/admin-mobile.webp')}
+body[data-workspace-role]{--workspace-position:center top}
+body[data-workspace-role] .page-head{padding:16px;border-radius:12px}}
+@media print{body[data-workspace-role]:before{display:none}body[data-workspace-role]{background:white}}

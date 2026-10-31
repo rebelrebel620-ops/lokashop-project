@@ -24,6 +24,7 @@ class PickupRequests {
    $center=Municipalities::centerFor(Municipalities::address($sellerId));if(!$center)Support::fail('pickup','No approved sorting center serves your municipality.');
    DB::table('parcels')->where('id',$p->id)->update(['center_id'=>$center->id,'updated_at'=>now()]);
    DB::table('assignments')->insert(['parcel_id'=>$p->id,'rider_id'=>null,'kind'=>'pickup','status'=>'requested','expires_at'=>null,'earnings'=>0,'created_at'=>now(),'updated_at'=>now()]);
+   ParcelTracking::note($p->id,$sellerId,'Seller requested parcel pickup.');
    Support::notify([$center->user_id],"Seller requested pickup for {$p->tracking_code}. Assign an active rider from the seller area.");
   });
  }
@@ -44,6 +45,7 @@ class PickupRequests {
    if($a->status==='requested')DB::table('assignments')->where('id',$a->id)->update($data);
    else DB::table('assignments')->insert($data+['parcel_id'=>$p->id,'kind'=>'pickup','created_at'=>now()]);
    if($p->status==='PREPARING')Workflow::move($p->id,'READY_FOR_PICKUP',$company,null,null,$p->center_id);
+   ParcelTracking::note($p->id,$company,'Sorting center assigned a pickup rider.');
    Support::notify([$rider],"New pickup assignment: {$p->tracking_code}. Accept within 3 hours. It is already visible in Assignments.");
   });
  }

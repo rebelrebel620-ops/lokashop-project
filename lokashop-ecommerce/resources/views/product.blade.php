@@ -4,6 +4,7 @@
 @section('body-class','product-page')
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/product-detail.css') }}">
+<link rel="stylesheet" href="{{asset('css/product-reviews.css')}}">
 <div class="product-detail">
 <a class="product-back" href="{{ '/shop'.(is_string(request('shop_query')) && request('shop_query') !== '' ? '?'.request('shop_query') : '') }}">&larr; Back to shop</a>
 @php
@@ -26,15 +27,16 @@
   @endif
  </div>
  <div class="card product-summary">
-  <h1>{{$p->name}}</h1>
+  <span class="product-eyebrow">LOKASHOP MARKETPLACE</span><h1>{{$p->name}}</h1>
+<a class="product-rating-link" href="#customer-reviews"><span class="rating-stars" aria-hidden="true">{{str_repeat('★',(int)round($reviewSummary['average']))}}{{str_repeat('☆',5-(int)round($reviewSummary['average']))}}</span> {{$reviewSummary['count']?number_format($reviewSummary['average'],1).' / 5':'No ratings yet'}} · {{$reviewSummary['count']}} reviews <span class="product-sold-count" title="Units from delivered or completed orders, excluding refunded orders">· {{number_format($reviewSummary['sold'])}} sold</span></a>
   <p><strong>Store:</strong> {{$p->store_name ?? 'LokaShop seller'}}<br><strong>Seller:</strong> {{$p->seller_name ?? 'Seller'}}</p>
-  <p>{{$p->description}}</p>
+  <p class="product-intro">Choose your variation and quantity, then add to cart or buy now.</p>
   @php $vacation=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$p->seller_id)->value('vacation'); @endphp
   @if($vacation)<p>Store is on vacation. Orders are paused.</p>@endif
   <p class="price" style="font-size:1.6rem">₱{{number_format(\App\Services\Catalog::price($p),2)}}
    @if($p->discount_percent>0)<span class="price strike">₱{{number_format($p->price,2)}}</span> <span class="tag off">{{rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')}}% OFF</span>@endif
   </p>
-  <small>{{$p->stock}} in stock</small><p id="selected-variant"></p><img id="variant-image" style="max-width:180px" hidden alt="Selected variation">
+  <div class="product-stock">{{$p->stock > 0 ? $p->stock.' units available' : 'Out of stock'}}</div><div class="product-perks"><span>Cash on delivery</span><span>Delivery updates</span></div><p id="selected-variant"></p><img id="variant-image" style="max-width:180px" hidden alt="Selected variation">
   @foreach(\Illuminate\Support\Facades\DB::table('promotions')->where('product_id',$p->id)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $promo)<p>{{ucfirst($promo->type)}} ends {{$promo->ends_at}}</p>@endforeach
 
   @auth
@@ -42,18 +44,24 @@
    <form method="post" action="/cart" style="margin-top:16px">@csrf
     <input type="hidden" name="product_id" value="{{$p->id}}">
     <label>Variation<select name="variation_id" @required($variations->isNotEmpty())><option value="">{{$variations->isEmpty()?'Standard':'Select a variation'}}</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled($v->stock<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{$v->stock}}" data-image="{{\App\Services\Support::imageUrl($v->image)}}">{{$v->name}} ({{$v->stock}} available)</option>@endforeach</select></label>
-    <label>Quantity<input type="number" min="1" max="{{$p->stock}}" name="quantity" value="1"></label>
-    <button class="btn lg" @disabled($vacation||$p->stock<=0)>Add to cart</button><button class="btn" formaction="/buy-now" @disabled($vacation||$p->stock<=0)>Buy now</button>
+    <label>Quantity<div class="quantity-stepper"><button type="button" data-quantity-step="-1" aria-label="Decrease quantity">−</button><input type="number" min="1" max="{{$p->stock}}" name="quantity" value="1" required aria-label="Quantity"><button type="button" data-quantity-step="1" aria-label="Increase quantity">+</button></div></label><div class="purchase-actions">
+    <button class="btn lg" @disabled($vacation||$p->stock<=0)>Add to cart</button><button class="btn" formaction="/buy-now" @disabled($vacation||$p->stock<=0)>Buy now</button></div>
    </form>
-   <form method="post" action="/tools/wishlist">@csrf<input type="hidden" name="product_id" value="{{$p->id}}"><input type="hidden" name="enabled" value="1"><button>Save to wishlist</button></form>
-   <form method="post" action="/tools/follow">@csrf<input type="hidden" name="seller_id" value="{{$p->seller_id}}"><input type="hidden" name="enabled" value="1"><button>Follow store</button></form>
+   @php
+   $isSaved=\Illuminate\Support\Facades\DB::table('wishlists')->where('buyer_id',auth()->id())->where('product_id',$p->id)->exists();
+   $isFollowing=\Illuminate\Support\Facades\DB::table('store_follows')->where('buyer_id',auth()->id())->where('seller_id',$p->seller_id)->exists();
+   @endphp
+   <div class="product-secondary"><form method="post" action="/tools/wishlist">@csrf<input type="hidden" name="product_id" value="{{$p->id}}"><input type="hidden" name="enabled" value="{{$isSaved?0:1}}"><button aria-pressed="{{$isSaved?'true':'false'}}">{{$isSaved?'Saved · Remove':'Save to wishlist'}}</button></form>
+   <form method="post" action="/tools/follow">@csrf<input type="hidden" name="seller_id" value="{{$p->seller_id}}"><input type="hidden" name="enabled" value="{{$isFollowing?0:1}}"><button aria-pressed="{{$isFollowing?'true':'false'}}">{{$isFollowing?'Following · Unfollow':'Follow store'}}</button></form></div>
    @endif
   @else
   <a class="btn lg" href="/login" style="margin-top:16px">Log in to order</a>
   @endauth
  </div>
 </div>
-<script>const variants=document.querySelector('[name="variation_id"]');variants?.addEventListener('change',()=>{const o=variants.selectedOptions[0];const quantity=variants.form.querySelector('[name=quantity]');const stock=Math.min(@json((int)$p->stock),Number(o.dataset.stock??@json((int)$p->stock)));quantity.max=stock;if(Number(quantity.value)>stock)quantity.value=Math.max(1,stock);const info=document.getElementById('selected-variant');info.textContent=o.dataset.price?'Selected price: PHP '+Number(o.dataset.price).toFixed(2)+'; '+o.dataset.stock+' left':'';const image=document.getElementById('variant-image');image.hidden=!o.dataset.image;if(o.dataset.image)image.src=o.dataset.image;});</script>
+<section class="card product-information"><div><span class="product-eyebrow">KNOW YOUR PRODUCT</span><h2>Product details</h2><p class="product-description">{{$p->description}}</p></div><aside><h3>Sold by {{$p->store_name ?? 'LokaShop seller'}}</h3><p>{{$p->seller_name ?? 'Seller'}}</p><dl><dt>Weight</dt><dd>{{$p->weight}} kg</dd><dt>Availability</dt><dd>{{$p->stock>0?'In stock':'Out of stock'}}</dd><dt>Payment</dt><dd>Cash on delivery</dd></dl></aside></section>
+@include('product-reviews')
+<script>document.querySelectorAll('[data-quantity-step]').forEach(button=>button.addEventListener('click',()=>{const input=button.parentElement.querySelector('input');const max=Number(input.max);input.value=Math.max(1,Math.min(max||1,(Number(input.value)||1)+Number(button.dataset.quantityStep)));input.dispatchEvent(new Event('change',{bubbles:true}));}));const variants=document.querySelector('[name="variation_id"]');variants?.addEventListener('change',()=>{const o=variants.selectedOptions[0];const quantity=variants.form.querySelector('[name=quantity]');const stock=Math.min(@json((int)$p->stock),Number(o.dataset.stock??@json((int)$p->stock)));quantity.max=stock;if(Number(quantity.value)>stock)quantity.value=Math.max(1,stock);const info=document.getElementById('selected-variant');info.textContent=o.dataset.price?'Selected price: PHP '+Number(o.dataset.price).toFixed(2)+'; '+o.dataset.stock+' left':'';const image=document.getElementById('variant-image');image.hidden=!o.dataset.image;if(o.dataset.image)image.src=o.dataset.image;});</script>
 </div>
 <script>
 (()=>{

@@ -1,69 +1,27 @@
-<!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Order {{$parcel->tracking_code}} · LokaShop</title>
-<style>
-body{font:16px/1.5 system-ui;background:#f3f6f4;margin:0;padding:24px}
-.card{max-width:480px;margin:0 auto;background:#fff;border:2px solid #164e30;border-radius:10px;padding:24px}
-.card img{width:64px}
-h1{font-size:20px;margin:12px 0 2px}
-h2{font-size:16px;margin:0 0 16px;color:#164e30}
-.badge{display:inline-block;background:#e7f4ec;color:#164e30;font-weight:600;font-size:13px;padding:3px 10px;border-radius:20px;margin-bottom:16px}
-table{width:100%;border-collapse:collapse;margin:12px 0}
-td{padding:6px 0;border-bottom:1px solid #eee;vertical-align:top}
-td.label{color:#666;width:40%}
-.items td{border-bottom:1px dashed #eee}
-.totals td{border:none;padding:2px 0}
-.totals tr:last-child td{font-weight:700;font-size:17px;border-top:2px solid #164e30;padding-top:8px}
-.section-title{font-weight:700;margin:18px 0 4px;font-size:14px;text-transform:uppercase;letter-spacing:.03em;color:#164e30}
-</style>
-<div class="card">
-  <img src="/logo.jpg">
-  <h1>LokaShop</h1>
-  <h2>{{$parcel->tracking_code}}</h2>
-  <span class="badge">{{ str_replace('_',' ',$order->status) }}</span>
-
-  <div class="section-title">Order</div>
-  <table>
-    <tr><td class="label">Order #</td><td>{{$order->id}}</td></tr>
-    <tr><td class="label">Placed</td><td>{{ \Illuminate\Support\Carbon::parse($order->created_at)->format('M j, Y g:ia') }}</td></tr>
-    @if($seller)<tr><td class="label">Sold by</td><td>{{$seller->name}}</td></tr>@endif
-  </table>
-
-  <div class="section-title">Buyer</div>
-  <table>
-    <tr><td class="label">Name</td><td>{{$buyer->name ?? $address->recipient}}</td></tr>
-    <tr><td class="label">Phone</td><td>{{$address->phone}}</td></tr>
-    <tr><td class="label">Address</td><td>{{$address->street}}, {{$address->barangay}}, {{$address->city}}, {{$address->province}} {{$address->postal_code}}</td></tr>
-  </table>
-
-  <div class="section-title">Items</div>
-  <table class="items">
-    @foreach($items as $item)
-    <tr>
-      <td>Item #{{$item->id}} — {{$item->name}} <span style="color:#888">× {{$item->quantity}}</span></td>
-      <td style="text-align:right">₱{{ number_format($item->unit_price * $item->quantity, 2) }}</td>
-    </tr>
-    @endforeach
-  </table>
-
-  <table class="totals">
-    <tr><td class="label">Items subtotal</td><td style="text-align:right">₱{{ number_format($items->sum(fn($item) => $item->unit_price * $item->quantity),2) }}</td></tr>
-    <tr><td class="label">Shipping cost</td><td style="text-align:right">₱{{ number_format($order->shipping_fee ?? 0,2) }}</td></tr>
-    <tr><td class="label">Store discount</td><td style="text-align:right">-₱{{ number_format($order->store_discount ?? 0,2) }}</td></tr>
-    @if(($order->platform_discount ?? 0) > 0)<tr><td class="label">Platform discount</td><td style="text-align:right">-₱{{ number_format($order->platform_discount,2) }}</td></tr>@endif
-    @if(($order->shipping_discount ?? 0) > 0)<tr><td class="label">Shipping discount</td><td style="text-align:right">-₱{{ number_format($order->shipping_discount,2) }}</td></tr>@endif
-    <tr><td>Total (buyer pays)</td><td style="text-align:right">₱{{ number_format($order->total,2) }}</td></tr>
-  </table>
-
-  @if($payment)
-  <div class="section-title">Payment</div>
-  <table>
-    <tr><td class="label">Method</td><td>{{ strtoupper($payment->method) }}</td></tr>
-    <tr><td class="label">Status</td><td>{{ ucfirst(str_replace('_',' ',$payment->status)) }}</td></tr>
-  </table>
-  @endif
+@extends(auth()->user()->role==='buyer'?'app':'layout')
+@section('title','Track Order - LokaShop')
+@section('content')
+<link rel="stylesheet" href="{{asset('css/buyer-orders.css')}}">
+<a class="order-back" href="{{auth()->user()->role==='buyer'?url('/orders').'?'.http_build_query(['tab'=>\App\Services\BuyerOrders::bucket($order->status)]):url('/seller/orders')}}">&larr; Back to orders</a>
+<div class="page-head"><div><span class="order-eyebrow">DELIVERY UPDATES</span><h1>Track your order</h1><p>Order #{{$order->id}} · {{$parcel->tracking_code}}</p></div><a class="btn alt" href="{{url('/track/'.rawurlencode($parcel->tracking_code))}}">Refresh updates</a></div>
+<div class="tracking-layout">
+<section class="purchase-card timeline-card"><div class="tracking-current"><small>CURRENT STATUS</small><h2>{{\App\Services\BuyerOrders::label($order->status)}}</h2><p>Latest order update: {{\Illuminate\Support\Carbon::parse($order->updated_at)->format('M j, Y · g:i A')}}</p></div>
+<h2 class="tracking-heading">Delivery history</h2><p class="timeline-hint">Newest update first. Only recorded events have timestamps.</p>
+<ol class="delivery-timeline">
+@foreach($timeline as $event)
+<li @if($loop->first) class="latest" @endif><time datetime="{{\Illuminate\Support\Carbon::parse($event['at'])->toIso8601String()}}"><span>{{\Illuminate\Support\Carbon::parse($event['at'])->format('M j, Y')}}</span><small>{{\Illuminate\Support\Carbon::parse($event['at'])->format('g:i A')}}</small></time><div><h3>{{$event['title']}}</h3>@if($event['detail'])<p>{{$event['detail']}}</p>@endif</div></li>
+@endforeach
+</ol>
+<details class="delivery-process"><summary>View the full delivery process</summary><ol><li>Buyer places the order.</li><li>Seller accepts and prepares the products.</li><li>Seller requests pickup; the sorting center assigns a local rider.</li><li>Rider accepts, collects the parcel and brings it to the origin sorting center.</li><li>Sorting center receives and sorts the parcel.</li><li>For another municipality: a driver accepts the transfer and departs with the parcels.</li><li>Driver confirms handover; the destination sorting center confirms receipt. Transfers repeat if needed.</li><li>Destination sorting center sorts the parcel and assigns a local delivery rider.</li><li>Rider goes out for delivery.</li><li>Buyer receives the parcel and pays COD; rider records delivery proof.</li><li>Buyer confirms receipt, or the existing automatic completion rule applies.</li></ol><p>This describes the route, not completed events. Local deliveries can skip sorting center transfers. Failed deliveries and returns appear in the history when recorded.</p></details>
+</section>
+<aside class="tracking-sidebar"><section class="purchase-card"><h2>Order summary</h2><p><strong>{{$store->name ?? $seller->name ?? 'LokaShop seller'}}</strong></p>
+@foreach($items as $item) @include('order-item-row',['item'=>$item]) @endforeach
+<dl class="order-breakdown"><dt>Items subtotal</dt><dd>₱{{number_format($items->sum(fn($i)=>$i->unit_price*$i->quantity),2)}}</dd><dt>Shipping</dt><dd>₱{{number_format($order->shipping_fee??0,2)}}</dd><dt>Store discount</dt><dd>−₱{{number_format($order->store_discount??0,2)}}</dd><dt>Platform discount</dt><dd>−₱{{number_format($order->platform_discount??0,2)}}</dd><dt>Shipping discount</dt><dd>−₱{{number_format($order->shipping_discount??0,2)}}</dd><dt><strong>Order total</strong></dt><dd><strong>₱{{number_format($order->total,2)}}</strong></dd></dl>
+@if($payment)<p class="order-payment">{{strtoupper($payment->method)}} · {{ucfirst(str_replace('_',' ',$payment->status))}}</p>@endif
+@if($address)<h3>Delivery address</h3><p class="order-address">{{$address->recipient ?? $buyer->name ?? 'Buyer'}}<br>{{$address->phone ?? ''}}<br>{{$address->street ?? ''}}, {{$address->barangay ?? ''}}, {{$address->city ?? ''}}, {{$address->province ?? ''}} {{$address->postal_code ?? ''}}</p>@endif
+</section>
+@if(in_array($order->status,['DELIVERED','COMPLETED'])&&$parcel->proof_path)<section class="purchase-card"><h2>Proof of delivery</h2><p>The rider's photo covers this order and the items listed above.</p><a href="/orders/{{$order->id}}/proof" target="_blank" rel="noopener"><img class="tracking-proof" src="/orders/{{$order->id}}/proof" alt="Delivery proof for order {{$order->id}}" loading="lazy">Open delivery photo</a></section>@endif
+@if(auth()->id()==$order->buyer_id && $order->status==='DELIVERED')<section class="purchase-card"><h2>Received your items?</h2><p>Check the items before confirming receipt.</p><form method="post" action="/orders/{{$order->id}}/confirm">@csrf<button class="btn">Order received</button></form><p><a href="/tools/returns">Report a problem / Returns</a></p></section>@endif
+</aside>
 </div>
-
-@if(in_array($order->status,['DELIVERED','COMPLETED']) && $parcel->proof_path)
-<div class="card" style="margin-top:20px"><h2>Proof of delivery</h2><p>Delivery photo for order #{{$order->id}} and its listed products.</p><a href="/orders/{{$order->id}}/proof" target="_blank" rel="noopener"><img src="/orders/{{$order->id}}/proof" alt="Proof of delivery" style="width:100%;max-height:420px;object-fit:contain"></a><p><a href="/orders">Back to orders</a></p></div>
-@endif
+@endsection
