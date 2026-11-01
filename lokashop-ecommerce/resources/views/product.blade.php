@@ -33,17 +33,17 @@
   <p class="product-intro">Choose your variation and quantity, then add to cart or buy now.</p>
   @php $vacation=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$p->seller_id)->value('vacation'); @endphp
   @if($vacation)<p>Store is on vacation. Orders are paused.</p>@endif
-  <p class="price" style="font-size:1.6rem">₱{{number_format(\App\Services\Catalog::price($p),2)}}
+  <p class="price" id="live-product-price" data-base-price="{{\App\Services\Catalog::price($p)}}" style="font-size:1.6rem">₱{{number_format(\App\Services\Catalog::price($p),2)}}
    @if($p->discount_percent>0)<span class="price strike">₱{{number_format($p->price,2)}}</span> <span class="tag off">{{rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')}}% OFF</span>@endif
   </p>
-  <div class="product-stock">{{$p->stock > 0 ? $p->stock.' units available' : 'Out of stock'}}</div><div class="product-perks"><span>Cash on delivery</span><span>Delivery updates</span></div><p id="selected-variant"></p><img id="variant-image" style="max-width:180px" hidden alt="Selected variation">
+  <div class="product-stock" data-base-stock="{{$p->stock}}">{{$p->stock > 0 ? $p->stock.' units available' : 'Out of stock'}}</div><div class="product-perks"><span>Cash on delivery</span><span>Delivery updates</span></div><p id="selected-variant"></p><img id="variant-image" style="max-width:180px" hidden alt="Selected variation">
   @foreach(\Illuminate\Support\Facades\DB::table('promotions')->where('product_id',$p->id)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $promo)<p>{{ucfirst($promo->type)}} ends {{$promo->ends_at}}</p>@endforeach
 
   @auth
    @if(auth()->user()->role==='buyer')
-   <form method="post" action="/cart" style="margin-top:16px">@csrf
+   <form method="post" action="/cart" style="margin-top:16px" data-purchase-form data-vacation="{{$vacation?1:0}}">@csrf
     <input type="hidden" name="product_id" value="{{$p->id}}">
-    <label>Variation<select name="variation_id" @required($variations->isNotEmpty())><option value="">{{$variations->isEmpty()?'Standard':'Select a variation'}}</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled($v->stock<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{$v->stock}}" data-image="{{\App\Services\Support::imageUrl($v->image)}}">{{$v->name}} ({{$v->stock}} available)</option>@endforeach</select></label>
+    <label>Variation<select name="variation_id"><option value="">Original product</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled(min($p->stock,$v->stock)<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{min($p->stock,$v->stock)}}" data-image="{{\App\Services\Support::imageUrl($v->image)}}">{{$v->name}} · {{collect(json_decode($v->options??'{}',true)?:[])->map(fn($value,$key)=>$key.': '.$value)->implode(' / ')}} · ₱{{number_format(\App\Services\Catalog::price($p,$v),2)}} ({{min($p->stock,$v->stock)}} available)</option>@endforeach</select></label>
     <label>Quantity<div class="quantity-stepper"><button type="button" data-quantity-step="-1" aria-label="Decrease quantity">−</button><input type="number" min="1" max="{{$p->stock}}" name="quantity" value="1" required aria-label="Quantity"><button type="button" data-quantity-step="1" aria-label="Increase quantity">+</button></div></label><div class="purchase-actions">
     <button class="btn lg" @disabled($vacation||$p->stock<=0)>Add to cart</button><button class="btn" formaction="/buy-now" @disabled($vacation||$p->stock<=0)>Buy now</button></div>
    </form>
@@ -61,15 +61,8 @@
 </div>
 <section class="card product-information"><div><span class="product-eyebrow">KNOW YOUR PRODUCT</span><h2>Product details</h2><p class="product-description">{{$p->description}}</p></div><aside><h3>Sold by {{$p->store_name ?? 'LokaShop seller'}}</h3><p>{{$p->seller_name ?? 'Seller'}}</p><dl><dt>Weight</dt><dd>{{$p->weight}} kg</dd><dt>Availability</dt><dd>{{$p->stock>0?'In stock':'Out of stock'}}</dd><dt>Payment</dt><dd>Cash on delivery</dd></dl></aside></section>
 @include('product-reviews')
-<script>document.querySelectorAll('[data-quantity-step]').forEach(button=>button.addEventListener('click',()=>{const input=button.parentElement.querySelector('input');const max=Number(input.max);input.value=Math.max(1,Math.min(max||1,(Number(input.value)||1)+Number(button.dataset.quantityStep)));input.dispatchEvent(new Event('change',{bubbles:true}));}));const variants=document.querySelector('[name="variation_id"]');variants?.addEventListener('change',()=>{const o=variants.selectedOptions[0];const quantity=variants.form.querySelector('[name=quantity]');const stock=Math.min(@json((int)$p->stock),Number(o.dataset.stock??@json((int)$p->stock)));quantity.max=stock;if(Number(quantity.value)>stock)quantity.value=Math.max(1,stock);const info=document.getElementById('selected-variant');info.textContent=o.dataset.price?'Selected price: PHP '+Number(o.dataset.price).toFixed(2)+'; '+o.dataset.stock+' left':'';const image=document.getElementById('variant-image');image.hidden=!o.dataset.image;if(o.dataset.image)image.src=o.dataset.image;});</script>
+
 </div>
-<script>
-(()=>{
- const main=document.getElementById('product-main-image');
- const thumbnails=document.querySelectorAll('[data-gallery-image]');
- const original=main?.src;
- thumbnails.forEach(button=>button.addEventListener('click',()=>{if(!main)return;main.src=button.dataset.galleryImage;thumbnails.forEach(other=>other.setAttribute('aria-pressed',String(other===button)));}));
- document.querySelector('[name="variation_id"]')?.addEventListener('change',event=>{const src=event.target.selectedOptions[0]?.dataset.image;if(main){document.getElementById('variant-image').hidden=true;main.src=src||original;thumbnails.forEach(button=>button.setAttribute('aria-pressed',String(main.src===button.dataset.galleryImage)));}});
-})();
-</script>
+
+<script src="{{asset('js/product-selection.js')}}" defer></script>
 @endsection

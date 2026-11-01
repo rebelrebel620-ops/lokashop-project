@@ -25,7 +25,7 @@ class Commerce {
    $groups=[];$previewUsed=[];
    foreach($rows as $row){$p=$products[$row->product_id];$var=$row->variation_id?$variants[$row->variation_id]:null;
     if($var&&$var->product_id!=$p->id)Support::fail('variation_id','Variation does not belong to this product.');
-    if(!$var&&DB::table('product_variations')->where('product_id',$p->id)->whereNull('deleted_at')->exists())Support::fail('variation_id','Select a variation.');
+    
     $regular=Support::money(($p->price+($var->price_adjustment??0))*(1-$p->discount_percent/100));
     $sale=DB::table('promotions')->where('product_id',$p->id)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->orderBy('id')->lockForUpdate()->get();
     $scheduled=$sale->firstWhere('type','sale');if($scheduled)$regular=Support::money($scheduled->price+($var->price_adjustment??0));

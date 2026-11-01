@@ -29,6 +29,17 @@
 <p><strong>{{$p->seller_name??'Seller #'.$p->seller_id}}</strong><br><small>{{$p->seller_email}}</small></p>
 <p><small>{{$p->main_category??'Uncategorized'}} · {{$p->subcategory}}</small></p>
 <p>₱{{number_format($p->price,2)}} · {{$p->stock}} in stock</p>
+@php $reviewVariants=\Illuminate\Support\Facades\DB::table('product_variations')->where('product_id',$p->id)->whereNull('deleted_at')->get(); @endphp
+<details><summary>Variations ({{$reviewVariants->count()}})</summary>
+<p><small>Variation stock and overall product stock both limit purchases.</small></p>
+@forelse($reviewVariants as $variation)
+<div style="padding:12px 0;border-bottom:1px solid #dbe7df">
+@if($variation->image)<img src="{{\App\Services\Support::imageUrl($variation->image)}}" alt="{{$variation->name}}" width="64" height="64" style="object-fit:contain">@endif
+<strong>{{$variation->name}}</strong>
+@foreach(json_decode($variation->options??'{}',true)?:[] as $type=>$value)<span> · {{$type}}: {{$value}}</span>@endforeach
+<p>SKU: {{$variation->sku}} · {{$variation->stock}} available · ₱{{number_format(\App\Services\Catalog::price($p,$variation),2)}}</p>
+</div>
+@empty<p>Standard product; no variations.</p>@endforelse</details>
 @if($tab==='pending')
 <form method="post" action="/admin/products/{{$p->id}}" class="review-actions">@csrf<button name="decision" value="approve" class="btn">Approve product</button><button name="decision" value="reject" class="btn danger">Reject product</button></form>
 @else<p><small>{{$p->active?'Active listing':'Inactive listing'}}</small></p>@endif

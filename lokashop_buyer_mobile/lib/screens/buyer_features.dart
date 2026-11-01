@@ -189,7 +189,7 @@ class VouchersScreen extends StatelessWidget {
   const VouchersScreen({super.key});
   @override
   Widget build(BuildContext context) => ResourcePage(
-    title: 'A little extra off',
+    title: 'My vouchers',
     path: '/vouchers',
     builder: (context, data, reload) {
       final rows = List.from(data);
@@ -208,7 +208,19 @@ class VouchersScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Eyebrow('LOKASHOP VOUCHER'),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: v['seller_id'] != null ? const Color(0xFF86573C) : v['type'] == 'shipping' ? const Color(0xFF29778A) : AppColors.primary,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(children: [
+                                Icon(v['seller_id'] != null ? Icons.storefront : v['type'] == 'shipping' ? Icons.local_shipping : Icons.local_offer, color: Colors.white, size: 36),
+                                const SizedBox(width: 12),
+                                Expanded(child: Text(v['seller_id'] != null ? 'STORE VOUCHER' : v['type'] == 'shipping' ? 'SHIPPING VOUCHER' : 'LOKASHOP VOUCHER', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
+                              ]),
+                            ),
                             const SizedBox(height: 10),
                             Text(
                               v['type'] == 'percent'
@@ -235,6 +247,11 @@ class VouchersScreen extends StatelessWidget {
                                 fontSize: 12,
                               ),
                             ),
+                            if ((double.tryParse('${v['cap']}') ?? 0) > 0) Text('Up to ${money(v['cap'])} discount'),
+                            Text(v['expires_at'] == null ? 'No expiry date' : 'Valid until ${v['expires_at']}'),
+                            ExpansionTile(title: const Text('Terms & conditions'), children: [
+                              Text('Up to ${v['per_buyer_limit'] ?? 1} use(s) per buyer. Claiming saves the voucher. Select its code at checkout; eligibility is checked there.'),
+                            ]),
                             const Divider(height: 28),
                             Row(
                               children: [
@@ -261,7 +278,7 @@ class VouchersScreen extends StatelessWidget {
                                 if (v['claimable'] == 1 ||
                                     v['claimable'] == true)
                                   FilledButton.tonal(
-                                    onPressed: v['claimed'] == true
+                                    onPressed: v['claimed'] == true || (v['display_state'] != null && v['display_state'] != 'Available')
                                         ? null
                                         : () => runAction(context, () async {
                                             await context
@@ -273,7 +290,7 @@ class VouchersScreen extends StatelessWidget {
                                             await reload();
                                           }, success: 'Voucher saved.'),
                                     child: Text(
-                                      v['claimed'] == true ? 'Saved' : 'Claim',
+                                      v['display_state'] != null && v['display_state'] != 'Available' ? '${v['display_state']}' : v['claimed'] == true ? 'Saved' : 'Claim',
                                     ),
                                   ),
                               ],

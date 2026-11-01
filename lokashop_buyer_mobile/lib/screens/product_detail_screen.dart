@@ -5,6 +5,7 @@ import '../services/contracts.dart';
 import '../widgets/design.dart';
 import '../widgets/common.dart';
 import '../theme.dart';
+import '../widgets/customer_reviews.dart';
 import 'buyer_features.dart';
 import 'login_screen.dart';
 import 'checkout_screen.dart';
@@ -21,7 +22,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Map? data;
   bool loading = true, busy = false, saved = false;
   String? error;
-  int quantity = 1;
+  int quantity = 1, photoIndex = 0;
   Map? variant;
   @override
   void initState() {
@@ -73,7 +74,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     final p = data!['product'] as Map,
         variations = List.from(data!['variations'] ?? []);
-    final photos = [if (variant?['image'] != null) mediaUrl('${variant!['image']}'), ...(p['image_urls'] as List? ?? [])];
+    final variantPhoto = mediaUrl('${variant?['image_url'] ?? variant?['image'] ?? ''}');
+    final photos = variantPhoto.isNotEmpty ? [variantPhoto] : List.from(p['image_urls'] as List? ?? []);
     final price =
         variant?['effective_price'] ?? p['effective_price'] ?? p['price'];
     final productStock = int.tryParse('${p['stock']}') ?? 0;
@@ -120,11 +122,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ? AppPhoto(productPhoto(p))
                   : PageView(
                       key: ValueKey(variant?['id'] ?? 0),
+                      onPageChanged: (index) => setState(() => photoIndex = index),
                       children: photos
                           .map((url) => AppPhoto('$url', fit: BoxFit.contain))
                           .toList(),
                     ),
             ),
+            if (photos.isNotEmpty) Center(child: Text('${photoIndex + 1} / ${photos.length} · Swipe to see photos')),
             const SizedBox(height: 24),
             Eyebrow('${p['category'] ?? 'LOCAL FIND'}'),
             const SizedBox(height: 10),
@@ -152,37 +156,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                 ),
-                const Icon(Icons.star, color: Color(0xFFAD802B), size: 19),
-                Text(
-                  ' ${data!['rating_avg']} (${data!['rating_count']})',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                Text('${data!['review_summary']?['sold'] ?? 0} sold', style: const TextStyle(fontSize: 12)),
               ],
             ),
             const SizedBox(height: 20),
             if (variations.isNotEmpty)
               DropdownButtonFormField<int>(
-                initialValue: variant?['id'],
+                initialValue: variant?['id'] ?? 0,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Choose a variation',
                 ),
-                items: variations
-                    .map(
+                items: [
+                  const DropdownMenuItem<int>(value: 0, child: Text('Original product')),
+                  ...variations.map(
                       (v) => DropdownMenuItem<int>(
                         value: v['id'],
-                        enabled: (int.tryParse('${v['stock']}') ?? 0) > 0,
-                        child: Text('${v['name']} · ${v['stock']} available'),
+                        enabled: productStock > 0 && (int.tryParse('${v['stock']}') ?? 0) > 0,
+                        child: Text('${v['name']} · ${money(v['effective_price'] ?? p['effective_price'] ?? p['price'])} · ${v['stock']} left', maxLines: 2, overflow: TextOverflow.ellipsis),
                       ),
-                    )
-                    .toList(),
+                    ),
+                ],
                 onChanged: busy ? null : (id) => setState(() {
-                  variant = Map.from(variations.firstWhere((v) => v['id'] == id));
-                  final available = int.tryParse('${variant?['stock']}') ?? 0;
+                  photoIndex = 0;
+                  variant = id == null || id == 0 ? null : Map.from(variations.firstWhere((v) => v['id'] == id));
+                  final available = int.tryParse('${variant?['stock'] ?? p['stock']}') ?? 0;
                   final max = available < productStock ? available : productStock;
                   if (quantity > max) quantity = max > 0 ? max : 1;
                 }),
               ),
+            if (variant?['option_values'] is Map) Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Wrap(spacing: 8, runSpacing: 6, children: (variant!['option_values'] as Map).entries.map<Widget>((entry) => Chip(label: Text('${entry.key}: ${entry.value}'))).toList()),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -257,6 +263,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ],
               ),
             ),
+            CustomerReviews(productId: widget.productId, initial: data!),
             const SizedBox(height: 30),
           ],
         ),
@@ -266,17 +273,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           padding: const EdgeInsets.all(18),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             OutlinedButton.icon(
-              onPressed: busy || vacation || stock <= 0 || quantity > stock || variations.isNotEmpty && variant == null ? null : () async {
-                if (!await signed() || !mounted) return;
+              onPressed: busy || vacation || stock <= 0 || quantity > stock ? null : () async {
+                if (!await signed()) return;
+                if (!context.mounted) return;
                 setState(() => busy = true);
                 try {
                   final app = context.read<AppState>();
                   final result = await app.api.post('/cart/buy-now', {'product_id': widget.productId, 'quantity': quantity,
                     if (variant != null) 'variation_id': variant!['id'], '_request_key': requestKey()});
                   await app.refreshCart();
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   await Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutScreen(cartIds: [int.parse('${result['cart_id']}')])));
-                } catch (e) { if (mounted) AppSnack.show(context, '$e', error: true); }
+                } catch (e) { if (context.mounted) AppSnack.show(context, '$e', error: true); }
                 finally { if (mounted) setState(() => busy = false); }
               },
               icon: const Icon(Icons.bolt_outlined), label: const Text('Buy now'),
@@ -284,7 +292,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(height: 8),
             FilledButton.icon(
             onPressed:
-                busy || vacation || stock <= 0 || quantity > stock || variations.isNotEmpty && variant == null
+                busy || vacation || stock <= 0 || quantity > stock
                 ? null
                 : () async {
                     if (!await signed()) return;

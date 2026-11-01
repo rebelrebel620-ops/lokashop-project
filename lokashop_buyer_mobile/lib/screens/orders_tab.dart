@@ -16,7 +16,7 @@ class OrdersTab extends StatefulWidget {
 class _OrdersTabState extends State<OrdersTab> {
   List orders = [];
   bool loading = true;
-  String filter = 'All';
+  String filter = 'My Orders';
   String? error;
   @override
   void initState() {
@@ -29,6 +29,7 @@ class _OrdersTabState extends State<OrdersTab> {
       setState(() => loading = false);
       return;
     }
+    setState(() => error = null);
     try {
       final data = await context.read<AppState>().api.get('/orders');
       if (mounted) setState(() => orders = List.from(data));
@@ -39,24 +40,22 @@ class _OrdersTabState extends State<OrdersTab> {
     }
   }
 
+  Widget _item(dynamic i) => ListTile(
+    contentPadding: EdgeInsets.zero,
+    leading: AppPhoto(i['image_url'] ?? i['image'], width: 52, height: 58),
+    title: Text('${i['name']}', maxLines: 2, overflow: TextOverflow.ellipsis),
+    subtitle: Text('${i['variation'] ?? ''} · Qty ${i['quantity']}'),
+  );
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final rows = orders
-        .where(
-          (o) =>
-              filter == 'All' ||
-              (filter == 'On the way' &&
-                  ![
-                    'COMPLETED',
-                    'CANCELLED',
-                    'DELIVERED',
-                    'RETURN_RECEIVED',
-                  ].contains(o['status'])) ||
-              (filter == 'Delivered' && o['status'] == 'DELIVERED') ||
-              (filter == 'Completed' && o['status'] == 'COMPLETED'),
-        )
-        .toList();
+    String bucket(dynamic o) {
+      if (o['status'] == 'PLACED') return 'My Orders';
+      if (['DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED', 'RETURN_RECEIVED'].contains(o['status'])) return 'Completed';
+      return 'To Receive';
+    }
+    final rows = orders.where((o) => bucket(o) == filter).toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Your local deliveries')),
       body: PageBody(
@@ -87,12 +86,12 @@ class _OrdersTabState extends State<OrdersTab> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children:
-                            ['All', 'On the way', 'Delivered', 'Completed']
+                            ['My Orders', 'To Receive', 'Completed']
                                 .map(
                                   (f) => Padding(
                                     padding: const EdgeInsets.only(right: 8),
                                     child: ChoiceChip(
-                                      label: Text(f),
+                                      label: Text('$f (${orders.where((o) => bucket(o) == f).length})'),
                                       selected: filter == f,
                                       onSelected: (_) =>
                                           setState(() => filter = f),
@@ -154,6 +153,17 @@ class _OrdersTabState extends State<OrdersTab> {
                                 ),
                                 const SizedBox(height: 18),
                                 StatusBadge(status: '${o['status']}'),
+                                if (o['status_label'] != null) Text('${o['status_label']}'),
+                                if ((o['items'] as List? ?? []).isNotEmpty) ...[
+                                  const SizedBox(height: 14),
+                                  _item(o['items'][0]),
+                                  if ((o['items'] as List).length > 1)
+                                    ExpansionTile(
+                                      title: Text('View ${(o['items'] as List).length - 1} more products'),
+                                      children: (o['items'] as List).skip(1).map<Widget>(_item).toList(),
+                                    ),
+                                  Text('${(o['items'] as List).fold<int>(0, (sum, i) => sum + (int.tryParse('${i['quantity']}') ?? 0))} items · Cash on delivery', style: const TextStyle(fontSize: 12)),
+                                ],
                                 const SizedBox(height: 12),
                                 Text(
                                   'Order #${o['id']} · ${o['tracking_code']}',

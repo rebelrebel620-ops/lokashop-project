@@ -1,30 +1,25 @@
 <!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Shipping label</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LokaShop shipping label · {{$parcel->tracking_code}}</title>
 <style>
-body{font:18px system-ui;padding:25px;max-width:480px;border:2px solid #164e30}
-img.logo{width:90px}
-.qr-wrap{float:right;text-align:center}
-#qr{display:inline-block;padding:12px;background:#fff}
-.qr-wrap p{font:11px system-ui;color:#555;margin:4px 0 0}
-</style>
-<div class="qr-wrap">
-  <div id="qr"></div>
-  <p>Scan for order details</p>
-</div>
-<img class="logo" src="/logo.jpg">
-<h1>LokaShop</h1>
-<h2>{{$parcel->tracking_code}}</h2>
-<p>Order #{{$order->id}}</p>
-<p>To: {{$address->recipient}} · {{$address->phone}}</p>
-<p>{{$address->street}}, {{$address->barangay}}, {{$address->city}}, {{$address->province}} {{$address->postal_code}}</p>
-<button onclick="print()">Print</button>
-
-<script src="{{ asset('js/vendor/qrcode.min.js') }}"></script>
+*{box-sizing:border-box}body{margin:0;padding:28px;background:#edf2ee;font:12px Arial,sans-serif;color:#15281c}.print-toolbar{max-width:420px;margin:0 auto 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}.print-toolbar p{font-size:12px;color:#506557}.print-toolbar button{background:#0b6639;color:#fff;border:0;border-radius:8px;padding:12px 20px;font-weight:bold;cursor:pointer}.label{width:100mm;min-height:150mm;background:white;margin:auto;border:1.5px solid #163d29;overflow-wrap:anywhere}.brand-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:2px solid #183d29}.brand{display:flex;align-items:center;gap:9px}.brand img{width:38px;height:38px;object-fit:contain}.brand strong{font-size:22px;color:#0b6639}.brand small{display:block;font-size:9px;letter-spacing:.1em;margin-top:3px}.service{text-align:right;font-size:10px;font-weight:bold}.service span{display:block;border:1px solid #183d29;padding:5px 8px;margin-bottom:4px}.tracking{text-align:center;padding:12px 10px 10px;border-bottom:1px solid #183d29}.tracking small{font-size:9px;letter-spacing:.12em}.tracking h1{font-size:20px;margin:7px 0 5px;letter-spacing:.04em}.tracking p{margin:0;font-size:10px}.address-block{display:grid;grid-template-columns:40px 1fr;border-bottom:1px solid #183d29}.address-tag{background:#f1f6f2;border-right:1px solid #183d29;padding:12px 7px;font-size:10px;font-weight:bold;text-align:center}.address-copy{padding:11px 12px;line-height:1.55}.address-copy strong{font-size:14px}.address-copy p{margin:4px 0 0}.destination{font-size:15px;font-weight:bold;margin-top:6px!important}.sender .address-copy{font-size:10px}.sender .address-copy strong{font-size:12px}.shipping-meta{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #183d29}.shipping-meta>div{padding:10px 12px}.shipping-meta>div+div{border-left:1px solid #183d29}.shipping-meta small{display:block;font-size:9px;color:#455b4a;margin-bottom:5px}.shipping-meta strong{font-size:17px}.scan-section{display:flex;align-items:center;gap:15px;padding:12px;border-bottom:1px solid #183d29}#qr{width:112px;height:112px;flex-shrink:0;background:#fff}#qr img,#qr canvas{width:112px!important;height:112px!important}.scan-copy{font-size:10px;line-height:1.6}.scan-copy strong{font-size:13px;display:block}.items{padding:10px 12px;font-size:10px;line-height:1.6}.items p{margin:3px 0}.label-footer{border-top:1px dashed #7a8d7e;padding:8px 12px;text-align:center;font-size:9px;color:#455b4a}.qr-error{font-size:10px;color:#b32e2e}@page{size:100mm 150mm;margin:0}@media print{body{padding:0;background:white}.print-toolbar{display:none}.label{margin:0;width:100mm;min-height:150mm;border:1px solid #000;box-shadow:none}.address-tag{background:white}.brand strong{color:black}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}@media screen and (max-width:440px){body{padding:12px}.label{width:100%}}
+</style></head><body>
+@php
+$store=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$order->seller_id)->first();
+$sender=\Illuminate\Support\Facades\DB::table('addresses')->where('user_id',$order->seller_id)->orderByDesc('is_default')->orderByDesc('id')->first();
+$labelItems=\Illuminate\Support\Facades\DB::table('order_items')->where('order_id',$order->id)->get();
+@endphp
+<div class="print-toolbar"><p>Shipping label · 100 × 150 mm<br>Select Actual size / 100% when printing.</p><button type="button" onclick="window.print()">Print label</button></div>
+<main class="label">
+<header class="brand-row"><div class="brand"><img src="{{asset('logo.jpg')}}" alt=""><div><strong>LokaShop</strong><small>PARCEL DELIVERY</small></div></div><div class="service"><span>CASH ON DELIVERY</span>Order #{{$order->id}}</div></header>
+<section class="tracking"><small>TRACKING NUMBER</small><h1>{{$parcel->tracking_code}}</h1><p>Parcel #{{$parcel->id}}</p></section>
+<section class="address-block"><div class="address-tag">TO</div><div class="address-copy"><strong>{{$address->recipient??'Recipient not recorded'}}</strong><p>{{$address->phone??''}}</p><p>{{$address->street??''}}{{$address&&$address->street?', ':''}}{{$address->barangay??''}}</p><p class="destination">{{$address->city??''}}, {{$address->province??''}} {{$address->postal_code??''}}</p></div></section>
+<section class="address-block sender"><div class="address-tag">FROM</div><div class="address-copy"><strong>{{$store->name??'LokaShop seller'}}</strong>@if($sender)<p>{{$sender->street}}, {{$sender->barangay}}, {{$sender->city}}, {{$sender->province}} {{$sender->postal_code}}</p>@else<p>Sender address not recorded</p>@endif</div></section>
+<section class="shipping-meta"><div><small>COD AMOUNT</small><strong>₱{{number_format($order->total,2)}}</strong></div><div><small>ITEM QUANTITY</small><strong>{{$labelItems->sum('quantity')}} units</strong></div></section>
+<section class="scan-section"><div id="qr" aria-label="Tracking QR code"></div><div class="scan-copy"><strong>Scan to track</strong>Scan this QR code to view parcel tracking.<br><b>{{$parcel->tracking_code}}</b><p id="qr-status" role="status"></p></div></section>
+<section class="items"><b>PACKAGE CONTENTS</b>@foreach($labelItems->take(2) as $item)<p>{{\Illuminate\Support\Str::limit($item->name,64)}} × {{$item->quantity}}</p>@endforeach @if($labelItems->count()>2)<p>+ {{$labelItems->count()-2}} more product lines · See order details</p>@endif</section>
+<footer class="label-footer">Keep this label visible. Do not fold or cover the QR code.</footer>
+</main>
+<script src="{{asset('js/vendor/qrcode.min.js')}}"></script>
 <script>
-new QRCode(document.getElementById('qr'), {
-  text: @json($trackUrl),
-  width: 160,
-  height: 160,
-  correctLevel: QRCode.CorrectLevel.M
-});
-</script>
+if(typeof QRCode==='function')new QRCode(document.getElementById('qr'),{text:@json($trackUrl),width:112,height:112,correctLevel:QRCode.CorrectLevel.M});else{document.getElementById('qr-status').textContent='QR unavailable. Reload before printing, or use the tracking number.';document.getElementById('qr-status').className='qr-error';}
+</script></body></html>

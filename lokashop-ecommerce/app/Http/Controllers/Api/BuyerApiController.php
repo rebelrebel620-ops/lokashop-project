@@ -94,7 +94,7 @@ class BuyerApiController extends Controller
 
     public function products(Request $r){$page=\App\Services\Catalog::query($r)->paginate(20)->withQueryString();$page->getCollection()->transform(fn($p)=>\App\Http\Controllers\Api\MobileBuyerController::productCard($p));return response()->json($page);}
 
-    public function product(int $id)
+    public function product(Request $r, int $id)
     {
         $p = \App\Services\Commerce::catalog(DB::table('products'))->join('categories', 'categories.id', '=', 'products.category_id')
             ->select('products.*', 'categories.name as category')
@@ -109,7 +109,9 @@ class BuyerApiController extends Controller
             'store_name' => $seller->name ?? null,
             'seller_person_name' => DB::table('users')->where('id', $p->seller_id)->value('name'),
             'store_on_vacation' => (bool) ($seller->vacation ?? false),
-            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);return $v;}),
+            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);$v->option_values=json_decode($v->options??'{}',true)?:new \stdClass();$v->image_url=\App\Services\Support::imageUrl($v->image);return $v;}),
+            'review_summary' => \App\Services\ProductReviews::summary($id),
+            'reviews' => \App\Services\ProductReviews::listing($id)->through(function($review){$words=preg_split('/\s+/',trim($review->reviewer_name??''));$review->reviewer_name=($words[0]??'')!==''?$words[0].(count($words)>1?' '.mb_substr(end($words),0,1).'.':''):'LokaShop buyer';$review->photo_urls=array_map(fn($p)=>\App\Services\Support::imageUrl($p),json_decode($review->photos??'[]',true)?:[]);unset($review->photos);return $review;}),
             'rating_avg' => round((clone $rating)->avg('stars') ?? 0, 1),
             'rating_count' => (clone $rating)->count(),
         ]);
@@ -194,7 +196,7 @@ class BuyerApiController extends Controller
                 ->select('o.*', 'p.id as parcel_id', 'p.tracking_code', 'p.failure_reason',
                     DB::raw("CASE WHEN p.proof_path IS NOT NULL AND o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END as has_delivery_proof"),
                     DB::raw('COALESCE(sb.name, s.name) as seller_name'))
-                ->orderByDesc('o.id')->get()
+                ->orderByDesc('o.id')->get()->map(function($order){$order->items=DB::table('order_items')->where('order_id',$order->id)->get()->map(function($i){$i->image_url=\App\Services\Support::imageUrl($i->image);return $i;});$order->bucket=\App\Services\BuyerOrders::bucket($order->status);$order->status_label=\App\Services\BuyerOrders::label($order->status);return $order;})
         );
     }
 
@@ -216,6 +218,7 @@ class BuyerApiController extends Controller
             'address' => $order->address_snapshot ? json_decode($order->address_snapshot) : DB::table('addresses')->where('id', $order->address_id)->first(),
             'payment' => DB::table('payments')->where('order_id', $id)->first(),
             'history' => DB::table('status_history')->where('parcel_id', $order->parcel_id)->orderBy('id')->get(),
+            'timeline' => \App\Services\BuyerOrders::timeline($order, DB::table('parcels')->find($order->parcel_id)),
             'rating' => DB::table('ratings')->where('order_id', $id)->first(),
             'return_request'=>DB::table('return_requests')->where('order_id',$id)->where('buyer_id',auth()->id())->first(),
         ]);

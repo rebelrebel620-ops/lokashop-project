@@ -163,7 +163,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               const SectionHeading('Delivery journey'),
               SheetCard(
                 child: Column(
-                  children: (List.from(data!['history'] ?? []))
+                  children: (List.from(data!['timeline'] ?? data!['history'] ?? []))
                       .map(
                         (h) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -181,14 +181,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${h['to_status']}'.replaceAll('_', ' '),
+                                      '${h['title'] ?? h['to_status']}'.replaceAll('_', ' '),
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                     Text(
-                                      '${h['created_at']}',
+                                      '${h['at'] ?? h['created_at']}',
                                       style: const TextStyle(
                                         color: AppColors.muted,
                                         fontSize: 11,
