@@ -5,6 +5,8 @@
 @section('page-styles')
 <link rel="stylesheet" href="{{ asset('css/landing-background.css') }}">
 <link rel="stylesheet" href="{{ asset('css/landing-responsive.css') }}">
+<link rel="stylesheet" href="{{ asset('css/landing-product-row.css') }}">
+<script src="{{ asset('js/landing-product-row.js') }}" defer></script>
 
 <style>
 body.landing-page {
@@ -208,13 +210,19 @@ body.landing-page::before {
 </section>
 
 <section class="sec">
-    <h2>Trending picks</h2>
+    <div class="landing-products-heading">
+        <h2 id="trending-products-title">Trending picks</h2>
+        <div class="landing-products-controls" data-product-row-controls hidden>
+            <button type="button" data-product-row-prev aria-label="Previous products" aria-controls="trending-products">Previous</button>
+            <button type="button" data-product-row-next aria-label="Next products" aria-controls="trending-products">Next</button>
+        </div>
+    </div>
 
     <p class="sub">
         Fresh from local sellers &middot; approved products, updated live.
     </p>
 
-    <div class="grid">
+    <div class="grid landing-product-row" id="trending-products" tabindex="0" role="region" aria-labelledby="trending-products-title">
         @forelse($featured as $p)
             <div class="card">
                 @include('product-photo', ['photoProduct' => $p])

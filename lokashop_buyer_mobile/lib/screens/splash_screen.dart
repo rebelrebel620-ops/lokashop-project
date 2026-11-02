@@ -11,6 +11,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  bool _starting = false;
+  String? _startupError;
   @override
   void initState() {
     super.initState();
@@ -18,12 +20,17 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _boot() async {
-    final app = context.read<AppState>();
-    await app.boot();
-    if (!mounted) return;
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+    if (_starting || !mounted) return;
+    setState(() { _starting = true; _startupError = null; });
+    try {
+      await context.read<AppState>().boot();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+    } catch (_) {
+      if (mounted) setState(() => _startupError = 'We could not open your saved session. Please try again.');
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
   }
 
   @override
@@ -58,9 +65,15 @@ class _SplashScreenState extends State<SplashScreen> {
                 const SizedBox(height: 12),
                 const Text('Local shops, delivered.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFC9E4D2), fontSize: 16, height: 1.5)),
                 const SizedBox(height: 38),
-                const SizedBox(width: 150, child: LinearProgressIndicator(minHeight: 3, color: Color(0xFF9BE56C), backgroundColor: Color(0xFF37634E))),
-                const SizedBox(height: 14),
-                const Text('Getting your shop ready', style: TextStyle(color: Color(0xFFAAC9B6), fontSize: 12)),
+                if (_startupError == null) ...[
+                  const SizedBox(width: 150, child: LinearProgressIndicator(minHeight: 3, color: Color(0xFF9BE56C), backgroundColor: Color(0xFF37634E))),
+                  const SizedBox(height: 14),
+                  const Text('Getting your shop ready', style: TextStyle(color: Color(0xFFAAC9B6), fontSize: 12)),
+                ] else ...[
+                  Text(_startupError!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, height: 1.5)),
+                  const SizedBox(height: 16),
+                  FilledButton(onPressed: _starting ? null : _boot, child: const Text('Try again')),
+                ],
               ]),
             )),
             const Positioned(bottom: 24, left: 0, right: 0, child: Text('DISCOVER LOCAL. SHOP WITH EASE.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF91B49F), fontSize: 10, letterSpacing: 1.6))),

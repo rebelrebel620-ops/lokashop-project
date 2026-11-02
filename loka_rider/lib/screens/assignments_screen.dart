@@ -4,14 +4,17 @@ import '../session.dart';
 import '../models.dart';
 import '../widgets/assignment_card.dart';
 import '../widgets/common.dart';
+import 'scan_screen.dart';
 
 class AssignmentsScreen extends StatefulWidget {
   final Session session;
   final VoidCallback onScan;
+  final String initialTab;
   const AssignmentsScreen({
     super.key,
     required this.session,
     required this.onScan,
+    this.initialTab = 'new',
   });
   @override
   State<AssignmentsScreen> createState() => _AssignmentsScreenState();
@@ -22,7 +25,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
   List<Assignment> rows = [];
   Object? error;
   bool loading = true;
-  String filter = 'active';
+  late String filter;
   int page = 1, last = 1;
   Timer? timer;
   bool foreground = true;
@@ -30,6 +33,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
   @override
   void initState() {
     super.initState();
+    filter = widget.initialTab;
     WidgetsBinding.instance.addObserver(this);
     load();
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -40,6 +44,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
     foreground = s == AppLifecycleState.resumed;
+    if (foreground && !loading) load(silent: true);
   }
 
   @override
@@ -73,10 +78,28 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
     }
   }
 
+  Future<void> scanAssignment(Assignment assignment) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanScreen(
+          session: widget.session,
+          assignmentId: assignment.id,
+          expectedTrackingCode: assignment.trackingCode,
+        ),
+      ),
+    );
+    if (mounted) await load(silent: true);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Your assignments'),
+      title: Text(
+        widget.session.rider?.isDriver == true
+            ? 'Individual transfers'
+            : 'Your assignments',
+      ),
       actions: [
         IconButton(
           onPressed: widget.onScan,
@@ -96,10 +119,14 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Wrap(
             spacing: 8,
-            children: ['active', 'all', 'completed']
+            children: ['new', 'progress', 'completed']
                 .map(
                   (f) => ChoiceChip(
-                    label: Text(prettyStatus(f)),
+                    label: Text(switch (f) {
+                      'new' => 'Requests',
+                      'progress' => 'Ongoing',
+                      _ => 'Completed',
+                    }),
                     selected: filter == f,
                     onSelected: (_) {
                       setState(() {
@@ -121,19 +148,21 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
               : RefreshIndicator(
                   onRefresh: () => load(),
                   child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(bottom: 24),
                     children: [
                       if (rows.isEmpty)
                         const InfoCard(
                           title: 'No jobs here yet',
                           text:
-                              'New offers appear after your sorting center assigns them. Go to Availability to get ready.',
+                              'Pull down to check for updates, or choose another stage. New requests appear when your sorting center assigns work.',
                           icon: Icons.inventory_2_outlined,
                         ),
                       ...rows.map(
                         (a) => AssignmentCard(
                           assignment: a,
                           api: widget.session.api,
+                          onScan: () => scanAssignment(a),
                           onUpdated: (_) => load(silent: true),
                         ),
                       ),

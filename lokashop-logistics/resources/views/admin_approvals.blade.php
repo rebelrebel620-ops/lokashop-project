@@ -1,8 +1,8 @@
 @extends('dashboard')
-@section('title','Partner applications')
+@section('title','Application')
 @section('panel')
 <div class="page-head">
-  <div><h1>Partner applications</h1><p>{{auth()->user()->role==='sorting_center'?'Review rider applications in your municipality.':'Review sorting center applications.'}}</p></div>
+  <div><h1>Application</h1><p>{{auth()->user()->role==='sorting_center'?'Review rider and driver applications for your sorting center and municipality.':'Review sorting center applications.'}}</p></div>
 </div>
 
 <div class="grid">

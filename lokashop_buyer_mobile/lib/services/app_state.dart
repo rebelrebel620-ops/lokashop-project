@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 import 'session.dart';
@@ -51,25 +52,37 @@ class AppState extends ChangeNotifier {
   );
 
   Future<void> boot() async {
-    await session.load();
-    api.onUnauthorized = () async {
-      await session.clear();
-      cart = [];
-      selectedCartIds.clear();
-      _selectionReady = false;
-      user = null;
-      notifyListeners();
-    };
-    if (session.isLoggedIn && !session.suspended) {
-      try {
-        await refreshMe();
-        await refreshCart();
-      } catch (_) {
-        // token might be stale; leave user logged out gracefully next action
+    booting = true;
+    try {
+      await session.load();
+      api.onUnauthorized = () async {
+        await session.clear();
+        cart = [];
+        selectedCartIds.clear();
+        _selectionReady = false;
+        user = null;
+        notifyListeners();
+      };
+      if (session.isLoggedIn && !session.suspended) {
+        unawaited(_warmSession(session.token));
       }
+    } finally {
+      booting = false;
+      notifyListeners();
     }
-    booting = false;
-    notifyListeners();
+  }
+
+  Future<void> _warmSession(String? token) async {
+    try {
+      final results = await Future.wait<dynamic>([api.get('/me'), api.get('/cart')]);
+      if (session.token != token) return;
+      user = Map<String, dynamic>.from(results[0]);
+      cart = List<dynamic>.from(results[1]);
+      _syncSelection();
+      notifyListeners();
+    } catch (_) {
+      // The API handles expired tokens. Offline startup can still show the shop.
+    }
   }
 
   Future<void> login(String email, String password) async {

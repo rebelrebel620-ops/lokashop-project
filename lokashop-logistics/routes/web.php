@@ -92,3 +92,14 @@ Route::middleware(['auth','role:logistics_admin'])->get('/admin/users/{id}',[\Ap
 Route::post('/mobile/session',[\App\Http\Controllers\MobileWorkspaceController::class,'enter'])
  ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
  ->middleware('throttle:30,1');
+
+Route::middleware(['auth','role:sorting_center'])->group(function(){
+ Route::get('/center/couriers/{id}',[\App\Http\Controllers\CenterManagementController::class,'show'])->whereNumber('id');
+ Route::post('/center/areas/{id}',[\App\Http\Controllers\CenterManagementController::class,'area'])->whereNumber('id');
+ Route::get('/center/appeals',[\App\Http\Controllers\CenterManagementController::class,'appeals']);
+ Route::post('/center/appeals/{id}',[\App\Http\Controllers\CenterManagementController::class,'review'])->whereNumber('id');
+});
+Route::middleware('auth')->group(function(){
+ Route::get('/courier/appeal',[\App\Http\Controllers\CenterManagementController::class,'appealForm']);
+ Route::post('/courier/appeal',[\App\Http\Controllers\CenterManagementController::class,'submitAppeal'])->middleware('throttle:5,1');
+});

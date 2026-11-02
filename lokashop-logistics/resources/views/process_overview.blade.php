@@ -1,11 +1,15 @@
 @extends('dashboard')
-@section('title','Logistics overview')
+@section('title','Sorting center overview')
 @section('panel')
-<div class="page-head"><div><h1>{{$center->name}}</h1><p>{{$center->city}}, {{$center->province}} · Follow the parcel through three steps.</p></div></div>
-<div class="grid">
- @foreach([['Pickups',$pickup,'/center/pickups','Collect parcels from local sellers and return them here.'],['Transfers',$transfer,'/ops/transfers','Send to another municipality or receive incoming parcels.'],['Deliveries',$delivery,'/center/delivery','Assign local delivery riders for buyers in this municipality.']] as [$name,$count,$url,$help])
- <div class="panel-card" style="padding:24px"><h2>{{$name}} · {{$count}}</h2><p>{{$help}}</p><a class="btn" href="{{$url}}">Open {{$name}}</a></div>
- @endforeach
-</div>
-<div class="panel-card" style="padding:24px"><h2>What happens after pickup?</h2><p><b>Buyer in your municipality:</b> the parcel appears in Deliveries.</p><p><b>Buyer in another municipality:</b> the parcel appears in Transfers. The destination center is detected automatically.</p><p>Delivered and closed parcels move to <a href="/center/history">History</a>.</p></div>
+@php
+$staff=\Illuminate\Support\Facades\DB::table('users')->where('company_id',auth()->id())->where('role','rider');
+$waiting=\Illuminate\Support\Facades\DB::table('assignments')->where('handling_center_id',$center->id)->whereIn('status',['requested','offered'])->count();
+$completedToday=\Illuminate\Support\Facades\DB::table('assignments')->where('handling_center_id',$center->id)->where('status','completed')->whereDate('updated_at',today())->count();
+$incoming=\Illuminate\Support\Facades\DB::table('driver_trip_stops as s')->join('driver_trips as t','t.id','=','s.trip_id')->where('s.center_id',$center->id)->whereNull('s.received_at')->whereIn('t.status',['offered','accepted','in_transit'])->count();
+$exceptions=\Illuminate\Support\Facades\DB::table('parcels')->where('center_id',$center->id)->whereIn('status',['DELIVERY_FAILED','LOST','DAMAGED','RETURN_TO_SENDER'])->count();
+@endphp
+<div class="ops-hero"><div><span class="design-eyebrow">SORTING CENTER OPERATIONS</span><h1>{{$center->name}}</h1><p>{{$center->city}}, {{$center->province}} · {{now()->format('l, M j')}}</p></div><a class="btn" href="/ops/tracking">Find a parcel</a></div>
+<div class="ops-metrics">@foreach([['Awaiting acceptance',$waiting,'/center/pickups'],['Completed today',$completedToday,'/center/reports'],['Incoming bulk transfers',$incoming,'/ops/transfers?tab=incoming'],['Needs attention',$exceptions,'/ops/tracking']] as [$label,$count,$url])<a class="ops-metric" href="{{$url}}"><span>{{$label}}</span><strong>{{$count}}</strong><small>View details →</small></a>@endforeach</div>
+<section class="design-card"><div class="design-card-heading"><div><h2>Parcel operations</h2><p>Move work from seller collection through center transport to the buyer.</p></div></div><div class="ops-pipeline">@foreach([['01','Pickups',$pickup,'/center/pickups','Assign riders and monitor seller collections.'],['02','Transfers',$transfer,'/ops/transfers','Prepare manifests and receive incoming loads.'],['03','Deliveries',$delivery,'/center/delivery','Dispatch local routes and track delivery progress.']] as [$step,$name,$count,$url,$help])<a href="{{$url}}"><span class="ops-step">{{$step}}</span><h3>{{$name}}</h3><strong>{{$count}}</strong><p>{{$help}}</p><small>Manage {{$name}} →</small></a>@endforeach</div></section>
+<div class="ops-columns"><section class="design-card"><h2>Courier readiness</h2><div class="ops-metrics"><div><strong>{{(clone $staff)->where('active',1)->where('account_status','active')->where('online',1)->where('last_seen_at','>',now()->subMinutes(30))->count()}}</strong><p>Online couriers</p></div><div><strong>{{(clone $staff)->where('approval_status','pending')->count()}}</strong><p>Applications to review</p></div></div><a class="btn" href="/ops/riders">Manage couriers</a> <a class="btn" href="/center/areas">Manage coverage</a></section><section class="design-card"><h2>Center controls</h2><p>Review remittances, handle returns, or export the day's parcel activity.</p><div class="ops-shortcuts"><a href="/ops/cod">COD remittances →</a><a href="/ops/returns">Returns queue →</a><a href="/center/reports">Filtered report →</a></div><details><summary>Update dispatch origin</summary>@include('tool-form',['form'=>['label'=>'Update dispatch origin','action'=>'/ops/location','fields'=>['latitude:number','longitude:number']]])</details></section></div>
 @endsection

@@ -1,3 +1,4 @@
+import 'profile_screen.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ String requestKey() => List.generate(
   24,
   (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
 ).join();
-void open(BuildContext c, Widget page) =>
+Future<dynamic> open(BuildContext c, Widget page) =>
     Navigator.push(c, MaterialPageRoute(builder: (_) => page));
 
 class DataPage extends StatefulWidget {
@@ -84,137 +85,6 @@ class _DataPageState extends State<DataPage> {
               children: widget.content(context, data!, load),
             ),
           ),
-  );
-}
-
-class OverviewScreen extends StatelessWidget {
-  final Session session;
-  final VoidCallback onJobs, onScan;
-  const OverviewScreen({
-    super.key,
-    required this.session,
-    required this.onJobs,
-    required this.onScan,
-  });
-  @override
-  Widget build(BuildContext context) => DataPage(
-    title: 'LokaShop Courier',
-    path: '/api/rider/overview',
-    session: session,
-    content: (c, d, reload) => [
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: const Color(0xFF123E32),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'HELLO, ${session.rider?.name.split(' ').first.toUpperCase() ?? 'COURIER'}',
-              style: const TextStyle(
-                color: Color(0xFFDDECBB),
-                letterSpacing: 2,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Every parcel.\nA promise delivered.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '${session.rider?.courierType == 'driver' ? 'Center transfer driver' : 'Local delivery rider'}',
-              style: const TextStyle(color: Colors.white70),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _metric(
-            'Open offers',
-            '${d['offered']}',
-            Icons.mark_email_unread_outlined,
-          ),
-          _metric(
-            'Active jobs',
-            '${d['active']}',
-            Icons.local_shipping_outlined,
-          ),
-          _metric('Today completed', '${d['today_completed']}', Icons.task_alt),
-          _metric(
-            'Today earned',
-            peso(double.tryParse('${d['today_earnings']}') ?? 0),
-            Icons.payments_outlined,
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      FilledButton.icon(
-        onPressed: onJobs,
-        icon: const Icon(Icons.local_shipping_outlined),
-        label: const Text('View assignments'),
-      ),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(
-        onPressed: onScan,
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text('Scan a shipping label'),
-      ),
-      InfoCard(
-        title: 'Your sorting center',
-        text: d['center'] == null
-            ? 'No sorting center attached. Contact logistics.'
-            : '${d['center']['name']}\n${d['center']['city']}, ${d['center']['province']}',
-        icon: Icons.warehouse_outlined,
-      ),
-      InfoCard(
-        title: 'Notifications',
-        text: '${d['unread']} unread updates',
-        icon: Icons.notifications_outlined,
-        onTap: () => open(c, NotificationsScreen(session: session)),
-      ),
-      InfoCard(
-        title: 'Earnings',
-        text:
-            '${d['completed']} completed assignments • ${peso(double.tryParse('${d['earnings']}') ?? 0)}',
-        icon: Icons.payments_outlined,
-        onTap: () => open(c, EarningsScreen(session: session)),
-      ),
-    ],
-  );
-  Widget _metric(String title, String value, IconData icon) => SizedBox(
-    width: 155,
-    child: Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: const Color(0xFF5D7043)),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
-            ),
-            Text(title, style: const TextStyle(fontSize: 12)),
-          ],
-        ),
-      ),
-    ),
   );
 }
 
@@ -450,6 +320,9 @@ class AccountScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(50),
               child: Image.network(
                 session.api.mediaUrl('${r.extra['profile_photo_url']}'),
+                headers: session.api.imageHeaders(
+                  '${r.extra['profile_photo_url']}',
+                ),
                 width: 88,
                 height: 88,
                 fit: BoxFit.cover,
@@ -465,24 +338,12 @@ class AccountScreen extends StatelessWidget {
         ),
         InfoCard(
           title: 'Profile',
-          text: 'Name and profile photo',
+          text: 'Profile photo, phone, email and password',
           icon: Icons.badge_outlined,
-          onTap: () => open(
-            c,
-            EditScreen(
-              session: session,
-              title: 'Edit profile',
-              endpoint: '/api/rider/profile',
-              fields: const ['name'],
-              initial: {'name': r.name},
-              hidden: {'phone': r.phone ?? ''},
-              photoFields: const ['profile_photo'],
-              afterSave: () async {
-                session.updateRider((await session.api.me()).rider);
-                reload();
-              },
-            ),
-          ),
+          onTap: () async {
+            await open(c, ProfileScreen(session: session));
+            reload();
+          },
         ),
         InfoCard(
           title: 'Vehicle and documents',
@@ -520,8 +381,12 @@ class AccountScreen extends StatelessWidget {
           icon: Icons.payments_outlined,
           onTap: () => open(c, EarningsScreen(session: session)),
         ),
-        InfoCard(title: 'Complete logistics workspace', text: 'Open all web functions available to your account', icon: Icons.space_dashboard_outlined,
-          onTap: () => open(c, WorkspaceScreen(session: session))),
+        InfoCard(
+          title: 'Complete logistics workspace',
+          text: 'Open all web functions available to your account',
+          icon: Icons.space_dashboard_outlined,
+          onTap: () => open(c, WorkspaceScreen(session: session)),
+        ),
         OutlinedButton.icon(
           onPressed: () async {
             final yes = await showDialog<bool>(

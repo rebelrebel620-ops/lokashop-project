@@ -11,8 +11,19 @@ import '../widgets/assignment_card.dart';
 /// belongs to this rider and returns the actions allowed right now
 /// (accept / confirm pickup / out for delivery / delivered / failed).
 class ScanScreen extends StatefulWidget {
-  final Session session;
-  const ScanScreen({super.key, required this.session});
+  final Session? session;
+  final ApiClient? api;
+  final bool returnVerifiedCode;
+  final int? assignmentId;
+  final String? expectedTrackingCode;
+  const ScanScreen({
+    super.key,
+    this.session,
+    this.api,
+    this.returnVerifiedCode = false,
+    this.assignmentId,
+    this.expectedTrackingCode,
+  }) : assert(session != null || api != null);
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -78,46 +89,77 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   Future<void> _handle(String raw) async {
     _busy = true;
+    var choosePhoto = false;
+    var closing = false;
     await _safe(_controller.stop);
     if (mounted) setState(() => _loading = true);
 
     try {
-      final assignment = await widget.session.api.scan(raw);
+      final assignment = await (widget.api ?? widget.session!.api).scan(
+        raw,
+        assignmentId: widget.assignmentId,
+      );
+      if (widget.assignmentId != null && assignment.id != widget.assignmentId) {
+        throw const ApiException(
+          'The scanned parcel does not match this assignment. Refresh your jobs and try again.',
+        );
+      }
+      if (widget.expectedTrackingCode != null &&
+          assignment.trackingCode != widget.expectedTrackingCode) {
+        throw const ApiException(
+          'Wrong parcel label. Scan the tracking code shown for this job.',
+        );
+      }
       if (!mounted) return;
       setState(() => _loading = false);
-      await showModalBottomSheet<void>(
+      if (widget.returnVerifiedCode) {
+        closing = true;
+        Navigator.pop(context, assignment.trackingCode);
+        return;
+      }
+      final updated = await showModalBottomSheet<Assignment>(
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
         useSafeArea: true,
         builder: (_) => _ResultSheet(
           assignment: assignment,
-          api: widget.session.api,
-          scannedCode: raw,
+          api: (widget.api ?? widget.session!.api),
+          scannedCode: assignment.trackingCode,
         ),
       );
-    } on ApiException catch (e) {
+      if (mounted && widget.assignmentId != null && updated != null) {
+        closing = true;
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            icon: const Icon(Icons.error_outline),
-            title: const Text('Cannot use this QR code'),
-            content: Text(e.message),
-            actions: [
-              IconButton(
-                tooltip: 'Scan QR from photo',
-                icon: const Icon(Icons.photo_library_outlined),
-                onPressed: _photoScan,
+        choosePhoto =
+            await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                icon: const Icon(Icons.error_outline),
+                title: const Text('Cannot use this QR code'),
+                content: Text(
+                  e is ApiException
+                      ? e.message
+                      : 'Could not verify this label. Check the connection and try again.',
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Scan QR from photo',
+                    icon: const Icon(Icons.photo_library_outlined),
+                    onPressed: () => Navigator.pop(ctx, true),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+            ) ==
+            true;
       }
     } finally {
       _lastRaw = raw;
@@ -125,9 +167,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       _busy = false;
       if (mounted) {
         setState(() => _loading = false);
-        await _safe(_controller.start);
+        if (!choosePhoto && !closing) await _safe(_controller.start);
       }
     }
+    if (mounted && choosePhoto) await _photoScan();
   }
 
   Future<void> _photoScan() async {
@@ -187,22 +230,36 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Scan shipping label'),
+        title: const Text('Scan parcel'),
         actions: [
-          IconButton(
-            tooltip: 'Enter code manually',
-            icon: const Icon(Icons.keyboard_alt_outlined),
-            onPressed: _manualEntry,
-          ),
           IconButton(
             tooltip: 'Toggle flash',
             icon: const Icon(Icons.flash_on),
             onPressed: () => _safe(_controller.toggleTorch),
           ),
-          IconButton(
-            tooltip: 'Switch camera',
-            icon: const Icon(Icons.cameraswitch),
-            onPressed: () => _safe(_controller.switchCamera),
+          PopupMenuButton<String>(
+            tooltip: 'Scanner options',
+            onSelected: (value) {
+              switch (value) {
+                case 'manual':
+                  _manualEntry();
+                  break;
+                case 'photo':
+                  _photoScan();
+                  break;
+                case 'camera':
+                  _safe(_controller.switchCamera);
+                  break;
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'manual',
+                child: Text('Enter tracking code'),
+              ),
+              PopupMenuItem(value: 'photo', child: Text('Scan QR from photo')),
+              PopupMenuItem(value: 'camera', child: Text('Switch camera')),
+            ],
           ),
         ],
       ),
@@ -263,7 +320,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             left: 16,
             right: 16,
             child: Text(
-              'Point the camera at the QR code on the shipping label',
+              widget.expectedTrackingCode == null
+                  ? 'Point the camera at the QR code on the shipping label'
+                  : 'Scan ${widget.expectedTrackingCode}\nVerify the label before confirming this job.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white,
@@ -313,7 +372,15 @@ class _ResultSheetState extends State<_ResultSheet> {
             assignment: _current,
             api: widget.api,
             scannedCode: widget.scannedCode,
-            onUpdated: (updated) => setState(() => _current = updated),
+            onUpdated: (updated) {
+              if (_current.isPickup &&
+                  _current.parcelStatus == 'READY_FOR_PICKUP' &&
+                  updated.parcelStatus == 'PICKED_UP') {
+                Navigator.pop(context, updated);
+              } else {
+                setState(() => _current = updated);
+              }
+            },
           ),
           if (_current.actions.isEmpty)
             Padding(

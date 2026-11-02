@@ -109,6 +109,7 @@ class AppPhoto extends StatelessWidget {
               width: width,
               height: height,
               fit: fit,
+              cacheWidth: width != null ? (width! * MediaQuery.devicePixelRatioOf(context)).ceil() : 900,
               headers: private ? api.imageHeaders(url!) : null,
               errorBuilder: (_, __, ___) => Container(
                 width: width,

@@ -43,11 +43,10 @@ DB::table('parcels')->where('id',$parcel->id)->update(['status'=>'ASSIGNED_TO_RI
 DB::table('orders')->where('id',$orderId)->update(['status'=>'ASSIGNED_TO_RIDER']);
 DB::table('assignments')->insert(['rider_id'=>$rider,'parcel_id'=>$parcel->id,'kind'=>'delivery','status'=>'accepted']);
 loginAs($rider);$api->status(requestFor(['status'=>'OUT_FOR_DELIVERY']),$parcel->id);
-ok(DB::table('parcels')->find($parcel->id)->delivery_otp_hash!==null,'Native out-for-delivery creates buyer OTP');
-DB::table('parcels')->where('id',$parcel->id)->update(['delivery_otp_hash'=>Illuminate\Support\Facades\Hash::make('123456')]);
+ok(DB::table('parcels')->find($parcel->id)->delivery_otp_hash===null,'Native out-for-delivery does not create the removed buyer OTP');
 $upload=tempnam(sys_get_temp_dir(),'native-proof');file_put_contents($upload,base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD9sAAAAASUVORK5CYII='));
 $amount=DB::table('orders')->find($orderId)->total;
-$fields=['status'=>'DELIVERED','otp'=>'123456','cod_amount'=>$amount,'scanned_code'=>$parcel->tracking_code];
+$fields=['status'=>'DELIVERED','cod_amount'=>$amount,'scanned_code'=>$parcel->tracking_code];
 try{$api->status(requestFor($fields),$parcel->id);throw new RuntimeException('Native delivery accepted without proof');}catch(Illuminate\Validation\ValidationException $e){ok(isset($e->errors()['proof']),'Native delivery rejects missing proof');}
 $api->status(requestFor($fields,['proof'=>new UploadedFile($upload,'proof.png','image/png',null,true)]),$parcel->id);
 $delivered=DB::table('parcels')->find($parcel->id);

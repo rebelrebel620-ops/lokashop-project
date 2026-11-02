@@ -32,7 +32,8 @@
 <div class="seller-purchase-tracking"><small>TRACKING NUMBER</small><span>{{$o->tracking_code ?: 'Awaiting tracking code'}}</span></div>
 @if($pickup && in_array($o->status,['PREPARING','READY_FOR_PICKUP']))
 <div class="seller-pickup-note"><strong>Pickup: {{ucfirst($pickup->status)}}</strong>
-@if($pickup->status==='offered')<p>Rider acceptance deadline: {{\App\Services\PickupRequests::deadline($pickup)->format('M j, Y g:i A')}}.</p>
+@if($pickup->status==='requested')<p>Sorting-center assignment deadline: {{\App\Services\PickupRequests::requestDeadline($pickup)->format('M j, Y g:i A')}}. If no rider is assigned within 12 hours, you can request pickup again.</p>
+@elseif($pickup->status==='offered')<p>Rider acceptance deadline: {{\App\Services\PickupRequests::deadline($pickup)->format('M j, Y g:i A')}}.</p>
 @elseif(in_array($pickup->status,['expired','declined','failed','reassigned']))<p>Pickup was unsuccessful. Request another pickup below.</p>
 @endif</div>
 @endif

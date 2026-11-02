@@ -48,12 +48,8 @@ class _ShopTabState extends State<ShopTab> {
     }
     try {
       final api = context.read<AppState>().api;
-      if (mains.isEmpty) {
-        final tree = await api.get('/catalog/categories');
-        mains = List.from(tree['main_categories']);
-        subs = List.from(tree['subcategories']);
-      }
-      final result = await api.get(
+      final categoryRequest = mains.isEmpty ? api.get('/catalog/categories') : Future<dynamic>.value(null);
+      final productRequest = api.get(
         '/products',
         query: {
           'page': append ? page + 1 : 1,
@@ -63,7 +59,14 @@ class _ShopTabState extends State<ShopTab> {
           if (category != null) 'category': category,
         },
       );
+      final results = await Future.wait<dynamic>([categoryRequest, productRequest]);
       if (!mounted || request != version) return;
+      final tree = results[0];
+      final result = results[1];
+      if (tree != null) {
+        mains = List.from(tree['main_categories']);
+        subs = List.from(tree['subcategories']);
+      }
       setState(() {
         page = result['current_page'];
         last = result['last_page'];

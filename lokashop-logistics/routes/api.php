@@ -61,3 +61,15 @@ Route::post('/mobile/logout',[\App\Http\Controllers\MobileWorkspaceController::c
 
 Route::get('/mobile/report',[\App\Http\Controllers\MobileWorkspaceController::class,'report']);
 Route::get('/mobile/documents/{id}',[\App\Http\Controllers\MobileWorkspaceController::class,'document'])->whereNumber('id');
+
+// Native account and registration screens (same website validation and approval flow).
+Route::prefix('mobile')->group(function(){
+ $a=\App\Http\Controllers\MobileAccountController::class;
+ Route::post('/profile',[$a,'profile']);Route::get('/photo',[$a,'photo']);
+ Route::post('/password',[$a,'password'])->middleware('throttle:5,1');
+ Route::post('/contact',[$a,'contact'])->middleware('throttle:3,1');
+ Route::post('/contact/verify',[$a,'verifyContact'])->middleware('throttle:10,1');
+ $r=\App\Http\Controllers\MobileRegistrationController::class;
+ Route::post('/register',[$r,'register'])->middleware('throttle:5,1');
+ foreach(['verify','resend','cancel'] as $action)Route::post('/register/'.$action,[$r,$action])->middleware('throttle:5,1');
+});

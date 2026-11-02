@@ -6,6 +6,7 @@ import 'scan_screen.dart';
 import 'features.dart';
 import 'trips_screen.dart';
 import 'earnings_screen.dart';
+import 'courier_overview_screen.dart';
 
 class HomeShell extends StatefulWidget {
   final Session session;
@@ -16,6 +17,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int index = 0;
+  String jobsTab = 'new';
   Timer? timer;
   bool foreground = true;
   bool refreshing = false;
@@ -50,33 +52,61 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  void scan() => Navigator.push(context, MaterialPageRoute(builder: (_) => ScanScreen(session: widget.session)));
+  void scan() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => ScanScreen(session: widget.session)),
+  );
   bool get driver => widget.session.rider?.isDriver == true;
+  void showJobs(String tab) => setState(() {
+    jobsTab = tab;
+    index = 1;
+  });
   Widget page() {
-    if (driver) return switch(index) {
-      0 => TripsScreen(session: widget.session),
-      1 => AvailabilityScreen(session: widget.session),
-      2 => EarningsScreen(session: widget.session),
-      3 => MessagesScreen(session: widget.session),
-      _ => AccountScreen(session: widget.session),
-    };
-    return switch(index) {
-      0 => OverviewScreen(session: widget.session,onJobs: () => setState(() => index = 1),onScan: scan),
-      1 => AssignmentsScreen(session: widget.session,onScan: scan),
+    if (index == 0) {
+      return OverviewScreen(
+        session: widget.session,
+        onJobs: showJobs,
+        onScan: scan,
+      );
+    }
+    if (driver) {
+      return switch (index) {
+        1 => TripsScreen(session: widget.session, initialTab: jobsTab),
+        2 => AvailabilityScreen(session: widget.session),
+        3 => EarningsScreen(session: widget.session),
+        _ => AccountScreen(session: widget.session),
+      };
+    }
+    return switch (index) {
+      1 => AssignmentsScreen(
+        session: widget.session,
+        onScan: scan,
+        initialTab: jobsTab,
+      ),
       2 => AvailabilityScreen(session: widget.session),
       3 => CodScreen(session: widget.session),
       _ => AccountScreen(session: widget.session),
     };
   }
-  List<String> get labels => driver ? ['Trips','Availability','Earnings','Messages','Account'] : ['Overview','Jobs','Availability','COD','Account'];
-  List<IconData> get icons => driver ? [Icons.local_shipping_outlined,Icons.toggle_on_outlined,Icons.payments_outlined,Icons.forum_outlined,Icons.person_outline] : [
-    Icons.dashboard_outlined,Icons.inventory_2_outlined,Icons.toggle_on_outlined,Icons.account_balance_wallet_outlined,Icons.person_outline,
+
+  List<String> get labels => driver
+      ? ['Overview', 'Trips', 'Availability', 'Earnings', 'Account']
+      : ['Overview', 'Jobs', 'Availability', 'COD', 'Account'];
+  List<IconData> get icons => [
+    Icons.dashboard_outlined,
+    driver ? Icons.local_shipping_outlined : Icons.inventory_2_outlined,
+    Icons.toggle_on_outlined,
+    driver ? Icons.payments_outlined : Icons.account_balance_wallet_outlined,
+    Icons.person_outline,
   ];
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final wide = box.maxWidth >= 850;
-      final body = KeyedSubtree(key: ValueKey(index), child: page());
+      final body = KeyedSubtree(
+        key: ValueKey('$driver-$index-$jobsTab'),
+        child: page(),
+      );
       return Scaffold(
         body: SafeArea(
           child: Row(

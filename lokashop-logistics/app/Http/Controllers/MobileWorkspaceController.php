@@ -35,7 +35,7 @@ class MobileWorkspaceController extends Controller
             'role'=>$user->role,'courier_type'=>$user->courier_type,'vehicle'=>$user->vehicle,
             'online'=>(bool)$user->online,'latitude'=>$user->latitude,'longitude'=>$user->longitude,
             'license_number'=>$user->license_number,'license_expires_at'=>$user->license_expires_at,
-            'plate_number'=>$user->plate_number,'company_id'=>$user->company_id,'profile_photo_url'=>\App\Services\Support::imageUrl($user->profile_photo)];
+            'plate_number'=>$user->plate_number,'company_id'=>$user->company_id,'profile_photo_url'=>($user->profile_photo?'/api/mobile/photo?v='.rawurlencode((string)$user->profile_photo):null)];
     }
 
     public function login(Request $request)

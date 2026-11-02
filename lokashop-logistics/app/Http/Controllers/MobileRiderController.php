@@ -25,6 +25,11 @@ class MobileRiderController extends Controller
             'cod_unremitted'=>(float)DB::table('cod_collections')->where('rider_id',$id)->whereNull('remittance_id')->sum('amount'),
             'unread'=>DB::table('notifications')->where('user_id',$id)->whereNull('read_at')->count(),
             'completed_trips'=>DB::table('driver_trips')->where('driver_id',$id)->where('status','completed')->count(),
+            'trip_offers'=>DB::table('driver_trips')->where('driver_id',$id)->where('status','offered')->count(),
+            'active_trips'=>DB::table('driver_trips')->where('driver_id',$id)->whereIn('status',['accepted','in_transit'])->count(),
+            'today_completed_trips'=>DB::table('driver_trips')->where('driver_id',$id)->where('status','completed')->whereDate('completed_at',today())->count(),
+            'legacy_open'=>(clone $q)->whereNull('trip_id')->where('kind','transfer')->whereIn('status',['offered','accepted'])->count(),
+            'current_work'=>(clone $q)->join('parcels as p','p.id','=','assignments.parcel_id')->where('assignments.status','accepted')->orderByDesc('assignments.id')->limit(8)->get(['p.tracking_code','p.status as parcel_status','assignments.kind','assignments.trip_id']),
             'center'=>DB::table('sorting_centers')->where('user_id',auth()->user()->company_id)->first(['name','city','province']),
             'address'=>Municipalities::address($id),
         ]);

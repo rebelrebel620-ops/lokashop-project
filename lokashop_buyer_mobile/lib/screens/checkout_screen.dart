@@ -16,7 +16,9 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  List addresses = [];
+  List addresses = [], vouchers = [];
+  Set<String> sellerIds = {};
+  String? voucherError;
   int? address;
   Map? quote;
   bool loading = true, busy = false, quoting = false;
@@ -57,10 +59,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> load() async {
     quoteVersion++;
     try {
-      final result = await context.read<AppState>().api.get('/addresses');
+      final api = context.read<AppState>().api;
+      final results = await Future.wait<dynamic>([
+        api.get('/addresses'),
+        api.get('/vouchers').catchError((Object _) => null),
+        api.get('/cart'),
+      ]);
+      final result = results[0];
       if (!mounted) return;
       setState(() {
         addresses = List.from(result);
+        vouchers = List.from(results[1] ?? []);
+        voucherError = results[1] == null ? 'Vouchers could not load. Tap Refresh vouchers to try again.' : null;
+        final selected = widget.cartIds ?? context.read<AppState>().selectedCartIds.toList();
+        sellerIds = (results[2] as List).where((row) => selected.contains(int.tryParse('${row['id']}'))).map<String>((row) => '${row['seller_id']}').toSet();
+        for (final field in [store, platform, shipping]) {
+          if (field.text.isNotEmpty && !vouchers.any((v) => v['code'] == field.text && _available(v) && (v['seller_id'] == null || sellerIds.contains('${v['seller_id']}')))) field.clear();
+        }
         if (!addresses.any((a) => a['id'] == address)) {
           address = addresses.isEmpty ? null : addresses.first['id'];
         }
@@ -132,6 +147,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  bool _available(dynamic v) =>
+      (v['claimed'] == true || v['claimed'] == 1) &&
+      v['display_state'] == 'Available';
+
+  Widget voucherPicker(String label, TextEditingController field, String kind) {
+    final rows = vouchers.where((v) {
+      if (!_available(v)) return false;
+      final storeVoucher = v['seller_id'] != null;
+      if (kind == 'store') return storeVoucher && sellerIds.contains('${v['seller_id']}');
+      return !storeVoucher && (kind == 'shipping' ? v['type'] == 'shipping' : v['type'] != 'shipping');
+    }).toList();
+    final codes = <String>{};
+    final choices = rows.where((v) => codes.add('${v['code']}')).toList();
+    final current = codes.contains(field.text) ? field.text : '';
+    return DropdownButtonFormField<String>(
+      key: ValueKey('$kind:$current:${codes.join(',')}'),
+      initialValue: current,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label, helperText: choices.isEmpty ? 'No available claimed vouchers' : null),
+      items: [
+        const DropdownMenuItem<String>(value: '', child: Text('No voucher')),
+        ...choices.map((v) => DropdownMenuItem<String>(
+          value: '${v['code']}',
+          child: Text('${v['code']} · ${v['type'] == 'percent' ? '${v['value']}% off' : '${money(v['value'])} off'} · Min ${money(v['minimum_spend'])}', maxLines: 2, overflow: TextOverflow.ellipsis),
+        )),
+      ],
+      onChanged: busy || quoting ? null : (value) {
+        field.text = value ?? '';
+        invalidateQuote();
+        if (address != null) calculate();
+      },
+    );
+  }
+
   @override
   void dispose() {
     store.dispose();
@@ -176,29 +225,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 SheetCard(
                   child: Column(
                     children: [
-                      TextField(
-                        controller: store,
-                        onChanged: (_) => invalidateQuote(),
-                        decoration: const InputDecoration(
-                          labelText: 'Store voucher',
-                        ),
-                      ),
+                      voucherPicker('Store voucher', store, 'store'),
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: platform,
-                        onChanged: (_) => invalidateQuote(),
-                        decoration: const InputDecoration(
-                          labelText: 'Platform voucher',
-                        ),
-                      ),
+                      voucherPicker('Platform voucher', platform, 'platform'),
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: shipping,
-                        onChanged: (_) => invalidateQuote(),
-                        decoration: const InputDecoration(
-                          labelText: 'Shipping voucher',
-                        ),
-                      ),
+                      voucherPicker('Shipping voucher', shipping, 'shipping'),
+                      const SizedBox(height: 8),
+                      const Text('Only your claimed, available vouchers are listed. Minimum spend and final eligibility are checked when the total updates.', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                      if (voucherError != null) Text(voucherError!, style: const TextStyle(color: AppColors.danger)),
+                      TextButton(onPressed: busy || quoting ? null : load, child: const Text('Refresh vouchers')),
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: address == null || quoting || busy
