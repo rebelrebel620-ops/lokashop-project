@@ -22,7 +22,7 @@ class PendingRegistration {
   DB::transaction(function()use($id,$email){$p=DB::table('pending_registrations')->where('id',$id)->lockForUpdate()->first();abort_unless($p&&now()->lt($p->expires_at),403);
    if($p->sent_at&&now()->subMinute()->lt($p->sent_at))throw ValidationException::withMessages(['otp'=>'Wait one minute before requesting another code.']);
    $code=(string)random_int(100000,999999);DB::table('pending_registrations')->where('id',$id)->update(['code_hash'=>Hash::make($code),'attempts'=>0,'sent_at'=>now(),'code_expires_at'=>now()->addMinutes(5)]);
-   Mail::raw("Your LokaShop verification code is {$code}. It expires in 5 minutes. Your registration is not complete until this code is verified. Your registration is not complete until this code is verified.",fn($m)=>$m->to($email)->subject('Verify your LokaShop email'));
+   Mail::raw("Your LokaShop verification code is {$code}. It expires in 5 minutes. Your registration is not complete until this code is verified.",fn($m)=>$m->to($email)->subject('Verify your LokaShop email'));
   });
  }
  public static function resumeLegacy(int $userId): int {

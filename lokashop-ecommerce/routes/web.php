@@ -108,3 +108,5 @@ Route::middleware(['auth','role:seller'])->get('/seller/stock',[\App\Http\Contro
 
 // Read-only user profiles are restricted to this website's administrator.
 Route::middleware(['auth','role:admin'])->get('/admin/users/{id}',[\App\Http\Controllers\AdminUserDetailsController::class,'show'])->whereNumber('id');
+
+Route::middleware(['auth','role:seller'])->post('/tools/deal/end',[\App\Http\Controllers\SellerPromotionController::class,'endDeal']);

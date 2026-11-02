@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
+import 'screens/workspace_screen.dart';
 import 'session.dart';
 import 'theme.dart';
 
@@ -23,7 +24,7 @@ class LokaShopRiderApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'LokaShop Rider',
+      title: 'LokaShop Logistics',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: courierTheme(),
@@ -36,7 +37,9 @@ class LokaShopRiderApp extends StatelessWidget {
             );
           }
           return session.loggedIn
-              ? HomeShell(session: session)
+              ? (session.rider?.isCenter == true
+                  ? WorkspaceScreen(key: ValueKey(session.rider!.id), session: session, title: 'Sorting center')
+                  : HomeShell(session: session))
               : LoginScreen(session: session);
         },
       ),

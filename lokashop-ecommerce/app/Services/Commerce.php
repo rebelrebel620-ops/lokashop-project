@@ -25,7 +25,7 @@ class Commerce {
    $groups=[];$previewUsed=[];
    foreach($rows as $row){$p=$products[$row->product_id];$var=$row->variation_id?$variants[$row->variation_id]:null;
     if($var&&$var->product_id!=$p->id)Support::fail('variation_id','Variation does not belong to this product.');
-    if(!$var&&DB::table('product_variations')->where('product_id',$p->id)->whereNull('deleted_at')->exists())Support::fail('variation_id','Select a variation.');
+    
     $regular=Support::money(($p->price+($var->price_adjustment??0))*(1-$p->discount_percent/100));
     $sale=DB::table('promotions')->where('product_id',$p->id)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->orderBy('id')->lockForUpdate()->get();
     $scheduled=$sale->firstWhere('type','sale');if($scheduled)$regular=Support::money($scheduled->price+($var->price_adjustment??0));
@@ -41,7 +41,7 @@ class Commerce {
     $serving=Municipalities::centerFor($address);if(!$serving)Support::fail('address_id','No approved sorting center serves your municipality yet.');$rate=DB::table('shipping_rates')->where('center_id',$serving->id)->where(fn($q)=>$q->where('origin_province',$origin)->orWhere('origin_province',''))->orderByRaw("CASE WHEN origin_province = ? THEN 0 ELSE 1 END",[$origin])->where('city',$address->city)->where('province',$address->province)->where('active',1)->orderBy('id')->first();
     // Flat PHP 50 per seller shipment only when no active configured rate matches.
     $g['shipping']=Support::money($rate ? $rate->base_fee+max(0,ceil($g['weight'])-1)*$rate->extra_kg_fee : 50);
-    $bundle=0;foreach(DB::table('bundle_deals')->where('seller_id',$sid)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $deal){$eligible=json_decode($deal->product_ids,true);$quantity=0;$base=0;$gift=0;foreach($g['items'] as $item){if(in_array($item['p']->id,$eligible)){ $quantity+=$item['quantity'];$base+=$item['quantity']*$item['price'];}if($deal->gift_product_id==$item['p']->id)$gift+=min($item['quantity'],$deal->gift_quantity)*$item['price'];}if($quantity>=$deal->minimum_quantity)$bundle=max($bundle,$deal->type==='bundle'?$base*$deal->percent/100:$gift);}$bundle=Support::money(min($bundle,$g['subtotal']));
+    $bundle=0;foreach(DB::table('bundle_deals')->where('seller_id',$sid)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $deal){$eligible=json_decode($deal->product_ids,true);$quantity=0;$base=0;$gift=GiftOffer::discount($g['items'],(int)$deal->gift_product_id,(int)$deal->gift_quantity);foreach($g['items'] as $item){if(in_array($item['p']->id,$eligible)){ $quantity+=$item['quantity'];$base+=$item['quantity']*$item['price'];}}if($quantity>=$deal->minimum_quantity)$bundle=max($bundle,$deal->type==='bundle'?$base*$deal->percent/100:$gift);}$bundle=Support::money(min($bundle,$g['subtotal']));
     $code=$v['store_vouchers'][$sid]??($sid==$legacySeller?($v['voucher']??''):'');$g['store']=$bundle;$g['voucher']=null;
     if($code){$voucher=self::voucher($code,$sid,$g['subtotal']-$bundle,null,$preview);$g['store']=$bundle+self::discount($voucher,$g['subtotal']-$bundle);$g['voucher']=$voucher;$voucherUses[$voucher->id]=$voucher;}
     $g['bundle']=$bundle;$g['net']=Support::money($g['subtotal']-$g['store']);$totalMerch+=$g['net'];$totalShip+=$g['shipping'];

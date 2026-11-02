@@ -17,6 +17,7 @@ Route::middleware('api.buyer')->group(function () {
     Route::get('/me', [B::class, 'me']);
     Route::post('/profile', [B::class, 'updateProfile']);
 
+    Route::post('/cart/buy-now', [B::class, 'buyNow']);
     Route::get('/cart', [B::class, 'cart']);
     Route::post('/cart', [B::class, 'cartAdd']);
     Route::post('/cart/{id}', [B::class, 'cartUpdate']);

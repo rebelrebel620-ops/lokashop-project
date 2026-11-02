@@ -1,3 +1,5 @@
+apply(from = "file-picker-sdk.gradle")
+
 allprojects {
     repositories {
         google()

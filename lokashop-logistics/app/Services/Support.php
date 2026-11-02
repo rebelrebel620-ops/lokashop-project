@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\{DB,Storage};
 use Illuminate\Validation\ValidationException;
 class Support {
  public static function email(int $id,string $subject,string $body):void {
-  DB::afterCommit(function()use($id,$subject,$body){$u=DB::table('users')->find($id);if(!$u)return;try{\Illuminate\Support\Facades\Mail::raw($body,fn($m)=>$m->to($u->email)->subject($subject));}catch(\Throwable $e){\Illuminate\Support\Facades\Log::warning('Account notification email could not be sent.',['user_id'=>$id]);}});
+  DB::afterCommit(function()use($id,$subject,$body){$u=DB::table('users')->find($id);if(!$u)return;try{\Illuminate\Support\Facades\Mail::raw($body,fn($m)=>$m->to($u->email)->subject($subject));}catch(\Throwable $e){\Illuminate\Support\Facades\Log::warning('Account notification email could not be sent.',['user_id'=>$id,'error_type'=>get_class($e)]);}});
  }
  public static function fail(string $field,string $message): never {throw ValidationException::withMessages([$field=>$message]);}
  public static function audit(string $action,string $entity,int $id,$old,$new,?string $reason=null): void {

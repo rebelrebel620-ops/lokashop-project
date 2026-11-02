@@ -44,6 +44,7 @@ class BulkTrips {
    if(self::workload($driver)>3)Support::fail('trip','Resolve other jobs before accepting this trip.');
    if(DB::table('assignments')->where('trip_id',$id)->where('status','offered')->count()!==DB::table('driver_trip_items')->where('trip_id',$id)->count())Support::fail('trip','A parcel assignment changed. Ask your origin center to cancel and recreate this unaccepted trip.');
    DB::table('driver_trips')->where('id',$id)->update(['status'=>'accepted','accepted_at'=>now(),'updated_at'=>now()]);DB::table('assignments')->where('trip_id',$id)->where('status','offered')->update(['status'=>'accepted','updated_at'=>now()]);
+   foreach(DB::table('driver_trip_items')->where('trip_id',$id)->get() as $item)ParcelTracking::note($item->parcel_id,$driver,'Driver accepted the bulk sorting center transfer.');
   },3);
  }
  public static function depart(int $id,int $driver):void {

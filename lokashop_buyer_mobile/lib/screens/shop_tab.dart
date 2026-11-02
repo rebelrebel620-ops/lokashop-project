@@ -9,6 +9,7 @@ import '../widgets/product_card.dart';
 import 'product_detail_screen.dart';
 import 'notifications_screen.dart';
 import 'buyer_features.dart';
+import 'login_screen.dart';
 
 class ShopTab extends StatefulWidget {
   const ShopTab({super.key});
@@ -91,7 +92,15 @@ class _ShopTabState extends State<ShopTab> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
+    body: DecoratedBox(
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/buyer-sage-background.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+        ),
+      ),
+      child: SafeArea(
       child: PageBody(
         child: RefreshIndicator(
           onRefresh: () => load(),
@@ -121,7 +130,9 @@ class _ShopTabState extends State<ShopTab> {
                               ),
                             ),
                           ),
-                          IconButton(
+                          if (!context.watch<AppState>().isLoggedIn)
+                            TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())), child: const Text('Sign in'))
+                          else IconButton(
                             tooltip: 'Saved finds',
                             onPressed: () => Navigator.push(
                               context,
@@ -131,7 +142,7 @@ class _ShopTabState extends State<ShopTab> {
                             ),
                             icon: const Icon(Icons.favorite_border),
                           ),
-                          IconButton(
+                          if (context.watch<AppState>().isLoggedIn) IconButton(
                             tooltip: 'Notifications',
                             onPressed: () => Navigator.push(
                               context,
@@ -144,48 +155,51 @@ class _ShopTabState extends State<ShopTab> {
                         ],
                       ),
                       const SizedBox(height: 22),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(25),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primaryDark, AppColors.primary],
-                          ),
+                      LayoutBuilder(builder: (context, constraints) {
+                        final wide = constraints.maxWidth >= 600;
+                        return ClipRRect(
                           borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'GOOD FINDS. CLOSE TO HOME.',
-                              style: TextStyle(
-                                color: AppColors.accent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 2,
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              color: AppColors.primaryDark,
+                              image: DecorationImage(
+                                image: AssetImage('assets/images/buyer-shopping-banner.png'),
+                                fit: BoxFit.cover,
+                                alignment: Alignment.centerRight,
                               ),
                             ),
-                            SizedBox(height: 12),
-                            Text(
-                              'A little local.\nA lot to love.',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                height: 1.12,
-                                fontWeight: FontWeight.w800,
+                            child: Container(
+                              width: double.infinity,
+                              constraints: BoxConstraints(minHeight: wide ? 220 : 195),
+                              padding: const EdgeInsets.all(20),
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0x990C3023), Color(0x550C3023), Colors.transparent],
+                                  stops: [0, .58, 1],
+                                ),
+                              ),
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: (constraints.maxWidth - 40) * (wide ? .57 : .64),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('GOOD FINDS. CLOSE TO HOME.',
+                                      style: TextStyle(color: AppColors.accent, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                                    const SizedBox(height: 10),
+                                    Text('A little local.\nA lot to love.',
+                                      style: TextStyle(color: Colors.white, fontSize: wide ? 32 : 24, height: 1.15, fontWeight: FontWeight.w900)),
+                                    const SizedBox(height: 10),
+                                    const Text('Discover everyday essentials from trusted local sellers.',
+                                      style: TextStyle(color: Color(0xFFE5EEE7), fontSize: 11, height: 1.45)),
+                                  ],
+                                ),
                               ),
                             ),
-                            SizedBox(height: 12),
-                            Text(
-                              'Discover everyday essentials from trusted local sellers.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      }),
                       const SizedBox(height: 20),
                       TextField(
                         controller: search,
@@ -201,45 +215,66 @@ class _ShopTabState extends State<ShopTab> {
                           prefixIcon: Icon(Icons.search),
                         ),
                       ),
-                      const SectionHeading('Shop by category'),
+                      SectionHeading('Shop by category', trailing: TextButton(onPressed: () { main = null; category = null; load(); }, child: const Text('View all'))),
                     ],
                   ),
                 ),
               ),
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 48,
-                  child: ListView(
+                  height: 78 + MediaQuery.textScalerOf(context).scale(11) * 2.4,
+                  child: ListView.separated(
+                    key: const PageStorageKey<String>('buyer-category-carousel'),
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: const Text('All finds'),
-                          selected: main == null,
-                          onSelected: (_) {
-                            main = null;
-                            category = null;
-                            load();
-                          },
-                        ),
-                      ),
-                      ...mains.map(
-                        (m) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text('$m'),
-                            selected: main == m,
-                            onSelected: (_) {
-                              main = '$m';
-                              category = null;
-                              load();
-                            },
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+                    itemCount: mains.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      final name = '${mains[i]}', selected = main == name;
+                      const icons = [Icons.pets_outlined, Icons.devices_outlined, Icons.checkroom_outlined,
+                        Icons.checkroom, Icons.child_care_outlined, Icons.home_outlined,
+                        Icons.sports_soccer, Icons.spa_outlined, Icons.menu_book_outlined,
+                        Icons.restaurant_outlined, Icons.chair_outlined, Icons.watch_outlined];
+                      return SizedBox(
+                        width: 112,
+                        child: Semantics(
+                          button: true,
+                          selected: selected,
+                          label: name,
+                          child: Tooltip(
+                            message: name,
+                            excludeFromSemantics: true,
+                            child: Material(
+                              color: selected ? AppColors.primary : Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                                side: BorderSide(color: selected ? AppColors.primary : AppColors.line),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () {
+                                  main = selected ? null : name;
+                                  category = null;
+                                  load();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(icons[i % icons.length], color: selected ? AppColors.accent : AppColors.primary, size: 26),
+                                      const SizedBox(height: 8),
+                                      Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 11, height: 1.2, fontWeight: FontWeight.w700, color: selected ? Colors.white : AppColors.ink)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -386,6 +421,7 @@ class _ShopTabState extends State<ShopTab> {
           ),
         ),
       ),
+    ),
     ),
   );
 }

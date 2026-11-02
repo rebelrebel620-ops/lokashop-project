@@ -16,6 +16,7 @@ class Dispatch {
    $center=DB::table('parcels')->where('id',$a->parcel_id)->value('center_id');$company=DB::table('sorting_centers')->where('id',$center)->value('user_id');abort_unless($u->company_id==$company,403);
    $jobs=BulkTrips::workload($rider,['accepted']);if($jobs>=3)Support::fail('assignment','You already have 3 active jobs.');
    DB::table('assignments')->where('id',$id)->update(['status'=>'accepted','expires_at'=>$a->kind==='pickup'?null:$a->expires_at,'updated_at'=>now()]);
+   ParcelTracking::note($a->parcel_id,$rider,match($a->kind){'pickup'=>'Rider accepted the pickup assignment.','transfer'=>'Driver accepted the sorting center transfer.',default=>'Rider accepted the final delivery assignment.'});
   });
  }
  public static function offer(int $parcelId,int $company,?int $rider=null,string $kind='delivery'):void {

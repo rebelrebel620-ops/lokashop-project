@@ -1,241 +1,65 @@
 import 'package:flutter/material.dart';
-
-import '../api.dart';
 import '../session.dart';
+import 'workspace_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final Session session;
-
   const LoginScreen({super.key, required this.session});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-
-  late final TextEditingController _url = TextEditingController(
-    text: widget.session.serverUrl,
-  );
-
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-
-  bool _obscure = true;
-  bool _busy = false;
-  String? _error;
-  String? _serverNote;
-
+  final form = GlobalKey<FormState>();
+  final email = TextEditingController(), password = TextEditingController();
+  bool busy = false, obscure = true;
+  String? error;
   @override
-  void dispose() {
-    _url.dispose();
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
+  void dispose() { email.dispose(); password.dispose(); super.dispose(); }
+  Future<void> login() async {
+    if (busy || !form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() { busy = true; error = null; });
+    try { await widget.session.login(email.text.trim(), password.text); }
+    catch(e) { if (mounted) setState(() => error = '$e'); }
+    finally { if (mounted) setState(() => busy = false); }
   }
-
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-
-    try {
-      await widget.session.login(_url.text, _email.text, _password.text);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _error = '$e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
-  Future<void> _testServer() async {
-    setState(() => _serverNote = 'Testing...');
-
-    final client = ApiClient(baseUrl: _url.text);
-
-    try {
-      await client.ping();
-
-      if (mounted) {
-        setState(() => _serverNote = 'Connected ✓');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _serverNote = '$e');
-      }
-    }
-  }
-
+  void register(String type) => Navigator.push(context, MaterialPageRoute(builder: (_) => WorkspaceScreen(
+    session: widget.session, authenticated: false,
+    initialPath: type == 'sorting_center' ? '/register' : '/register?type=$type', title: 'Create logistics account')));
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.asset(
-                          'assets/icons/rider_logo.png',
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'LokaShop Courier',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Your route. Your pace. Your next delivery.\nSign in with your approved rider or driver account.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || !value.contains('@')) {
-                          return 'Enter your email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: _obscure,
-                      autofillHints: const [AutofillHints.password],
-                      onFieldSubmitted: (_) {
-                        if (!_busy) _login();
-                      },
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
-                          onPressed: () {
-                            setState(() => _obscure = !_obscure);
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Enter your password';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        _error!,
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed: _busy ? null : _login,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                      ),
-                      child: _busy
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : const Text('Log in'),
-                    ),
-                    const SizedBox(height: 12),
-                    ExpansionTile(
-                      title: const Text('Server'),
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(bottom: 8),
-                      children: [
-                        TextFormField(
-                          controller: _url,
-                          keyboardType: TextInputType.url,
-                          decoration: const InputDecoration(
-                            labelText: 'Server address',
-                            helperText:
-                                'Emulator: http://10.0.2.2:8001\n'
-                                'USB phone: http://127.0.0.1:8001',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Enter the server address';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            OutlinedButton(
-                              onPressed: _testServer,
-                              child: const Text('Test connection'),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _serverNote ?? '',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(body: Container(
+    decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft,end: Alignment.bottomRight,colors: [Color(0xFFE5EFE8),Color(0xFFF8FAF4)])),
+    child: SafeArea(child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520),child: SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.all(22),child: AutofillGroup(child: Form(key: form,child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
+        Row(children: [Image.asset('assets/icons/rider_logo.png',width: 54,height: 54),const SizedBox(width: 12),const Text('LokaShop Logistics',style: TextStyle(fontWeight: FontWeight.w900,fontSize: 22))]),
+        const SizedBox(height: 25),
+        Container(padding: const EdgeInsets.all(25),decoration: BoxDecoration(color: const Color(0xFF123E32),borderRadius: BorderRadius.circular(26)),child: const Column(crossAxisAlignment: CrossAxisAlignment.start,children: [
+          Text('YOUR LOGISTICS WORKSPACE',style: TextStyle(color: Color(0xFFDDECBB),fontSize: 10,letterSpacing: 2,fontWeight: FontWeight.w800)),
+          SizedBox(height: 14),Text('Move parcels.\nConnect communities.',style: TextStyle(color: Colors.white,fontSize: 31,fontWeight: FontWeight.w900,height: 1.15)),
+          SizedBox(height: 14),Text('One sign-in for riders, drivers and sorting centers.',style: TextStyle(color: Colors.white70,height: 1.5)),
+        ])),
+        const SizedBox(height: 20),
+        Card(child: Padding(padding: const EdgeInsets.all(22),child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
+          const Text('Sign in',style: TextStyle(fontSize: 24,fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),const Text('Use your approved logistics account.'),const SizedBox(height: 22),
+          TextFormField(controller: email,enabled: !busy,keyboardType: TextInputType.emailAddress,textInputAction: TextInputAction.next,autocorrect: false,
+            autofillHints: const [AutofillHints.username,AutofillHints.email],decoration: const InputDecoration(labelText: 'Email address',prefixIcon: Icon(Icons.mail_outline)),
+            validator: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch((v??'').trim()) ? null : 'Enter a valid email'),
+          const SizedBox(height: 16),
+          TextFormField(controller: password,enabled: !busy,obscureText: obscure,autofillHints: const [AutofillHints.password],textInputAction: TextInputAction.done,onFieldSubmitted: (_) => login(),
+            decoration: InputDecoration(labelText: 'Password',prefixIcon: const Icon(Icons.lock_outline),suffixIcon: IconButton(tooltip: obscure?'Show password':'Hide password',onPressed: () => setState(() => obscure = !obscure),icon: Icon(obscure?Icons.visibility_off_outlined:Icons.visibility_outlined))),
+            validator: (v) => v == null || v.isEmpty ? 'Enter your password' : null),
+          if(error!=null) Padding(padding: const EdgeInsets.only(top: 14),child: Text(error!,style: TextStyle(color: Theme.of(context).colorScheme.error))),
+          const SizedBox(height: 22),FilledButton(onPressed: busy?null:login,child: Text(busy?'Signing in…':'Sign in')),
+        ]))),
+        const SizedBox(height: 20),const Text('New to LokaShop Logistics?',textAlign: TextAlign.center,style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(onPressed: busy?null:()=>register('rider'),icon: const Icon(Icons.two_wheeler),label: const Text('Register as rider')),
+        OutlinedButton.icon(onPressed: busy?null:()=>register('driver'),icon: const Icon(Icons.local_shipping_outlined),label: const Text('Register as driver')),
+        OutlinedButton.icon(onPressed: busy?null:()=>register('sorting_center'),icon: const Icon(Icons.warehouse_outlined),label: const Text('Register a sorting center')),
+        const SizedBox(height: 12),const Text('Verify your email during registration, then wait for approval.',textAlign: TextAlign.center,style: TextStyle(fontSize: 12)),
+      ])))),
+    ))),
+  ));
 }

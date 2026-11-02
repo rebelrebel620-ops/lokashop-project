@@ -1,0 +1,1 @@
+document.querySelectorAll('[data-seller-approval]').forEach(form=>{const reason=form.querySelector('[name=reason]');form.querySelectorAll('button[name=decision]').forEach(button=>button.addEventListener('click',()=>{reason.required=button.value==='rejected';}));});

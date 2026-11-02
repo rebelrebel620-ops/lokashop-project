@@ -36,9 +36,9 @@ if(config('app.site_kind')==='ecommerce') {
  DB::table('delivery_areas')->where('id',$area)->update(['city'=>'City of Quezon City']);
  $controller->sort(requestFor(['area_id'=>$area]),$parcel->id);ok(DB::table('parcels')->find($parcel->id)->status==='SORTED','Sorting accepts equivalent municipality names');
  Dispatch::offer($parcel->id,$company,$rider);$delivery=DB::table('assignments')->where('parcel_id',$parcel->id)->where('kind','delivery')->first();loginAs($rider);Dispatch::accept($delivery->id,$rider);$controller->riderStep(requestFor(['status'=>'OUT_FOR_DELIVERY']),$parcel->id);
- DB::table('parcels')->where('id',$parcel->id)->update(['delivery_otp_hash'=>Hash::make('654321')]);$amount=DB::table('orders')->find($testOrder)->total;
+ $amount=DB::table('orders')->find($testOrder)->total;
  $upload=tempnam(sys_get_temp_dir(),'delivery-check');file_put_contents($upload,base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD9sAAAAASUVORK5CYII='));
- $data=['status'=>'DELIVERED','scanned_code'=>$parcel->tracking_code,'otp'=>'654321','cod_amount'=>$amount];
+ $data=['status'=>'DELIVERED','scanned_code'=>$parcel->tracking_code,'cod_amount'=>$amount];
  try{$controller->riderStep(requestFor($data),$parcel->id);throw new RuntimeException('Missing proof accepted');}catch(ValidationException $ex){ok(isset($ex->errors()['proof']),'Delivery requires proof image');}
  $request=requestFor($data,['proof'=>new UploadedFile($upload,'proof.png','image/png',null,true)]);$controller->riderStep($request,$parcel->id);$result=DB::table('parcels')->find($parcel->id);ok($result->status==='DELIVERED'&&Storage::disk('local')->exists($result->proof_path),'Web delivery stores photo and updates shared order');
  $html=$controller->assignments()->render();ok(str_contains($html,'Scan QR from photo')&&str_contains($html,$parcel->tracking_code),'Courier assignment screen renders scanner and real parcel codes');

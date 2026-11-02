@@ -52,3 +52,12 @@ Route::middleware('rider.api')->prefix('rider')->group(function(){
 
 Route::middleware('rider.api')->post('/rider/trip-stops/{id}/handover',[\App\Http\Controllers\DriverTripController::class,'handover']);
 Route::middleware('rider.api')->post('/rider/transfers/{id}/handover',[\App\Http\Controllers\TransferController::class,'handover']);
+
+// Native logistics roles. Existing rider-only endpoints keep their original guard.
+Route::post('/mobile/login',[\App\Http\Controllers\MobileWorkspaceController::class,'login'])->middleware('throttle:10,1');
+Route::get('/mobile/me',[\App\Http\Controllers\MobileWorkspaceController::class,'me']);
+Route::post('/mobile/workspace-ticket',[\App\Http\Controllers\MobileWorkspaceController::class,'ticket'])->middleware('throttle:20,1');
+Route::post('/mobile/logout',[\App\Http\Controllers\MobileWorkspaceController::class,'logout']);
+
+Route::get('/mobile/report',[\App\Http\Controllers\MobileWorkspaceController::class,'report']);
+Route::get('/mobile/documents/{id}',[\App\Http\Controllers\MobileWorkspaceController::class,'document'])->whereNumber('id');

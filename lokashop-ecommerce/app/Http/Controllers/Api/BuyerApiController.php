@@ -26,6 +26,26 @@ class BuyerApiController extends Controller
         $v = $r->validate(['email' => 'required|email', 'password' => 'required']);
         $user = DB::table('users')->where('email', $v['email'])->first();
 
+        // Pending registrations deliberately have no users row until email verification.
+        if (!$user) {
+            $pending = DB::table('pending_registrations')->where('email', $v['email'])
+                ->where('expires_at', '>', now())->orderByDesc('id')->get();
+            foreach ($pending as $registration) {
+                try {
+                    $payload = json_decode(\Illuminate\Support\Facades\Crypt::decryptString($registration->payload), true);
+                } catch (\Illuminate\Contracts\Encryption\DecryptException $e) { continue; }
+                $applicant = $payload['user'] ?? [];
+                if (($applicant['role'] ?? '') !== 'buyer' || !Hash::check($v['password'], $applicant['password'] ?? '')) continue;
+                $cooldown = $registration->sent_at ? max(0, 60 - (now()->timestamp - now()->parse($registration->sent_at)->timestamp)) : 0;
+                if ($cooldown === 0) {
+                    \App\Services\PendingRegistration::issueOtp($registration->id, $registration->email);
+                    $cooldown = 60;
+                }
+                return response()->json(['message'=>'Verify your email to finish creating your buyer account.',
+                    'verification_required'=>true,'verification_token'=>BuyerVerificationController::token($registration->id),
+                    'email'=>$registration->email,'retry_after'=>$cooldown],403);
+            }
+        }
         if (!$user || !Hash::check($v['password'], $user->password)) {
             throw ValidationException::withMessages(['email' => 'Incorrect login details.']);
         }
@@ -74,7 +94,7 @@ class BuyerApiController extends Controller
 
     public function products(Request $r){$page=\App\Services\Catalog::query($r)->paginate(20)->withQueryString();$page->getCollection()->transform(fn($p)=>\App\Http\Controllers\Api\MobileBuyerController::productCard($p));return response()->json($page);}
 
-    public function product(int $id)
+    public function product(Request $r, int $id)
     {
         $p = \App\Services\Commerce::catalog(DB::table('products'))->join('categories', 'categories.id', '=', 'products.category_id')
             ->select('products.*', 'categories.name as category')
@@ -86,7 +106,12 @@ class BuyerApiController extends Controller
         return response()->json([
             'product' => \App\Http\Controllers\Api\MobileBuyerController::productCard($p),
             'seller_name' => $seller->name ?? null,
-            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);return $v;}),
+            'store_name' => $seller->name ?? null,
+            'seller_person_name' => DB::table('users')->where('id', $p->seller_id)->value('name'),
+            'store_on_vacation' => (bool) ($seller->vacation ?? false),
+            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);$v->option_values=json_decode($v->options??'{}',true)?:new \stdClass();$v->image_url=\App\Services\Support::imageUrl($v->image);return $v;}),
+            'review_summary' => \App\Services\ProductReviews::summary($id),
+            'reviews' => \App\Services\ProductReviews::listing($id)->through(function($review){$words=preg_split('/\s+/',trim($review->reviewer_name??''));$review->reviewer_name=($words[0]??'')!==''?$words[0].(count($words)>1?' '.mb_substr(end($words),0,1).'.':''):'LokaShop buyer';$review->photo_urls=array_map(fn($p)=>\App\Services\Support::imageUrl($p),json_decode($review->photos??'[]',true)?:[]);unset($review->photos);return $review;}),
             'rating_avg' => round((clone $rating)->avg('stars') ?? 0, 1),
             'rating_count' => (clone $rating)->count(),
         ]);
@@ -113,6 +138,23 @@ class BuyerApiController extends Controller
     public function cartAdd(Request $r){\App\Services\Cart::add($r);return response()->json($this->cartRows());}
 
     public function cartUpdate(Request $r,int $id){\App\Services\Cart::update($r,$id);return response()->json($this->cartRows());}
+
+
+    public function buyNow(Request $r)
+    {
+        $id = \App\Services\Support::once($r, 'buyer-buy-now', function () use ($r) {
+            \App\Services\Cart::add($r);
+            $query = DB::table('cart_items')->where('buyer_id', auth()->id())
+                ->where('product_id', $r->integer('product_id'))->where('variation_id', $r->input('variation_id'));
+            $row = $query->orderBy('id')->lockForUpdate()->first();
+            $quantity = $r->integer('quantity');
+            if ((int) $row->quantity === $quantity) return $row->id;
+            DB::table('cart_items')->where('id', $row->id)->decrement('quantity', $quantity);
+            return DB::table('cart_items')->insertGetId(['buyer_id'=>auth()->id(),'product_id'=>$row->product_id,
+                'variation_id'=>$row->variation_id,'quantity'=>$quantity,'created_at'=>now(),'updated_at'=>now()]);
+        });
+        return response()->json(['cart_id'=>$id]);
+    }
 
     public function cartRemove(int $id)
     {
@@ -154,7 +196,7 @@ class BuyerApiController extends Controller
                 ->select('o.*', 'p.id as parcel_id', 'p.tracking_code', 'p.failure_reason',
                     DB::raw("CASE WHEN p.proof_path IS NOT NULL AND o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END as has_delivery_proof"),
                     DB::raw('COALESCE(sb.name, s.name) as seller_name'))
-                ->orderByDesc('o.id')->get()
+                ->orderByDesc('o.id')->get()->map(function($order){$order->items=DB::table('order_items')->where('order_id',$order->id)->get()->map(function($i){$i->image_url=\App\Services\Support::imageUrl($i->image);return $i;});$order->bucket=\App\Services\BuyerOrders::bucket($order->status);$order->status_label=\App\Services\BuyerOrders::label($order->status);return $order;})
         );
     }
 
@@ -176,6 +218,7 @@ class BuyerApiController extends Controller
             'address' => $order->address_snapshot ? json_decode($order->address_snapshot) : DB::table('addresses')->where('id', $order->address_id)->first(),
             'payment' => DB::table('payments')->where('order_id', $id)->first(),
             'history' => DB::table('status_history')->where('parcel_id', $order->parcel_id)->orderBy('id')->get(),
+            'timeline' => \App\Services\BuyerOrders::timeline($order, DB::table('parcels')->find($order->parcel_id)),
             'rating' => DB::table('ratings')->where('order_id', $id)->first(),
             'return_request'=>DB::table('return_requests')->where('order_id',$id)->where('buyer_id',auth()->id())->first(),
         ]);

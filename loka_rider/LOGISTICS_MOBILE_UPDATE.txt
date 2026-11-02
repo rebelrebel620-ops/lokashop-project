@@ -1,0 +1,159 @@
+LOKASHOP LOGISTICS MOBILE UPDATE - 30 OCTOBER 2026
+
+CONTENTS
+loka_rider/ is the complete cleaned Flutter Android project.
+lokashop-logistics/ contains changed Laravel files only: merge them into your
+existing logistics project. Do not replace the whole Laravel project folder.
+No ecommerce or buyer-mobile changes are required by this package.
+
+INSTALL BACKEND FIRST
+1. Back up both projects.
+2. Copy lokashop-logistics contents into your existing lokashop-logistics
+   project, overwriting matching files. Keep .env, vendor, uploads and database.
+3. In the existing logistics project run:
+     php artisan optimize:clear
+4. Restart the logistics server. No NEW migration is needed for this update.
+   Your existing logistics schema and its previous migrations must already exist.
+   This patch also includes the logistics fixes from earlier in this conversation.
+
+RUN FLUTTER
+Use the included loka_rider project, or merge it into your existing Flutter
+project after backing up. Keep your own android/local.properties and signing
+configuration. Build folders and machine-specific caches are excluded.
+Use Flutter 3.35+ and Dart 3.9+, then run:
+     flutter pub get
+     flutter analyze
+     flutter test
+     flutter run
+Stop and rebuild the app; hot reload is insufficient after dependency changes.
+This package is source code, not an APK.
+
+LOGISTICS CONNECTION - CONFIGURE ONCE PER BUILD
+The visible Server section and server URL input have been removed. Old saved
+server selections are ignored; changing the build target clears old credentials.
+The backend URL is fixed per build, using LOGISTICS_BASE_URL (or the existing
+API_BASE_URL compile define as a compatibility fallback).
+The uploaded logistics .env identifies only a LOCAL origin on port 8001. No
+public logistics domain was supplied, so none was guessed.
+
+Android emulator default: http://10.0.2.2:8001
+For a physical phone on the same Wi-Fi as your PC, use your PC's real LAN IP:
+     flutter run --dart-define=LOGISTICS_BASE_URL=http://192.168.1.10:8001
+Replace that example IP with your PC's actual address. In logistics run:
+     php artisan serve --host=0.0.0.0 --port=8001
+Allow the port through your firewall. 127.0.0.1 on a phone refers to the phone.
+For hosting, substitute your actual HTTPS LOGISTICS origin:
+     flutter run --dart-define=LOGISTICS_BASE_URL=https://YOUR_LOGISTICS_DOMAIN
+Use only the origin, without /api. Do not use the ecommerce domain/port.
+Debug Android builds permit local HTTP; release builds should use HTTPS.
+Before credentials are sent, /api/ping must identify itself as
+lokashop-logistics. Pointing the app at ecommerce fails that identity check.
+
+SIGN IN AND REGISTRATION
+- One native sign-in screen accepts approved riders, drivers and sorting centers.
+- Three visible registration buttons open the existing logistics registration
+  forms inside the app, including address dropdowns, documents and email codes.
+- Rider and driver accounts keep the existing database representation:
+  role=rider, courier_type=rider or driver. No new driver role migration added.
+- Sorting centers still require logistics-admin approval. Couriers keep the
+  existing center/municipality approval rules. Buyer/seller/admin accounts are
+  excluded from this mobile login endpoint.
+- Registration verification is completed inside the logistics web form. After
+  verification and approval, return to the native Sign in screen.
+
+RIDER WORKSPACE
+Overview, Jobs, Availability, COD and Account navigation.
+Native job offers, acceptance/decline, scan/manual label lookup, pickup, return
+to center, out-for-delivery, failed delivery, proof photo and COD remain.
+Availability controls are in their own tab. Notifications, messages, earnings,
+vehicle documents and profile/address editing remain reachable.
+Final DELIVERY OTP removed. Registration/contact verification codes remain.
+Delivery requires a matching scanned label or printed tracking code, a proof
+photo, and the exact COD amount. The buyer then confirms Order received in
+ecommerce. QR/printed parcel identification is not the removed buyer OTP.
+The geography asset is now declared, with error/retry handling and correct
+initial address/region restoration.
+
+DRIVER WORKSPACE
+Trips, Availability, Earnings, Messages and Account navigation.
+Trips use the existing bulk-trip API rather than the rider delivery queue.
+Offers, in-progress and completed trips have pagination and foreground polling.
+A driver can accept/decline the whole trip, start transport, inspect destination
+centers and parcel manifests, and confirm handover for each stop.
+The destination sorting center still must confirm receipt; driver handover
+alone does not auto-complete the transfer. Existing backend permissions and
+expiry/assignment rules remain in force.
+
+SORTING CENTER / COMPLETE WEB FUNCTIONS
+Sorting centers use an authenticated in-app WebView of the EXISTING logistics
+web workspace, with native section shortcuts and mobile layout improvements.
+This is not a separate rewrite of every sorting-center screen in Flutter.
+All existing role-authorized web functions stay available: dashboard, pickups,
+deliveries, transfers, history, setup, courier lists/applications, delivery
+areas, rates, remittances, exceptions, reports, messages, and profile/account.
+The Setup screen retains the full web menu for additional operations.
+Riders/drivers can open Complete logistics workspace from Account as well.
+Driver native trip actions remain available without opening the web workspace.
+
+File inputs use Android file selection for images/PDF documents. Report PDFs
+and application documents can be saved through native file selection. The same
+server-side ownership checks apply. Web pages remain online functionality and
+cannot operate without the logistics backend.
+
+SIGN-IN HANDOFF / ROLE BOUNDARIES
+The native bearer token is not put in a URL or injected into JavaScript.
+A protected endpoint issues a 60-second, one-use handoff ticket. A web POST
+consumes it under a cache lock, rechecks the account and credential fingerprint,
+regenerates the web session, and opens the user's proper role landing page.
+Ticket redemption is the only new CSRF-exempt web route; the random one-use
+credential is mandatory. Other web forms retain their existing CSRF checks.
+Logout/re-login invalidates outstanding tickets. Native logout clears WebView
+cookies. Navigation is restricted to the configured logistics origin.
+The existing rider.api guard is unchanged: sorting centers cannot use rider-only
+assignment/COD/trip APIs. New document/report routes reuse existing web ownership
+checks rather than granting generic file access.
+
+DESIGN
+Updated logistics branding, green welcome panel, clearer sign-in form, three
+registration actions, role-specific navigation, grouped driver trip manifests,
+confirmation actions, full-width touch controls, loading/errors, responsive
+workspace navigation and horizontal table scrolling on small screens.
+Android app label is now LokaShop Logistics. The existing Kotlin plugin was
+restored because the project's configuration disables built-in Kotlin.
+
+VALIDATION / LIMITS
+Dart syntax parsing and relative import checks passed. Changed PHP source
+syntax parsing passed. Address assets exist and exactly match logistics web.
+Source checks cover logistics identity, removed Server controls, role routing,
+removed delivery OTP, retained label/proof/COD validation, one-use handoff,
+origin restriction, and the separate driver-trip API.
+New Flutter tests cover role serialization, visible registration/no Server
+controls, and delivery fields without OTP. A standalone SQLite PHP test covers
+role access, wrong password, exact web-session identity, ticket reuse,
+suspension, logout revocation, and sorting-center exclusion from rider APIs.
+Existing delivery workflow checks were adjusted for required label/no OTP.
+
+Flutter/Dart and PHP runtimes are not available here. flutter analyze,
+flutter test, Android builds and PHP runtime tests were NOT executed.
+Run the listed commands locally. Live Gmail, device camera/file selection,
+hosted connectivity and complete end-to-end transfers still require device
+verification; no live success is claimed.
+PHP tests, after composer dependencies are installed:
+     php tests/mobile_workspace_checks.php
+     php tests/workflow_checks.php
+
+TEST ON YOUR PHONE
+1. Check that the configured target is logistics and sign in as each role.
+2. Register rider, driver and sorting center; verify email/address/documents.
+3. Rider: active status, accept pickup, scan, return to center, final delivery
+   with label + proof + COD, then buyer Order received. No delivery OTP.
+4. Sorting center: pickups, local rider assignments and bulk transfer creation.
+5. Driver: accept bulk trip, depart, confirm each stop's handover.
+6. Destination sorting center: confirm selected parcels received, then assign
+   final delivery. Confirm the driver cannot mark center receipt themselves.
+7. Test sorting-center reports/downloads/uploads and protected document viewing.
+8. Logout, restart, and verify no previous user's web session is displayed.
+
+PLUGIN REFERENCES USED FOR THE WEBVIEW INTEGRATION
+https://pub.dev/packages/webview_flutter
+https://pub.dev/documentation/webview_flutter_android/latest/webview_flutter_android/AndroidWebViewController-class.html

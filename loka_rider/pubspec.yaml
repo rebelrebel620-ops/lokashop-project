@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.9.0 <4.0.0'
+  flutter: '>=3.35.0'
 
 dependencies:
   flutter:
@@ -15,6 +16,9 @@ dependencies:
   cupertino_icons: ^1.0.6
   flutter_secure_storage: 9.2.4
   image_picker: 1.2.0
+  webview_flutter: ^4.10.0
+  webview_flutter_android: ^4.3.1
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_test:
@@ -26,6 +30,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/rider_logo.png
+    - assets/places.json
 
 flutter_launcher_icons:
   android: true

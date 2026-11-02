@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../api.dart';
 import '../models.dart';
@@ -348,15 +348,16 @@ class DeliveryScreen extends StatefulWidget {
 }
 
 class _DeliveryScreenState extends State<DeliveryScreen> {
-  final otp = TextEditingController(), cod = TextEditingController();
+  final cod = TextEditingController();
+  late final labelCode = TextEditingController(text: widget.scannedCode ?? '');
   final form = GlobalKey<FormState>();
   XFile? proof;
   bool busy = false;
   String? error;
   @override
   void dispose() {
-    otp.dispose();
     cod.dispose();
+    labelCode.dispose();
     super.dispose();
   }
 
@@ -394,10 +395,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         '/api/rider/parcels/${widget.assignment.parcelId}/status',
         {
           'status': 'DELIVERED',
-          'otp': otp.text.trim(),
           if (widget.assignment.payment?.method == 'cod')
             'cod_amount': cod.text.trim(),
-          if (widget.scannedCode != null) 'scanned_code': widget.scannedCode!,
+          'scanned_code': labelCode.text.trim(),
         },
         {'proof': proof!},
       );
@@ -425,10 +425,23 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
             InfoCard(
               title: widget.assignment.trackingCode,
               text:
-                  '1. Hand the parcel to the buyer\n2. Take a proof photo\n3. Ask for their delivery OTP\n4. Confirm payment and submit',
+                  '1. Hand the parcel to the buyer\n2. Take a proof photo\n3. Confirm payment and submit\n4. The buyer taps Order received',
               icon: Icons.task_alt,
             ),
             const SizedBox(height: 12),
+            TextFormField(
+              controller: labelCode,
+              enabled: !busy,
+              decoration: const InputDecoration(
+                labelText: 'Scanned label or printed tracking code',
+                helperText:
+                    'Scan from Jobs, or enter the code printed on the parcel.',
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Scan or enter the parcel label'
+                  : null,
+            ),
+            const SizedBox(height: 16),
             if (proof != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(18),
@@ -452,23 +465,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   label: const Text('Choose photo'),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: otp,
-              enabled: !busy,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Buyer delivery OTP',
-                helperText: 'The buyer receives this in their notifications.',
-              ),
-              validator: (s) => RegExp(r'^\d{6}$').hasMatch(s ?? '')
-                  ? null
-                  : 'Enter the 6-digit OTP',
             ),
             const SizedBox(height: 16),
             if (pay?.method == 'cod')

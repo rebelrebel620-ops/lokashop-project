@@ -4,7 +4,7 @@ class AppColors {
   static const primary = Color(0xFF18583D),
       primaryDark = Color(0xFF103B2B),
       accent = Color(0xFFD4E7A0),
-      bg = Color(0xFFF5F6F0),
+      bg = Color(0xFFF5F8F5),
       surface = Colors.white,
       danger = Color(0xFFB4493F),
       success = Color(0xFF298553),
@@ -49,6 +49,8 @@ class AppTheme {
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      errorMaxLines: 3,
+      helperMaxLines: 3,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.line),
@@ -69,6 +71,13 @@ class AppTheme {
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 50),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(48, 52),
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       ),

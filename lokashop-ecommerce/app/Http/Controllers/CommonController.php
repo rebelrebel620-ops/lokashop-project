@@ -18,7 +18,7 @@ class CommonController extends Controller {
   $seller=DB::table('users')->find($order->seller_id);
   $items=DB::table('order_items')->where('order_id',$order->id)->get();
   $payment=DB::table('payments')->where('order_id',$order->id)->orderByDesc('id')->first();
-  return view('track',['parcel'=>$parcel,'order'=>$order,'address'=>$address,'buyer'=>$buyer,'seller'=>$seller,'items'=>$items,'payment'=>$payment]);
+  return view('track',['links'=>auth()->user()->role==='buyer'?$this->links():[], 'parcel'=>$parcel,'order'=>$order,'address'=>$address,'buyer'=>$buyer,'seller'=>$seller,'items'=>$items,'payment'=>$payment,'store'=>DB::table('seller_businesses')->where('user_id',$order->seller_id)->first(),'timeline'=>\App\Services\BuyerOrders::timeline($order,$parcel)]);
  }
  public function authForm(Request $r){return view('auth',['register'=>$r->is('register'),'roles'=>['buyer','seller']]);}
  public function register(Request $r){

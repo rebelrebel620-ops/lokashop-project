@@ -10,8 +10,9 @@
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
 <link rel="stylesheet" href="{{asset('css/avatar-courier-fixes.css')}}">
 <link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
+<link rel="stylesheet" href="{{asset('css/role-backgrounds.css')}}">
 </head>
-<body>
+<body class="@yield('body-class')" data-workspace-role="{{auth()->user()->role}}">
 @php
  $role = auth()->user()->role;
  $isBuyer = $role === 'buyer';

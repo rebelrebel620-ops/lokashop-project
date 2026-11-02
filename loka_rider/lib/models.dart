@@ -28,6 +28,9 @@ class Rider {
   final String? vehicle;
   final bool online;
   final String courierType;
+  String get role => '${extra['role'] ?? 'rider'}';
+  bool get isDriver => role == 'rider' && courierType == 'driver';
+  bool get isCenter => role == 'sorting_center';
   final Map<String, dynamic> extra;
 
   const Rider({

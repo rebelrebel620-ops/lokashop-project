@@ -5,7 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 class AdminController extends Controller {
  private function listing($title,$query){return view('list',['title'=>$title,'links'=>app(CommonController::class)->links(),'records'=>$query->orderByDesc('id')->paginate(30)]);}
- public function approvals(){$users=DB::table('users')->where('role','seller')->where('approval_status','pending')->paginate(12)->withQueryString();return view('admin_approvals',['links'=>app(CommonController::class)->links(),'users'=>$users,'businesses'=>DB::table('seller_businesses')->whereIn('user_id',$users->pluck('id'))->get()->keyBy('user_id'),'addresses'=>DB::table('addresses')->whereIn('user_id',$users->pluck('id'))->get()->keyBy('user_id'),'docs'=>DB::table('registration_documents')->whereIn('user_id',$users->pluck('id'))->get()->groupBy('user_id')]);}
+ public function approvals(Request $r){return app(AdminWorkspaceController::class)->approvals($r);}
  public function approve(Request $r,int $id){$v=$r->validate(['decision'=>'required|in:approved,rejected']);abort_unless(DB::table('users')->where('id',$id)->where('role','seller')->where('approval_status','pending')->update(['approval_status'=>$v['decision'],'updated_at'=>now()]),422);DB::table('notifications')->insert(['user_id'=>$id,'body'=>'Your registration is '.$v['decision'],'created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Decision saved.');}
  public function users(Request $r){
   $filters=$r->validate(['search'=>'nullable|string|max:150','role'=>'nullable|in:buyer,seller','state'=>'nullable|in:active,suspended,banned,archived']);
@@ -37,7 +37,7 @@ class AdminController extends Controller {
  public function report(){return $this->listing('Orders and 10% platform commission',DB::table('orders')->whereIn('status',['DELIVERED','COMPLETED']));}
  public function announcement(Request $r){$v=$r->validate(['title'=>'required|max:150','body'=>'required|max:5000']);DB::table('announcements')->insert($v+['created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Published.');}
  public function announcements(){return view('announcements',['links'=>app(CommonController::class)->links(),'records'=>DB::table('announcements')->orderByDesc('id')->get()]);}
- public function complaints(){return view('complaints',['links'=>app(CommonController::class)->links(),'complaints'=>DB::table('complaints')->orderByDesc('id')->get()]);}
+ public function complaints(Request $r){return app(AdminWorkspaceController::class)->complaints($r);}
  public function document(int $id){$d=DB::table('registration_documents as d')->join('users as u','u.id','=','d.user_id')->where('d.id',$id)->where('u.role','seller')->select('d.*')->first();abort_unless($d,404);return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($d->path));}
- public function resolve(Request $r,int $id){$v=$r->validate(['resolution'=>'required|string|max:3000']);DB::table('complaints')->where('id',$id)->update(['resolution'=>$v['resolution'],'status'=>'resolved','updated_at'=>now()]);return back()->with('success','Resolved.');}
+ public function resolve(Request $r,int $id){return app(AdminWorkspaceController::class)->resolveComplaint($r,$id);}
 }

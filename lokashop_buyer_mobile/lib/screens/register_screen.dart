@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
 import '../widgets/place_fields.dart';
+import '../widgets/auth_layout.dart';
 import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -217,11 +218,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Create buyer account')),
-    body: SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Form(
+  Widget build(BuildContext context) => AuthLayout(
+    title: 'Your next local find starts here.',
+    subtitle: 'Create a buyer account, save your delivery address and verify your email.',
+    badge: 'JOIN THE NEIGHBOURHOOD',
+    child: Form(
         key: _form,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -230,6 +231,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'Verify your email to start shopping. Buyers do not need admin approval.',
             ),
             const SizedBox(height: 20),
+            const AuthSection(icon: Icons.person_outline, title: 'About you', subtitle: 'Your name and date of birth'),
             _field('first_name', 'First name'),
             _field('last_name', 'Last name'),
             TextFormField(
@@ -246,16 +248,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _dob == null ? 'Select your date of birth' : null,
             ),
             const SizedBox(height: 14),
+            const AuthSection(icon: Icons.lock_outline, title: 'Account details', subtitle: 'Use an email you can verify'),
             _field('phone', 'Mobile number', keyboard: TextInputType.phone),
             _field('email', 'Email', keyboard: TextInputType.emailAddress),
             _field('password', 'Password'),
             _field('password_confirmation', 'Confirm password'),
-            const Text(
-              'Delivery address',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            const Divider(height: 32),
+            const AuthSection(icon: Icons.location_on_outlined, title: 'Delivery address', subtitle: 'Choose your area, then add your street'),
             const SizedBox(height: 14),
             PlaceFields(
+              enabled: !_busy,
+              errors: _errors,
               onChanged: (values) {
                 for (final entry in values.entries) {
                   _fields[entry.key]?.text = entry.value;
@@ -291,11 +294,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _busy ? null : _submit,
-              child: Text(_busy ? 'Creating account…' : 'Create account'),
+              child: Text(_busy ? 'Sending verification…' : 'Create account & verify email'),
             ),
           ],
         ),
-      ),
     ),
   );
 }

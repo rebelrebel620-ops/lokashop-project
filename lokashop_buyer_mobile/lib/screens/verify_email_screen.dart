@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/app_state.dart';
+import '../widgets/auth_layout.dart';
 import 'login_screen.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
@@ -115,11 +116,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Verify email')),
-    body: SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+  Widget build(BuildContext context) => AuthLayout(
+    title: 'One last step.',
+    subtitle: 'Verify your email to activate your buyer account.',
+    badge: 'EMAIL VERIFICATION',
+    child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
@@ -133,6 +134,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           TextField(
             controller: _code,
             enabled: !_busy,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _action(false),
             keyboardType: TextInputType.number,
             maxLength: 6,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -153,7 +157,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             ),
           ),
         ],
-      ),
     ),
   );
 }

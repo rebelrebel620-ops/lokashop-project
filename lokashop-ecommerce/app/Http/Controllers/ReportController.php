@@ -4,7 +4,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 class ReportController extends Controller {
- public function index(Request $r){$v=$r->validate(['from'=>'nullable|date','to'=>'nullable|date|after_or_equal:from','format'=>'nullable|in:pdf','q'=>'nullable|string|max:150']);$u=auth()->user();
+ public function index(Request $r){if(auth()->user()->role==='admin')return app(AdminWorkspaceController::class)->reports($r);if(auth()->user()->role==='seller')return app(SellerSalesController::class)->index($r);$v=$r->validate(['from'=>'nullable|date','to'=>'nullable|date|after_or_equal:from','format'=>'nullable|in:pdf','q'=>'nullable|string|max:150']);$u=auth()->user();
   if($u->role==='seller')$q=DB::table('orders')->where('seller_id',$u->id)->select('id','status','merchandise_total','store_discount','commission','shipping_fee','total','created_at','completed_at');
   elseif($u->role==='admin')$q=DB::table('orders')->select('id','seller_id','status','merchandise_total','store_discount','commission','shipping_fee','total','created_at');
   elseif($u->role==='sorting_center'){$center=DB::table('sorting_centers')->where('user_id',$u->id)->value('id');abort_unless($center,403);$q=DB::table('parcels')->where('center_id',$center)->select('id','order_id','tracking_code','status','attempts','created_at');}

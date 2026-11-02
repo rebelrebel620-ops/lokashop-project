@@ -41,6 +41,14 @@ check(DB::table('users')->count()===0,'No user exists before verification');
 check(count(array_filter($mailer->messages,fn($text)=>str_contains($text,'your account has been created')))===0,'No account-created email before OTP verification');
 check(DB::table('addresses')->count()===0,'No user address exists before verification');
 check(DB::table('pending_registrations')->count()===1,'Only a temporary application exists');
+$buyerApi = new App\Http\Controllers\Api\BuyerApiController();
+try {$buyerApi->login(req(['email'=>$valid['email'],'password'=>'Wrong@2026']));throw new RuntimeException('Wrong pending password accepted');}
+catch (ValidationException $e) {check(isset($e->errors()['email']),'Pending verification requires correct password');}
+$resumed = $buyerApi->login(req(['email'=>$valid['email'],'password'=>$valid['password']]))->getData(true);
+check(($resumed['verification_required']??false)===true,'Pending buyer can resume verification through login');
+check(!empty($resumed['verification_token']),'Resume provides verification token');
+check(DB::table('users')->count()===0,'Resume does not create account before verification');
+
 $pending=App\Services\PendingRegistration::applicant($id);
 check(Hash::check($valid['password'],$pending->password),'Pending password is hashed');
 check(App\Services\PendingRegistration::verify($id,'000000')!==null,'Wrong code rejected');

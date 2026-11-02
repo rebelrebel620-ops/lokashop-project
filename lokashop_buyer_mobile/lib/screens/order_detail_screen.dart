@@ -26,6 +26,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> load() async {
+    if (mounted) setState(() => error = null);
     try {
       final r = await context.read<AppState>().api.get(
         '/orders/${widget.orderId}',
@@ -50,6 +51,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (mounted) setState(() => busy = false);
     }
   }
+
+  Widget _totalRow(String label, dynamic value, {bool discount = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(children: [Expanded(child: Text(label, style: const TextStyle(color: AppColors.muted))),
+      Text('${discount ? '−' : ''}${money(value)}', style: const TextStyle(fontWeight: FontWeight.w700))]),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +163,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               const SectionHeading('Delivery journey'),
               SheetCard(
                 child: Column(
-                  children: (List.from(data!['history'] ?? []))
+                  children: (List.from(data!['timeline'] ?? data!['history'] ?? []))
                       .map(
                         (h) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -174,14 +181,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${h['to_status']}'.replaceAll('_', ' '),
+                                      '${h['title'] ?? h['to_status']}'.replaceAll('_', ' '),
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                     Text(
-                                      '${h['created_at']}',
+                                      '${h['at'] ?? h['created_at']}',
                                       style: const TextStyle(
                                         color: AppColors.muted,
                                         fontSize: 11,
@@ -210,7 +217,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: SheetCard(
                     child: Text(
-                      'Your rider is on the way. Open Notifications for your delivery OTP. Share it only after receiving your parcel.',
+                      'Your rider is on the way. Prepare the cash-on-delivery amount. After delivery, tap Order received to complete your order.',
                     ),
                   ),
                 ),
@@ -240,7 +247,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       'Cash on delivery · ${data!['payment']?['status'] ?? ''}',
                       style: const TextStyle(color: AppColors.muted),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
+                    _totalRow('Items subtotal', o['merchandise_total']),
+                    _totalRow('Shipping cost', o['shipping_fee']),
+                    _totalRow('Store discount', o['store_discount'], discount: true),
+                    if ((double.tryParse('${o['platform_discount']}') ?? 0) > 0) _totalRow('Platform discount', o['platform_discount'], discount: true),
+                    if ((double.tryParse('${o['shipping_discount']}') ?? 0) > 0) _totalRow('Shipping discount', o['shipping_discount'], discount: true),
+                    const Divider(height: 24),
                     Text(
                       'Total ${money(o['total'])}',
                       style: const TextStyle(
@@ -280,7 +293,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             context,
                             'Everything arrived safely?',
                             'Confirming receipt completes your order. Request a return first if there is an issue.',
-                            label: 'Confirm received',
+                            label: 'Order received',
                           )) {
                             await action(
                               '/orders/${widget.orderId}/confirm',
@@ -288,7 +301,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             );
                           }
                         },
-                  child: const Text('Confirm received'),
+                  child: const Text('Order received'),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton(
