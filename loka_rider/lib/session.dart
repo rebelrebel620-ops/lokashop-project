@@ -11,8 +11,13 @@ import 'models.dart';
 /// Holds the logged-in rider, the saved server address and the API token.
 class Session extends ChangeNotifier {
   /// Logistics origin is fixed per build, with no in-app server controls.
-  static const defaultServerUrl = String.fromEnvironment('LOGISTICS_BASE_URL',
-    defaultValue: String.fromEnvironment('API_BASE_URL', defaultValue: 'https://logistics.lokashop.trade'));
+  static const defaultServerUrl = String.fromEnvironment(
+    'LOGISTICS_BASE_URL',
+    defaultValue: String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: 'https://logistics.lokashop.trade',
+    ),
+  );
 
   static const _secure = FlutterSecureStorage();
 
@@ -20,7 +25,7 @@ class Session extends ChangeNotifier {
   static const _kToken = 'token';
   static const _kRider = 'rider';
 
-  final ApiClient api = ApiClient(baseUrl: defaultServerUrl);
+  final ApiClient api;
 
   /// Set by the app so any open dialogs/sheets are closed when the session ends.
   VoidCallback? onSignedOut;
@@ -32,7 +37,8 @@ class Session extends ChangeNotifier {
   bool get loggedIn => rider != null;
   String get serverUrl => api.baseUrl;
 
-  Session() {
+  Session({ApiClient? apiClient})
+    : api = apiClient ?? ApiClient(baseUrl: defaultServerUrl) {
     api.onUnauthorized = _sessionExpired;
   }
 
@@ -114,7 +120,9 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> _clear() async {
-    try { await WebViewCookieManager().clearCookies(); } catch (_) {}
+    try {
+      await WebViewCookieManager().clearCookies();
+    } catch (_) {}
     api.token = null;
     rider = null;
     try {

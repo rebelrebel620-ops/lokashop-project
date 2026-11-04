@@ -1,0 +1,18 @@
+/* Landing page only: keep featured products in one accessible, scrollable row. */
+.landing-page .landing-products-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.landing-page .landing-products-heading h2{margin-bottom:0}
+.landing-page .landing-products-controls{display:flex;gap:8px}
+.landing-page .landing-products-controls[hidden]{display:none}
+.landing-page .landing-products-controls button{min-height:40px;padding:8px 14px;border:1px solid #b9d1bf;border-radius:10px;background:#fff;color:#145c36;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.landing-page .landing-products-controls button:disabled{opacity:.4;cursor:default}
+.landing-page .grid.landing-product-row{display:flex!important;flex-wrap:nowrap;align-items:stretch;gap:20px;max-width:100%;min-width:0;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;padding:4px 4px 16px;scroll-snap-type:x proximity;scroll-padding-inline:4px;scrollbar-width:thin;scrollbar-color:#5c936d #e8efe4;-webkit-overflow-scrolling:touch}
+.landing-page .grid.landing-product-row>.card{flex:0 0 clamp(200px,18vw,235px);min-width:0;width:auto;box-sizing:border-box;display:flex;flex-direction:column;scroll-snap-align:start;margin:0}
+.landing-page .landing-product-row>.card h3{min-height:2.6em;line-height:1.3;margin-top:8px}
+.landing-page .landing-product-row>.card .price{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px}
+.landing-page .landing-product-row>.card .tag{align-self:flex-start}
+.landing-page .landing-product-row>.card small{margin-bottom:10px}
+.landing-page .landing-product-row>.card>br{display:none}
+.landing-page .landing-product-row>.card>.btn{align-self:flex-start;margin-top:auto}
+.landing-page .landing-product-row:focus-visible,.landing-page .landing-products-controls button:focus-visible{outline:3px solid #328453;outline-offset:3px}
+@media(max-width:600px){.landing-page .grid.landing-product-row{gap:12px}.landing-page .grid.landing-product-row>.card{flex-basis:min(78vw,235px)}.landing-page .landing-products-controls button{min-height:40px;padding:8px 11px}}
+@media(prefers-reduced-motion:reduce){.landing-page .grid.landing-product-row{scroll-behavior:auto}}

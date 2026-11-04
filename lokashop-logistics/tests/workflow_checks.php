@@ -19,6 +19,7 @@ $latest=require __DIR__.'/../database/migrations/2026_10_23_000001_municipal_pic
 $cycleMigration=require __DIR__.'/../database/migrations/2026_10_23_000002_pickup_acceptance_window.php';$cycleMigration->up();
 $bulkMigration=require __DIR__.'/../database/migrations/2026_10_24_000001_bulk_driver_trips.php';$bulkMigration->up();$bulkMigration->up();
 $handoverMigration=require __DIR__.'/../database/migrations/2026_10_25_000001_transport_handover_confirmation.php';$handoverMigration->up();$handoverMigration->up();
+$centerOpsMigration=require __DIR__.'/../database/migrations/2026_11_02_000001_center_operations.php';$centerOpsMigration->up();
 $n=0;function ok($x,$label){global $n;if(!$x)throw new RuntimeException('FAIL: '.$label);$n++;}
 function requestFor(array $data=[],array $files=[]):Request{global $app;$r=Request::create('/test','POST',$data,[], $files,['HTTP_ACCEPT'=>'application/json']);$r->setLaravelSession($app['session']->driver());$r->setUserResolver(fn()=>Auth::user());$app->instance('request',$r);return $r;}
 function user(string $role,string $name){$id=DB::table('users')->insertGetId(['name'=>$name,'email'=>$name.'@example.test','password'=>Hash::make('Test@1234'),'role'=>$role,'approval_status'=>'approved','active'=>1,'last_seen_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);return $id;}

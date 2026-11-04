@@ -1,8 +1,8 @@
 @extends('dashboard')
-@section('title','Local rider areas')
+@section('title','Area')
 @section('panel')
 <div class="page-head">
-  <div><h1>Local rider areas</h1><p>These barangay areas cover seller pickups and buyer deliveries. Assign local riders only; drivers use bulk trips between centers.</p></div>
+  <div><h1>Area</h1><p>These barangay areas cover seller pickups and buyer deliveries. Assign local riders only; drivers use bulk trips between centers.</p></div>
 </div>
 
 <div class="design-card">
@@ -36,6 +36,7 @@
           <span class="ico"><x-icon name="map-pin"/></span>
           <div class="info"><b>{{ $a->name }}</b><small>{{ $a->barangay ?? 'Set a barangay for this legacy area' }}, {{ $a->city }}, {{ $a->province }}</small></div>
           <span class="badge blue">{{ $riders->firstWhere('id',$a->rider_id)->name ?? ('Rider #'.$a->rider_id) }}</span>
+          <details class="area-manage"><summary>Manage area</summary><form method="post" action="/center/areas/{{$a->id}}">@csrf<input type="hidden" name="action" value="assign"><label>Assigned rider<select name="rider_id" required>@foreach($riders as $rider)<option value="{{$rider->id}}" @selected($rider->id==$a->rider_id)>{{$rider->name}}</option>@endforeach</select></label><button @disabled($riders->isEmpty())>Change rider</button></form><form method="post" action="/center/areas/{{$a->id}}" onsubmit="return confirm('Delete this area? Active parcel work must be finished first.')">@csrf<input type="hidden" name="action" value="delete"><button class="danger">Delete area</button></form></details>
         </div>
       @empty
         <div class="empty">No delivery areas yet — add one above.</div>

@@ -73,6 +73,8 @@ class RiderApiController extends Controller
         \App\Services\DeliveryOffers::refresh();
         $q = $this->base($r->user()->id)->whereNull('s.trip_id')->whereNotIn('s.status',['expired','declined','reassigned','cancelled']);
         match ($r->query('filter', 'all')) {
+            'new' => $q->where('s.status', 'offered'),
+            'progress' => $q->where('s.status', 'accepted'),
             'active' => $q->whereIn('s.status', ['offered', 'accepted']),
             'completed' => $q->where('s.status', 'completed'),
             default => null,
@@ -112,26 +114,23 @@ class RiderApiController extends Controller
      */
     public function scan(Request $r): JsonResponse
     {
-        $v = $r->validate(['code' => 'required|string|max:2000']);
+        $v = $r->validate(['code' => 'required|string|max:2000', 'assignment_id'=>'nullable|integer|min:1']);
         $code = $this->trackingCode($v['code']);
-
-        $parcel = $code === '' ? null : DB::table('parcels')->where('tracking_code', $code)->first();
-        if (!$parcel) {
-            return response()->json(['message' => 'No parcel found for that QR code.'], 404);
-        }
-
-        \App\Services\PickupRequests::refresh($parcel->id);
-        \App\Services\DeliveryOffers::refresh($parcel->id);
-        $row = $this->base($r->user()->id)
-            ->where('s.parcel_id', $parcel->id)->where('s.status','accepted')
-            ->orderByRaw("s.status in ('offered','accepted') desc")
-            ->orderByDesc('s.id')
-            ->first();
-        if (!$row) {
-            return response()->json(['message' => 'This parcel is not assigned to you.'], 403);
-        }
-
-        return response()->json(['assignment' => $this->shape([$row])[0]]);
+        if($code==='')return response()->json(['message'=>'This QR does not contain a supported parcel tracking code. Scan the shipping label or enter its printed tracking code.'],422);
+        // Resolve within this courier's assignments instead of selecting a global parcel first.
+        $query=$this->base($r->user()->id);
+        if(isset($v['assignment_id']))$query->where('s.id',$v['assignment_id']);
+        else $query->where('p.tracking_code',$code);
+        $row=$query->orderByDesc('s.id')->first();
+        if(!$row)return response()->json(['message'=>'No assignment for this label is available to your account. Open the intended job and choose Scan parcel.'],403);
+        if(!hash_equals($row->tracking_code,$code))return response()->json(['message'=>'Wrong parcel label. This assignment requires '.$row->tracking_code.'. Scan that label to continue.'],422);
+        \App\Services\PickupRequests::refresh($row->parcel_id);
+        \App\Services\DeliveryOffers::refresh($row->parcel_id);
+        $row=$this->base($r->user()->id)->where('s.id',$row->id)->first();
+        if(!$row)return response()->json(['message'=>'This assignment is no longer available. Refresh your jobs.'],409);
+        if($row->status==='offered')return response()->json(['message'=>'This request is assigned to you, but has not been accepted. Accept it in Jobs before scanning.'],409);
+        if($row->status!=='accepted')return response()->json(['message'=>'This assignment is '.str_replace('_',' ',$row->status).'. Refresh your jobs and scan an ongoing assignment.'],409);
+        return response()->json(['assignment' => $this->shape([$row])[0], 'verified_tracking_code'=>$row->tracking_code]);
     }
 
     // ------------------------------------------------------------ earnings
@@ -164,7 +163,7 @@ class RiderApiController extends Controller
 
     private function riderJson($u): array
     {
-        return ['id' => (int) $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone, 'vehicle' => $u->vehicle,'online'=>(bool)$u->online,'latitude'=>$u->latitude,'longitude'=>$u->longitude,'license_number'=>$u->license_number,'license_expires_at'=>$u->license_expires_at,'plate_number'=>$u->plate_number,'courier_type'=>$u->courier_type,'company_id'=>$u->company_id,'profile_photo_url'=>\App\Services\Support::imageUrl($u->profile_photo)];
+        return ['id' => (int) $u->id, 'name' => $u->name, 'email' => $u->email, 'phone' => $u->phone, 'vehicle' => $u->vehicle,'online'=>(bool)$u->online,'latitude'=>$u->latitude,'longitude'=>$u->longitude,'license_number'=>$u->license_number,'license_expires_at'=>$u->license_expires_at,'plate_number'=>$u->plate_number,'courier_type'=>$u->courier_type,'company_id'=>$u->company_id,'profile_photo_url'=>($u->profile_photo?'/api/mobile/photo?v='.rawurlencode((string)$u->profile_photo):null)];
     }
 
     private function trackingCode(string $raw): string

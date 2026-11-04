@@ -32,7 +32,7 @@ class Dispatch {
    foreach($candidates as $u){try{Municipalities::courier($u,$p,$kind);}catch(\Illuminate\Validation\ValidationException $e){continue;}$n=DB::table('assignments')->where('rider_id',$u->id)->whereIn('status',['offered','accepted'])->count();$distance=($origin->latitude!==null&&$origin->longitude!==null&&$u->latitude!==null&&$u->longitude!==null)?self::distance($origin->latitude,$origin->longitude,$u->latitude,$u->longitude):1000000+$n;if($n<3&&$distance<$least){$chosen=$u;$least=$distance;}}
    if(!$chosen)Support::fail('rider_id','No Online rider with capacity is available in this company.');
    DB::table('assignments')->where('parcel_id',$p->id)->where('kind',$kind)->whereIn('status',['offered','accepted','requested'])->update(['status'=>'reassigned','updated_at'=>now()]);
-   DB::table('assignments')->insert(['parcel_id'=>$p->id,'rider_id'=>$chosen->id,'kind'=>$kind,'status'=>'offered','expires_at'=>$kind==='delivery'?now()->addHours(12):now()->addSeconds(60),'earnings'=>ShippingEarnings::amount($p->order_id,$kind),'created_at'=>now(),'updated_at'=>now()]);
+   DB::table('assignments')->insert(['handling_center_id'=>$p->center_id,'parcel_id'=>$p->id,'rider_id'=>$chosen->id,'kind'=>$kind,'status'=>'offered','expires_at'=>$kind==='delivery'?now()->addHours(12):now()->addSeconds(60),'earnings'=>ShippingEarnings::amount($p->order_id,$kind),'created_at'=>now(),'updated_at'=>now()]);
    if($kind==='delivery'&&$p->status!=='ASSIGNED_TO_RIDER')Workflow::move($p->id,'ASSIGNED_TO_RIDER',$company,null,null,$p->center_id);
    Support::notify([$chosen->id],"New {$kind} offer for parcel #{$p->id}; accept within ".($kind==='delivery'?'12 hours':'60 seconds').'.');
   });

@@ -3,7 +3,7 @@
 @section('panel')
 <div class="page-head"><div><h1>Driver trips</h1><p>Accept one trip for all parcels. Start transport once. Each destination center confirms only its own parcels.</p></div></div>
 <details class="design-card setup-details"><summary>Older individual transfers</summary><p>Use this only for individual transfers assigned before bulk trips.</p><a class="btn alt" href="/rider/assignments">Open individual assignments</a></details>
-<nav class="courier-buttons">@foreach(['new'=>'New trips','progress'=>'In progress','completed'=>'Completed'] as $key=>$label)<a class="btn {{$tab===$key?'':'alt'}}" href="/driver/trips?tab={{$key}}">{{$label}}</a>@endforeach</nav>
+<nav class="operation-tabs">@foreach(['new'=>'New trips','progress'=>'In progress','completed'=>'Completed'] as $key=>$label)<a class="{{$tab===$key?'active':''}}" href="/driver/trips?tab={{$key}}">{{$label}}</a>@endforeach</nav>
 @forelse($trips as $trip)
 <div class="panel-card" style="padding:24px"><h2>Trip #{{$trip['id']}} · {{ucfirst(str_replace('_',' ',$trip['status']))}}</h2><p>{{count($trip['stops'])}} destination centers · {{collect($trip['stops'])->sum(fn($s)=>$s['parcels']->count())}} parcels</p>
 @if($trip['status']==='offered')<p>Accept before {{$trip['expires_at']}} (3-hour trip offer).</p><form method="post" action="/driver/trips/{{$trip['id']}}/accept">@csrf<button>Accept whole trip</button></form><form method="post" action="/driver/trips/{{$trip['id']}}/decline">@csrf<button class="danger">Decline whole trip</button></form>@endif

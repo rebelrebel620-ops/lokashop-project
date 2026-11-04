@@ -3,7 +3,7 @@
 @section('panel')
 <link rel="stylesheet" href="{{ asset('css/courier-delivery.css') }}">
 <div class="page-head"><div><h1>Courier assignments</h1><p>New assignments appear here automatically. Accept or decline pickup offers within 3 hours.</p></div></div>
-<nav class="courier-buttons" aria-label="Job stages">@foreach(['new'=>'New jobs','progress'=>'In progress','completed'=>'Completed'] as $key=>$label)<a class="btn {{$tab===$key?'':'alt'}}" href="/rider/assignments?tab={{$key}}" @if($tab===$key) aria-current="page" @endif>{{$label}}</a>@endforeach</nav>
+<nav class="operation-tabs" aria-label="Job stages">@foreach(['new'=>'New jobs','progress'=>'In progress','completed'=>'Completed'] as $key=>$label)<a class="{{$tab===$key?'active':''}}" href="/rider/assignments?tab={{$key}}" @if($tab===$key) aria-current="page" @endif>{{$label}}</a>@endforeach</nav>
 <section class="panel-card courier-scan" id="assignment-scanner" hidden>
  <h2>Scan parcel QR</h2><p>Use the label printed by the seller. Scanning identifies your assignment; it does not mark a parcel delivered.</p>
  <div class="courier-buttons"><button type="button" id="start-scan">Open camera scanner</button><button type="button" id="stop-scan" hidden>Stop camera</button><label class="btn" for="qr-photo">Scan QR from photo</label><input id="qr-photo" type="file" accept="image/*" hidden></div>

@@ -198,16 +198,38 @@ class ApiClient {
     throw ApiException(_messageOf(data, res.statusCode), res.statusCode);
   }
 
-  Future<({Uint8List bytes, String filename})> download(String path, Map<String,String> query) async {
-    final response = await http.get(_uri(path, query), headers: {
-      'Accept':'application/pdf,image/*', if(token != null) 'Authorization':'Bearer $token',
-    }).timeout(const Duration(seconds:45));
-    if(response.statusCode == 401) onUnauthorized?.call();
-    if(response.statusCode != 200) throw ApiException('Could not download this file.',response.statusCode);
+  Future<({Uint8List bytes, String filename})> download(
+    String path,
+    Map<String, String> query,
+  ) async {
+    final response = await http
+        .get(
+          _uri(path, query),
+          headers: {
+            'Accept': 'application/pdf,image/*',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 45));
+    if (response.statusCode == 401) onUnauthorized?.call();
+    if (response.statusCode != 200) {
+      throw ApiException('Could not download this file.', response.statusCode);
+    }
     final type = response.headers['content-type'] ?? '';
-    if(!type.contains('pdf') && !type.startsWith('image/')) throw const ApiException('The server did not return a report or document.');
-    final extension = type.contains('pdf') ? 'pdf' : type.contains('png') ? 'png' : 'jpg';
-    return (bytes: response.bodyBytes, filename: 'lokashop-${DateTime.now().millisecondsSinceEpoch}.$extension');
+    if (!type.contains('pdf') && !type.startsWith('image/')) {
+      throw const ApiException(
+        'The server did not return a report or document.',
+      );
+    }
+    final extension = type.contains('pdf')
+        ? 'pdf'
+        : type.contains('png')
+        ? 'png'
+        : 'jpg';
+    return (
+      bytes: response.bodyBytes,
+      filename: 'lokashop-${DateTime.now().millisecondsSinceEpoch}.$extension',
+    );
   }
 
   // ------------------------------------------------------------------ calls
@@ -257,7 +279,7 @@ class ApiClient {
     return Rider.fromJson(data['rider'] as Map<String, dynamic>);
   }
 
-  /// [filter]: 'all' | 'active' | 'completed'
+  /// [filter]: 'new' | 'progress' | 'completed' (legacy 'all' / 'active' also supported).
   Future<List<Assignment>> assignments({String filter = 'all'}) async {
     final data = await _send(
       'GET',
@@ -298,8 +320,12 @@ class ApiClient {
   }
 
   /// Sends the raw QR content; the server extracts the tracking code.
-  Future<Assignment> scan(String raw) async {
-    final data = await _send('POST', '/api/rider/scan', body: {'code': raw});
+  Future<Assignment> scan(String raw, {int? assignmentId}) async {
+    final data = await _send(
+      'POST',
+      '/api/rider/scan',
+      body: {'code': raw, 'assignment_id': ?assignmentId},
+    );
     return Assignment.fromJson(data['assignment'] as Map<String, dynamic>);
   }
 

@@ -29,7 +29,7 @@ class BulkTrips {
    $trip=DB::table('driver_trips')->insertGetId(['origin_center_id'=>$origin->id,'driver_id'=>$driver,'status'=>'offered','expires_at'=>now()->addHours(3),'created_at'=>now(),'updated_at'=>now()]);$stops=[];
    foreach($parcels as $p){$dest=$destinations[$p->id];if(!isset($stops[$dest->id]))$stops[$dest->id]=DB::table('driver_trip_stops')->insertGetId(['trip_id'=>$trip,'center_id'=>$dest->id,'position'=>count($stops)+1,'created_at'=>now(),'updated_at'=>now()]);
     // Preserve the existing transfer earnings of PHP 50 per parcel. No new customer charge.
-    $assignment=DB::table('assignments')->insertGetId(['trip_id'=>$trip,'parcel_id'=>$p->id,'rider_id'=>$driver,'kind'=>'transfer','status'=>'offered','expires_at'=>null,'earnings'=>50,'created_at'=>now(),'updated_at'=>now()]);
+    $assignment=DB::table('assignments')->insertGetId(['handling_center_id'=>$origin->id,'trip_id'=>$trip,'parcel_id'=>$p->id,'rider_id'=>$driver,'kind'=>'transfer','status'=>'offered','expires_at'=>null,'earnings'=>50,'created_at'=>now(),'updated_at'=>now()]);
     DB::table('driver_trip_items')->insert(['trip_id'=>$trip,'stop_id'=>$stops[$dest->id],'parcel_id'=>$p->id,'assignment_id'=>$assignment,'created_at'=>now(),'updated_at'=>now()]);
     self::move($p,'TRANSFER_OFFERED',$actor,'Bulk trip #'.$trip.' to '.$dest->name,['destination_center_id'=>$dest->id,'delivery_area_id'=>null]);
    }

@@ -11,8 +11,9 @@
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
 <link rel="stylesheet" href="{{asset('css/avatar-courier-fixes.css')}}">
 <link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
+<link rel="stylesheet" href="{{asset('css/center-refresh.css')}}">
 </head>
-<body class="logi">
+<body class="logi {{in_array(auth()->user()->role,['sorting_center','rider'])?'operations-redesign':''}}">
 @php
   $roleLabel = auth()->user()->role==='rider'?'Logistics '.ucfirst(auth()->user()->courier_type):ucfirst(str_replace('_',' ',auth()->user()->role));
   $initials = collect(explode(' ', auth()->user()->name))->map(fn($p)=>mb_substr($p,0,1))->join('');

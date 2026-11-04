@@ -49,7 +49,7 @@ if(config('app.site_kind')==='logistics'){
  DB::table('users')->where('id',$driver)->update(['last_seen_at'=>now(),'online'=>1]);$trip2=BulkTrips::create($company,$driver,$all);loginAs($driver);
  $api=new App\Http\Controllers\DriverTripController();$data=$api->index(requestFor())->getData(true);ok(count($data['data'])===1&&count($data['data'][0]['stops'])===3,'Trip API lists one trip with three stops');
  $req=requestFor();$req->headers->set('Accept','text/html');$html=$api->index($req)->render();ok(str_contains($html,'Accept whole trip'),'Driver web accepts whole trip once');BulkTrips::accept($trip2,$driver);BulkTrips::depart($trip2,$driver);
- loginAs($owners[0]);requestFor();$html=(new App\Http\Controllers\TransferController())->index()->render();ok(str_contains($html,'BULK-0-0')&&!str_contains($html,'BULK-1-0'),'Incoming center view only exposes its own trip parcels');
+ loginAs($owners[0]);$incomingRequest=requestFor();$incomingRequest->query->set('tab','incoming');$html=(new App\Http\Controllers\TransferController())->index()->render();ok(str_contains($html,'BULK-0-0')&&!str_contains($html,'BULK-1-0'),'Incoming center view only exposes its own trip parcels');
  loginAs($otherDriver);deniedBulk(fn()=>$api->show(requestFor(),$trip2),'Trip API prevents unrelated driver manifest access');
 }
 // Capacity counts trips, not the six parcels inside them.

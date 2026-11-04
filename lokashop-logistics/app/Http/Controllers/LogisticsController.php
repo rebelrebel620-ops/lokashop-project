@@ -172,10 +172,11 @@ class LogisticsController extends Controller
 
     public function pickups()
     {
+        abort_unless(in_array(request('tab','request'),['request','ongoing','completed']),422);
         \App\Services\PickupRequests::refresh();
-        $requests=DB::table('assignments as s')->join('parcels as p','p.id','=','s.parcel_id')->join('orders as o','o.id','=','p.order_id')->join('addresses as a','a.id','=','o.address_id')->where('s.kind','pickup')->where('p.center_id',$this->centerId())->whereIn('p.status',['PREPARING','READY_FOR_PICKUP','PICKED_UP'])->whereRaw("s.id = (select max(last_a.id) from assignments last_a where last_a.parcel_id=s.parcel_id and last_a.kind='pickup')")->select('s.*','p.tracking_code','p.order_id','p.status as parcel_status','a.city','a.province')->paginate(20);
+        $requests=DB::table('assignments as s')->join('parcels as p','p.id','=','s.parcel_id')->join('orders as o','o.id','=','p.order_id')->join('addresses as a','a.id','=','o.address_id')->where('s.kind','pickup')->where('s.handling_center_id',$this->centerId())->when(request('tab','request')==='completed',fn($q)=>$q->where('s.status','completed'),fn($q)=>$q->whereIn('s.status',request('tab','request')==='ongoing'?['accepted']:['requested','offered','expired','declined']))->whereRaw("s.id = (select max(last_a.id) from assignments last_a where last_a.parcel_id=s.parcel_id and last_a.kind='pickup')")->select('s.*','p.tracking_code','p.order_id','p.status as parcel_status','a.city','a.province')->orderByDesc('s.id')->paginate(20)->withQueryString();
         $eligible=[];$origins=[];
-        foreach($requests as $a){$p=DB::table('parcels')->find($a->parcel_id);$eligible[$a->id]=\App\Services\AreaRouting::riders($p,'pickup')->reject(fn($u)=>in_array($a->status,['expired','declined'])&&$u->id==$a->rider_id);$o=DB::table('orders')->find($p->order_id);$origins[$a->id]=\App\Services\Municipalities::address($o->seller_id);}
+        foreach($requests as $a){$p=DB::table('parcels')->find($a->parcel_id);$eligible[$a->id]=($a->status==='completed'?collect():\App\Services\AreaRouting::riders($p,'pickup'))->reject(fn($u)=>in_array($a->status,['expired','declined'])&&$u->id==$a->rider_id);$o=DB::table('orders')->find($p->order_id);$origins[$a->id]=\App\Services\Municipalities::address($o->seller_id);}
         return view('center_pickups',['links'=>app(CommonController::class)->links(),'requests'=>$requests,'eligible'=>$eligible,'origins'=>$origins]);
     }
     public function verifyPickup(Request $r,int $id)
@@ -187,10 +188,20 @@ class LogisticsController extends Controller
     public function deliveries()
     {
         \App\Services\DeliveryOffers::refresh();
-        $queue=DB::table('parcels')->where('center_id',$this->centerId())->whereIn('status',['AT_SORTING_CENTER','SORTED','ASSIGNED_TO_RIDER','OUT_FOR_DELIVERY','DELIVERY_FAILED'])->orderByDesc('id')->get()->filter(fn($p)=>\App\Services\ProcessRouting::local($p))->values();
-        $parcels=\App\Services\ProcessRouting::paginate($queue);
+        $tab=request('tab','request');abort_unless(in_array($tab,['request','ongoing','completed']),422);
+        $base=DB::table('parcels')->where('center_id',$this->centerId())->orderByDesc('id');
+        if($tab==='completed'){
+            $parcels=$base->whereIn('status',['DELIVERED','COMPLETED'])->whereExists(function($q){$q->select(DB::raw(1))->from('assignments as a')->whereColumn('a.parcel_id','parcels.id')->where('a.kind','delivery')->where('a.status','completed')->where('a.handling_center_id',$this->centerId());})->paginate(20)->withQueryString();
+        }else{
+            $base->whereIn('status',['AT_SORTING_CENTER','SORTED','ASSIGNED_TO_RIDER','OUT_FOR_DELIVERY','DELIVERY_FAILED']);
+            $accepted=function($q){$q->select(DB::raw(1))->from('assignments as a')->whereColumn('a.parcel_id','parcels.id')->where('a.kind','delivery')->where('a.status','accepted');};
+            if($tab==='ongoing')$base->whereExists($accepted);else $base->whereNotExists($accepted);
+            $queue=$base->get()->filter(fn($p)=>\App\Services\ProcessRouting::local($p))->values();
+            $parcels=\App\Services\ProcessRouting::paginate($queue)->withQueryString();
+        }
         $matches=[];$riders=[];$addresses=[];$offers=[];
-        foreach($parcels as $p){$matches[$p->id]=\App\Services\AreaRouting::areas($p);$riders[$p->id]=\App\Services\AreaRouting::riders($p);$addresses[$p->id]=\App\Services\AreaRouting::address($p);$offers[$p->id]=DB::table('assignments')->where('parcel_id',$p->id)->where('kind','delivery')->whereIn('status',['offered','accepted'])->orderByDesc('id')->first();}
+        $activeOffers=DB::table('assignments')->whereIn('parcel_id',collect($parcels->items())->pluck('id'))->where('kind','delivery')->whereIn('status',['offered','accepted'])->orderByDesc('id')->get()->unique('parcel_id')->keyBy('parcel_id');
+        foreach($parcels as $p){$matches[$p->id]=$tab==='completed'?collect():\App\Services\AreaRouting::areas($p);$riders[$p->id]=$tab==='completed'?collect():\App\Services\AreaRouting::riders($p);$addresses[$p->id]=\App\Services\AreaRouting::address($p);$offers[$p->id]=$activeOffers->get($p->id);}
         return view('center_deliveries',['links'=>app(CommonController::class)->links(),'parcels'=>$parcels,'matches'=>$matches,'riders'=>$riders,'addresses'=>$addresses,'offers'=>$offers]);
     }
     public function assignDelivery(Request $r,int $id)

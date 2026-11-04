@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../api.dart';
 import '../models.dart';
+import '../screens/scan_screen.dart';
 import 'common.dart';
 
 Color parcelStatusColor(String s) =>
@@ -36,12 +37,14 @@ class AssignmentCard extends StatefulWidget {
   final ApiClient api;
   final ValueChanged<Assignment> onUpdated;
   final String? scannedCode;
+  final VoidCallback? onScan;
   const AssignmentCard({
     super.key,
     required this.assignment,
     required this.api,
     required this.onUpdated,
     this.scannedCode,
+    this.onScan,
   });
   @override
   State<AssignmentCard> createState() => _AssignmentCardState();
@@ -52,6 +55,10 @@ class _AssignmentCardState extends State<AssignmentCard> {
   String? note;
   Future<void> run(ActionItem action) async {
     final a = widget.assignment;
+    if (action.status == 'PICKED_UP' && widget.scannedCode != a.trackingCode) {
+      widget.onScan?.call();
+      return;
+    }
     if (action.status == 'DELIVERED') {
       final done = await Navigator.push<bool>(
         context,
@@ -118,6 +125,11 @@ class _AssignmentCardState extends State<AssignmentCard> {
       } else if (action.type == 'decline') {
         await widget.api.post('/api/rider/decline', {'id': a.id});
         await refresh();
+      } else if (action.type == 'transfer_handover') {
+        await widget.api.post('/api/rider/transfers/${a.parcelId}/handover', {
+          'confirm_handover': true,
+        });
+        await refresh();
       } else if (action.type == 'transfer_depart') {
         await widget.api.post('/api/rider/transfers/${a.parcelId}/depart', {});
         await refresh();
@@ -126,7 +138,7 @@ class _AssignmentCardState extends State<AssignmentCard> {
           '/api/rider/parcels/${a.parcelId}/status',
           {
             'status': action.status,
-            if (reason != null) 'reason': reason,
+            'reason': ?reason,
             if (widget.scannedCode != null) 'scanned_code': widget.scannedCode,
           },
         );
@@ -159,6 +171,11 @@ class _AssignmentCardState extends State<AssignmentCard> {
     final pay = a.payment;
     final seller = a.seller;
     final rec = a.recipient;
+    final requiresScan =
+        a.isPickup &&
+        a.status == 'accepted' &&
+        a.parcelStatus == 'READY_FOR_PICKUP';
+    final scanned = widget.scannedCode == a.trackingCode;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(
@@ -286,16 +303,35 @@ class _AssignmentCardState extends State<AssignmentCard> {
               ),
             if (a.failureReason != null) Text('Reason: ${a.failureReason}'),
             const SizedBox(height: 12),
+            if (requiresScan && scanned)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Label verified. You can confirm pickup.',
+                  style: TextStyle(
+                    color: Color(0xFF287548),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                ...a.actions.map(
-                  (action) => FilledButton(
-                    onPressed: busy ? null : () => run(action),
-                    child: Text(action.label),
+                if (requiresScan && !scanned)
+                  FilledButton.icon(
+                    onPressed: busy ? null : widget.onScan,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('Scan parcel'),
                   ),
-                ),
+                ...a.actions
+                    .where((action) => action.status != 'PICKED_UP' || scanned)
+                    .map(
+                      (action) => FilledButton(
+                        onPressed: busy ? null : () => run(action),
+                        child: Text(action.label),
+                      ),
+                    ),
                 if (a.status == 'offered' && a.actions.isNotEmpty)
                   OutlinedButton(
                     onPressed: busy
@@ -308,16 +344,17 @@ class _AssignmentCardState extends State<AssignmentCard> {
                           ),
                     child: const Text('Decline'),
                   ),
-                OutlinedButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          JobHistory(assignment: a, api: widget.api),
+                if (!requiresScan || scanned)
+                  OutlinedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            JobHistory(assignment: a, api: widget.api),
+                      ),
                     ),
+                    child: const Text('Tracking history'),
                   ),
-                  child: const Text('Tracking history'),
-                ),
               ],
             ),
             if (note != null)
@@ -359,6 +396,25 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     cod.dispose();
     labelCode.dispose();
     super.dispose();
+  }
+
+  Future<void> scanParcel() async {
+    final code = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanScreen(
+          api: widget.api,
+          assignmentId: widget.assignment.id,
+          expectedTrackingCode: widget.assignment.trackingCode,
+          returnVerifiedCode: true,
+        ),
+      ),
+    );
+    if (!mounted || code == null) return;
+    setState(() {
+      labelCode.text = code;
+      error = null;
+    });
   }
 
   Future<void> photo(ImageSource source) async {
@@ -425,17 +481,29 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
             InfoCard(
               title: widget.assignment.trackingCode,
               text:
-                  '1. Hand the parcel to the buyer\n2. Take a proof photo\n3. Confirm payment and submit\n4. The buyer taps Order received',
+                  '1. Scan the parcel QR label\n2. Hand the parcel to the buyer and take a proof photo\n3. Confirm payment and submit\n4. The buyer taps Order received',
               icon: Icons.task_alt,
             ),
             const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: busy ? null : scanParcel,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan parcel'),
+            ),
+            const SizedBox(height: 12),
+            if (labelCode.text == widget.assignment.trackingCode)
+              const Text(
+                'Label verified',
+                style: TextStyle(color: Color(0xFF287548)),
+              ),
             TextFormField(
               controller: labelCode,
+              onChanged: (_) => setState(() {}),
               enabled: !busy,
               decoration: const InputDecoration(
                 labelText: 'Scanned label or printed tracking code',
                 helperText:
-                    'Scan from Jobs, or enter the code printed on the parcel.',
+                    'Tap Scan parcel, or enter the code printed on the parcel.',
               ),
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Scan or enter the parcel label'
