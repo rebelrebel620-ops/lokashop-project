@@ -6,6 +6,6 @@ class Role { public function handle(Request $request, Closure $next, string $rol
  if(auth()->check()&&auth()->user()->account_status==='suspended'&&in_array(auth()->user()->role,['buyer','seller']))return redirect('/appeal');
  abort_unless(auth()->check() && in_array(auth()->user()->role,explode('|',$roles),true) && auth()->user()->approval_status==='approved' && auth()->user()->active && auth()->user()->account_status==='active' && (!auth()->user()->verification_required || auth()->user()->email_verified_at),403);
  if(auth()->user()->last_seen_at && now()->diffInMinutes(auth()->user()->last_seen_at,true)>=30){\Illuminate\Support\Facades\DB::table('users')->where('id',auth()->id())->update(['online'=>0]);auth()->logout();$request->session()->invalidate();return redirect('/login')->withErrors(['email'=>'Session expired after 30 minutes of inactivity.']);}
- \Illuminate\Support\Facades\DB::table('users')->where('id',auth()->id())->update(['last_seen_at'=>now()]);
+ if(!$request->boolean('_live_refresh'))\Illuminate\Support\Facades\DB::table('users')->where('id',auth()->id())->update(['last_seen_at'=>now()]);
  return $next($request);
 } }

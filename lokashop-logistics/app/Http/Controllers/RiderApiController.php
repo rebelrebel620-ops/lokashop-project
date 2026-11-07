@@ -145,6 +145,8 @@ class RiderApiController extends Controller
 
         return response()->json([
             'total' => (float) (clone $q)->sum('s.earnings'),
+            'wallet_balance' => number_format(\App\Services\Wallet::balance(auth()->id())/100,2,'.',''),
+            'pending_wallet_earnings_cents' => (int) DB::table('wallet_courier_payments')->where('courier_user_id',auth()->id())->where('status','pending')->sum('amount_cents'),
             'count' => (clone $q)->count(),
             'data' => $q->orderByDesc('s.updated_at')->orderByDesc('s.id')
                 ->get(['s.handed_over_at','s.handed_over_by','s.id', 's.parcel_id', 's.kind', 's.earnings', 's.updated_at as completed_at', 'p.tracking_code'])
@@ -211,7 +213,7 @@ class RiderApiController extends Controller
         }
         if ($r->kind === 'delivery' && $r->parcel_status === 'OUT_FOR_DELIVERY') {
             return [
-                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => false, 'needs_cod_amount' => true, 'proof_field' => 'proof'],
+                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => false, 'needs_cod_amount' => ($r->pay_method === 'cod'), 'default_cod_amount' => $r->pay_method==='cod'&&isset($r->pay_amount)?(float)$r->pay_amount:null, 'proof_field' => 'proof'],
                 ['type' => 'status', 'status' => 'DELIVERY_FAILED', 'label' => 'Delivery failed', 'needs_reason' => true],
             ];
         }
@@ -231,7 +233,7 @@ class RiderApiController extends Controller
             ->get(['order_id', 'name', 'quantity'])->groupBy('order_id');
 
         return $rows->map(function ($r) use ($items) {
-            if($r->kind==='transfer'){$parcel=DB::table('parcels')->find($r->parcel_id);$centers=DB::table('sorting_centers')->whereIn('id',array_filter([$parcel->center_id,$parcel->destination_center_id]))->get();$out=['id'=>$r->id,'parcel_id'=>$r->parcel_id,'order_id'=>$r->order_id,'expires_at'=>$r->expires_at,'earnings'=>(float)$r->earnings,'created_at'=>$r->created_at,'kind'=>'transfer','status'=>$r->status,'parcel_status'=>$r->parcel_status,'tracking_code'=>$r->tracking_code,'actions'=>$this->actions($r),'centers'=>$centers->map(fn($c)=>['stage'=>$c->id==$parcel->center_id?'Origin':'Destination','name'=>$c->name,'city'=>$c->city,'province'=>$c->province,'address'=>Municipalities::address($c->user_id)])->all()];return $out;}
+            if($r->kind==='transfer'){$parcel=DB::table('parcels')->find($r->parcel_id);$centers=DB::table('sorting_centers')->whereIn('id',array_filter([$parcel->center_id,$parcel->destination_center_id]))->get();$out=['id'=>$r->id,'parcel_id'=>$r->parcel_id,'order_id'=>$r->order_id,'expires_at'=>$r->expires_at,'earnings'=>(float)$r->earnings,'shipping_split_note'=>'Drivers share one 25% pool after parcel delivery; this is not a fixed per-leg fee.','created_at'=>$r->created_at,'kind'=>'transfer','status'=>$r->status,'parcel_status'=>$r->parcel_status,'tracking_code'=>$r->tracking_code,'actions'=>$this->actions($r),'centers'=>$centers->map(fn($c)=>['stage'=>$c->id==$parcel->center_id?'Origin':'Destination','name'=>$c->name,'city'=>$c->city,'province'=>$c->province,'address'=>Municipalities::address($c->user_id)])->all()];return $out;}
             $snapshot=json_decode($r->address_snapshot??'null',true);if($snapshot){$r->recipient=$snapshot['recipient'];$r->recipient_phone=$snapshot['phone'];foreach(['street','barangay','city','province','postal_code'] as $field)$r->$field=$snapshot[$field]??null;}
             $actions = $this->actions($r);
             $detail = $r->status === 'accepted' && !empty($actions);
@@ -243,6 +245,7 @@ class RiderApiController extends Controller
                 'kind' => $r->kind,
                 'status' => $r->status,
                 'earnings' => (float) $r->earnings,
+                'shipping_split_note'=>'New shipments allocate centers 50%, drivers 25%, delivery riders 25%; driver pools finalize after delivery.',
                 'created_at' => $r->created_at,
                 'expires_at' => $r->expires_at,
                 'tracking_code' => $r->tracking_code,

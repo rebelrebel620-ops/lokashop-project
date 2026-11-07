@@ -77,3 +77,5 @@
     } else $this->line('No test message sent. Add --to=YOUR_EMAIL to test delivery.');
     return $failed ? 1 : 0;
 })->purpose('Check local database, storage and email configuration without displaying secrets');
+
+\Illuminate\Support\Facades\Artisan::command('wallet:sync-earnings',function(){\App\Services\WalletAutomation::run();$this->info('Eligible wallet earnings synchronized automatically.');})->purpose('Synchronize eligible earned money without claim requests');

@@ -35,7 +35,7 @@ class Workflow {
      DB::table('payments')->where('id',$pay->id)->update(['status'=>'paid','updated_at'=>now()]);
     }elseif($pay&&$pay->status!=='paid')Support::fail('payment','Prepaid payment has not been confirmed.');
     $extra['proof_path']=$r->file('proof')->store('delivery-proofs','local');$orderExtra['delivered_at']=now();
-    DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'completed','updated_at'=>now()]);
+    DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'completed','updated_at'=>now()]);WalletEarnings::delivery($assignment->id);
    }
    if($to==='DELIVERY_FAILED'){
     if(!in_array($reason,['Buyer not home','Wrong address','Refused'],true))Support::fail('reason','Choose Buyer not home, Wrong address or Refused.');
@@ -46,11 +46,12 @@ class Workflow {
    if($to==='AT_SORTING_CENTER')DB::table('assignments')->where('parcel_id',$p->id)->where('kind','pickup')->where('status','accepted')->update(['status'=>'completed','earnings'=>0,'updated_at'=>now()]);
    if($to==='COMPLETED'){
     if(DB::table('return_requests')->where('order_id',$o->id)->whereIn('status',['requested','approved','disputed'])->exists())Support::fail('order','Resolve the active return request first.');
-    $orderExtra['completed_at']=now();
+    $orderExtra['completed_at']=now();DB::table('orders')->where('id',$o->id)->update(['status'=>'COMPLETED','completed_at'=>$orderExtra['completed_at'],'updated_at'=>now()]);Wallet::release($o);
    }
    if($to==='RETURN_RECEIVED'){Commerce::restore($o);Commerce::refund($o);}
    DB::table('parcels')->where('id',$p->id)->update($extra+['status'=>$to,'center_id'=>$centerId??$p->center_id,'delivery_area_id'=>$areaId??$p->delivery_area_id,'updated_at'=>now()]);
    DB::table('orders')->where('id',$o->id)->update($orderExtra+['status'=>$to,'updated_at'=>now()]);
+   if($to==='DELIVERED'){ShippingDistribution::finalize($o->id);WalletAutomation::shippingCommission($o->id);}
    DB::table('status_history')->insert(['parcel_id'=>$p->id,'from_status'=>$p->status,'to_status'=>$to,'actor_id'=>$actorId,'reason'=>$reason,'created_at'=>now(),'updated_at'=>now()]);
    $riders=DB::table('assignments')->where('parcel_id',$p->id)->pluck('rider_id')->all();$company=DB::table('sorting_centers')->where('id',$centerId??$p->center_id)->value('user_id');
    Support::notify(array_merge([$o->buyer_id,$o->seller_id,$company],$riders),"Order #{$o->id} is {$to}.");return null;

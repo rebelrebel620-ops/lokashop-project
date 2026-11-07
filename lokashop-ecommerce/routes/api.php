@@ -73,3 +73,8 @@ Route::middleware('api.buyer')->group(function(){
 });
 
 Route::get('/public/stores/{id}',[\App\Http\Controllers\Api\MobileBuyerController::class,'store'])->whereNumber('id');
+
+Route::middleware('api.buyer')->group(function(){
+ Route::get('/wallet',[\App\Http\Controllers\WalletController::class,'index']);
+ Route::post('/wallet/transfer',[\App\Http\Controllers\WalletController::class,'transfer'])->middleware('throttle:10,1');
+});

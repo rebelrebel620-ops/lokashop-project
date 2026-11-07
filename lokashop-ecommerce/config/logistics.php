@@ -1,2 +1,3 @@
 <?php
-return ['url'=>env('LOGISTICS_URL')];
+
+return ['url' => 'https://logistics.lokashop.trade'];

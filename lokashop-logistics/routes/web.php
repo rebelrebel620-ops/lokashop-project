@@ -103,3 +103,14 @@ Route::middleware('auth')->group(function(){
  Route::get('/courier/appeal',[\App\Http\Controllers\CenterManagementController::class,'appealForm']);
  Route::post('/courier/appeal',[\App\Http\Controllers\CenterManagementController::class,'submitAppeal'])->middleware('throttle:5,1');
 });
+
+Route::middleware(['auth','role:sorting_center|rider|logistics_admin'])->group(function(){
+ Route::get('/wallet',[\App\Http\Controllers\WalletController::class,'index']);
+ Route::post('/wallet/transfer',[\App\Http\Controllers\WalletController::class,'transfer'])->middleware('throttle:10,1');
+});
+
+
+
+Route::middleware(['auth','role:sorting_center'])->get('/center/financial-report',[\App\Http\Controllers\CenterFinancialController::class,'index']);
+
+Route::get('/live/state',[\App\Http\Controllers\LiveUpdatesController::class,'state'])->middleware('throttle:120,1');

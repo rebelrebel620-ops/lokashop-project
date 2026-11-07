@@ -3,6 +3,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 class Maintenance {
  public static function run():void {
+  WalletAutomation::run();
   BulkTrips::refresh();
   PickupRequests::refresh();
   DeliveryOffers::refresh();

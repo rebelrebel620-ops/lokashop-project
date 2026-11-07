@@ -19,7 +19,7 @@ class ReportPdf
    return explode("\n",wordwrap($value,$chars,"\n",true));
   };
   $start=function()use(&$stream,&$y,&$page,$headers,$width,$text,$wrap,$filters,$rows){
-   $page++;$stream="0.08 0.25 0.16 rg\n".$text(36,558,'LokaShop | Filtered report',18);
+   $page++;$stream="0.08 0.25 0.16 rg\n".$text(36,558,'LokaShop | '.($filters['_title']??'Filtered report'),18);
    $stream.=$text(36,538,'From: '.($filters['from']??'All dates').'   To: '.($filters['to']??'All dates').'   Search: '.($filters['q']??'All records'),9);
    $stream.=$text(36,522,'Records: '.count($rows).' | Amounts in PHP | Generated: '.now()->format('Y-m-d H:i'),9);
    $stream.="0.9 0.95 0.92 rg 36 474 770 32 re f 0.08 0.25 0.16 rg\n";

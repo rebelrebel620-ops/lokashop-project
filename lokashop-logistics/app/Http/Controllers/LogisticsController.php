@@ -373,13 +373,8 @@ class LogisticsController extends Controller
         return redirect('/rider/assignments?tab='.($v['status']==='AT_SORTING_CENTER'||$v['status']==='DELIVERED'?'completed':'progress'))->with('success','Parcel updated.');
     }
 
-    public function earnings()
+    public function earnings(Request $r)
     {
-        return $this->listing(
-            'Completed trips and earnings',
-            DB::table('assignments')
-                ->where('rider_id', auth()->id())
-                ->where('status', 'completed')
-        );
+        return app(CourierFinancialController::class)->index($r);
     }
 }

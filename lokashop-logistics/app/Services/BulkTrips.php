@@ -28,8 +28,8 @@ class BulkTrips {
    if(count(array_unique(array_map(fn($c)=>$c->id,$destinations)))>10)Support::fail('parcel_ids','A trip can contain up to 10 destination centers.');
    $trip=DB::table('driver_trips')->insertGetId(['origin_center_id'=>$origin->id,'driver_id'=>$driver,'status'=>'offered','expires_at'=>now()->addHours(3),'created_at'=>now(),'updated_at'=>now()]);$stops=[];
    foreach($parcels as $p){$dest=$destinations[$p->id];if(!isset($stops[$dest->id]))$stops[$dest->id]=DB::table('driver_trip_stops')->insertGetId(['trip_id'=>$trip,'center_id'=>$dest->id,'position'=>count($stops)+1,'created_at'=>now(),'updated_at'=>now()]);
-    // Preserve the existing transfer earnings of PHP 50 per parcel. No new customer charge.
-    $assignment=DB::table('assignments')->insertGetId(['handling_center_id'=>$origin->id,'trip_id'=>$trip,'parcel_id'=>$p->id,'rider_id'=>$driver,'kind'=>'transfer','status'=>'offered','expires_at'=>null,'earnings'=>50,'created_at'=>now(),'updated_at'=>now()]);
+    // New driver pool is finalized once delivery confirms all route participants.
+    $assignment=DB::table('assignments')->insertGetId(['handling_center_id'=>$origin->id,'trip_id'=>$trip,'parcel_id'=>$p->id,'rider_id'=>$driver,'kind'=>'transfer','status'=>'offered','expires_at'=>null,'earnings'=>ShippingEarnings::amount($p->order_id,'transfer'),'created_at'=>now(),'updated_at'=>now()]);
     DB::table('driver_trip_items')->insert(['trip_id'=>$trip,'stop_id'=>$stops[$dest->id],'parcel_id'=>$p->id,'assignment_id'=>$assignment,'created_at'=>now(),'updated_at'=>now()]);
     self::move($p,'TRANSFER_OFFERED',$actor,'Bulk trip #'.$trip.' to '.$dest->name,['destination_center_id'=>$dest->id,'delivery_area_id'=>null]);
    }
@@ -72,7 +72,7 @@ class BulkTrips {
    $items=DB::table('driver_trip_items')->where('stop_id',$stopId)->whereIn('parcel_id',$ids)->orderBy('parcel_id')->lockForUpdate()->get();abort_unless($items->count()===count($ids),403);
    $changed=false;foreach($items as $item){if($item->received_at)continue;$changed=true;$p=DB::table('parcels')->where('id',$item->parcel_id)->lockForUpdate()->first();abort_unless($p->status==='IN_TRANSIT_CENTER'&&$p->destination_center_id==$center->id,422);
     self::move($p,'AT_SORTING_CENTER',$actor,'Received at stop of bulk trip #'.$trip->id,['center_id'=>$center->id,'destination_center_id'=>null,'delivery_area_id'=>null]);
-    DB::table('driver_trip_items')->where('id',$item->id)->update(['received_at'=>now(),'received_by'=>$actor,'updated_at'=>now()]);DB::table('assignments')->where('id',$item->assignment_id)->where('status','accepted')->update(['status'=>'completed','received_by'=>$actor,'updated_at'=>now()]);
+    DB::table('driver_trip_items')->where('id',$item->id)->update(['received_at'=>now(),'received_by'=>$actor,'updated_at'=>now()]);DB::table('assignments')->where('id',$item->assignment_id)->where('status','accepted')->update(['status'=>'completed','received_by'=>$actor,'updated_at'=>now()]);WalletEarnings::queue($item->assignment_id);
    }
    if(!$stop->received_at&&!DB::table('driver_trip_items')->where('stop_id',$stopId)->whereNull('received_at')->exists())DB::table('driver_trip_stops')->where('id',$stopId)->update(['received_at'=>now(),'received_by'=>$actor,'updated_at'=>now()]);
    if($trip->status!=='completed'&&DB::table('driver_trip_items')->where('trip_id',$trip->id)->exists()&&!DB::table('driver_trip_items')->where('trip_id',$trip->id)->whereNull('received_at')->exists()&&!DB::table('driver_trip_stops')->where('trip_id',$trip->id)->whereNull('received_at')->exists())DB::table('driver_trips')->where('id',$trip->id)->update(['status'=>'completed','completed_at'=>now(),'updated_at'=>now()]);

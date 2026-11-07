@@ -28,7 +28,7 @@
 </div>
 @endforeach
 </div>
-<div class="seller-purchase-total"><span>{{$items->sum('quantity')}} units · Cash on delivery</span><div>Order total <strong>₱{{number_format($o->total,2)}}</strong></div></div>
+<div class="seller-purchase-total"><span>{{$items->sum('quantity')}} units · {{\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$o->id)->value('method')==='wallet'?'Wallet · prepaid':'Cash on delivery'}}</span><div>Order total <strong>₱{{\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$o->id)->value('method')==='cod'?\App\Services\CodAmount::format($o->total):number_format($o->total,2)}}</strong></div></div>
 <div class="seller-purchase-tracking"><small>TRACKING NUMBER</small><span>{{$o->tracking_code ?: 'Awaiting tracking code'}}</span></div>
 @if($pickup && in_array($o->status,['PREPARING','READY_FOR_PICKUP']))
 <div class="seller-pickup-note"><strong>Pickup: {{ucfirst($pickup->status)}}</strong>
