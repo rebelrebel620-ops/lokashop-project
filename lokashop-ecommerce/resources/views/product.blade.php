@@ -36,7 +36,7 @@
   <p class="price" id="live-product-price" data-base-price="{{\App\Services\Catalog::price($p)}}" style="font-size:1.6rem">₱{{number_format(\App\Services\Catalog::price($p),2)}}
    @if($p->discount_percent>0)<span class="price strike">₱{{number_format($p->price,2)}}</span> <span class="tag off">{{rtrim(rtrim(number_format($p->discount_percent,1),'0'),'.')}}% OFF</span>@endif
   </p>
-  <div class="product-stock" data-base-stock="{{$p->stock}}">{{$p->stock > 0 ? $p->stock.' units available' : 'Out of stock'}}</div><div class="product-perks"><span>Cash on delivery</span><span>Delivery updates</span></div><p id="selected-variant"></p><img id="variant-image" style="max-width:180px" hidden alt="Selected variation">
+  <div class="product-stock" data-base-stock="{{$p->stock}}">{{$p->stock > 0 ? $p->stock.' units available' : 'Out of stock'}}</div><div class="product-perks"><span>COD or demo wallet</span><span>Delivery updates</span></div><p id="selected-variant"></p><img id="variant-image" style="max-width:180px" hidden alt="Selected variation">
   @foreach(\Illuminate\Support\Facades\DB::table('promotions')->where('product_id',$p->id)->where('active',1)->where('starts_at','<=',now())->where('ends_at','>',now())->get() as $promo)<p>{{ucfirst($promo->type)}} ends {{$promo->ends_at}}</p>@endforeach
 
   @auth
@@ -59,7 +59,7 @@
   @endauth
  </div>
 </div>
-<section class="card product-information"><div><span class="product-eyebrow">KNOW YOUR PRODUCT</span><h2>Product details</h2><p class="product-description">{{$p->description}}</p></div><aside><h3>Sold by {{$p->store_name ?? 'LokaShop seller'}}</h3><p>{{$p->seller_name ?? 'Seller'}}</p><dl><dt>Weight</dt><dd>{{$p->weight}} kg</dd><dt>Availability</dt><dd>{{$p->stock>0?'In stock':'Out of stock'}}</dd><dt>Payment</dt><dd>Cash on delivery</dd></dl></aside></section>
+<section class="card product-information"><div><span class="product-eyebrow">KNOW YOUR PRODUCT</span><h2>Product details</h2><p class="product-description">{{$p->description}}</p></div><aside><h3>Sold by {{$p->store_name ?? 'LokaShop seller'}}</h3><p>{{$p->seller_name ?? 'Seller'}}</p><dl><dt>Weight</dt><dd>{{$p->weight}} kg</dd><dt>Availability</dt><dd>{{$p->stock>0?'In stock':'Out of stock'}}</dd><dt>Payment</dt><dd>COD or demo wallet</dd></dl></aside></section>
 @include('product-reviews')
 
 </div>

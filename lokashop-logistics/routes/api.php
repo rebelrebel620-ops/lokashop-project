@@ -73,3 +73,14 @@ Route::prefix('mobile')->group(function(){
  Route::post('/register',[$r,'register'])->middleware('throttle:5,1');
  foreach(['verify','resend','cancel'] as $action)Route::post('/register/'.$action,[$r,$action])->middleware('throttle:5,1');
 });
+
+Route::middleware('rider.api')->prefix('rider')->group(function(){
+ Route::get('/wallet',[\App\Http\Controllers\WalletController::class,'index']);
+ Route::post('/wallet/transfer',[\App\Http\Controllers\WalletController::class,'transfer'])->middleware('throttle:10,1');
+});
+
+Route::prefix('mobile')->group(function(){
+ Route::get('/wallet',[\App\Http\Controllers\MobileWalletController::class,'index']);
+ Route::post('/wallet/transfer',[\App\Http\Controllers\MobileWalletController::class,'transfer'])->middleware('throttle:10,1');
+});
+

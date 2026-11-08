@@ -9,8 +9,9 @@ class LogisticsAdminController extends Controller
 {
     public function commissions() {
         abort_unless(auth()->user()->role==='logistics_admin',403);
-        $records=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->whereIn('o.status',['DELIVERED','COMPLETED'])->whereNull('o.refunded_at')->select('o.id','p.tracking_code','o.status','o.shipping_fee','o.shipping_commission',DB::raw('(o.shipping_fee-o.shipping_commission) as delivery_rider_earnings'))->orderByDesc('o.id')->paginate(30);
-        return view('list',['title'=>'Shipping commission (20%) — successful deliveries','links'=>app(CommonController::class)->links(),'records'=>$records]);
+        $records=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->leftJoin('shipping_distributions as d','d.order_id','=','o.id')->whereIn('o.status',['DELIVERED','COMPLETED'])->select('o.id','p.tracking_code','o.status','o.shipping_fee','o.shipping_split_version','o.shipping_commission as legacy_shipping_commission','d.center_cents','d.driver_cents','d.rider_cents','d.unallocated_cents')->orderByDesc('o.id')->paginate(12);
+        $records->getCollection()->transform(function($o){foreach(['center','driver','rider','unallocated'] as $role){$key=$role.'_cents';$o->{$role.'_share'}=$o->$key===null?'Legacy / pending':number_format($o->$key/100,2);unset($o->$key);}return $o;});
+        return view('list',['title'=>'Shipping fee distribution — centers 50%, drivers 25%, delivery riders 25%','links'=>app(CommonController::class)->links(),'records'=>$records]);
     }
 
     private function accounts()

@@ -14,7 +14,7 @@ foreach(['Los Baños','Bay','Calauan'] as $i=>$city){
  DB::table('addresses')->insert(['user_id'=>$owner,'recipient'=>'Center','phone'=>'09170000000','street'=>'Center street','barangay'=>'Poblacion','city'=>$city,'province'=>'Laguna','is_default'=>1]);
  $parcelGroups[$c]=[];for($j=0;$j<2;$j++){
   $a=['recipient'=>'Buyer','phone'=>'09171111111','street'=>'Buyer street','barangay'=>'Poblacion','city'=>$city,'province'=>'Laguna'];
-  $o=DB::table('orders')->insertGetId(['buyer_id'=>$buyer,'seller_id'=>$seller,'address_id'=>$address,'address_snapshot'=>json_encode($a),'status'=>'AT_SORTING_CENTER','total'=>150,'shipping_fee'=>50,'merchandise_total'=>100,'created_at'=>now(),'updated_at'=>now()]);
+  $o=DB::table('orders')->insertGetId(['buyer_id'=>$buyer,'seller_id'=>$seller,'address_id'=>$address,'address_snapshot'=>json_encode($a),'status'=>'AT_SORTING_CENTER','total'=>150,'shipping_fee'=>50,'shipping_split_version'=>2,'merchandise_total'=>100,'created_at'=>now(),'updated_at'=>now()]);
   $parcelGroups[$c][]=DB::table('parcels')->insertGetId(['order_id'=>$o,'tracking_code'=>'BULK-'.$i.'-'.$j,'status'=>'AT_SORTING_CENTER','center_id'=>$center,'created_at'=>now(),'updated_at'=>now()]);
  }
 }

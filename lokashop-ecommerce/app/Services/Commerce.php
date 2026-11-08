@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 class Commerce {
  public static function catalog($q){return $q->where('products.active',1)->where('products.approved',1)->where('products.draft',0)->whereNull('products.deleted_at')->whereIn('products.seller_id',DB::table('users')->where('role','seller')->where('active',1)->where('account_status','active')->where('approval_status','approved')->select('id'));}
  public static function checkout(Request $r,bool $preview=false): array {
-  $v=$r->validate(['address_id'=>'required|integer','payment_method'=>'required|in:cod','voucher'=>'nullable|string|max:60','platform_voucher'=>'nullable|string|max:60','shipping_voucher'=>'nullable|string|max:60','store_vouchers'=>'nullable|array','store_vouchers.*'=>'string|max:60','selection_required'=>'nullable|boolean','cart_ids'=>'required_if:selection_required,1|array|min:1','cart_ids.*'=>'integer','note'=>'nullable|string|max:200']);
+  $v=$r->validate(['address_id'=>'required|integer','payment_method'=>'required|in:cod,wallet','voucher'=>'nullable|string|max:60','platform_voucher'=>'nullable|string|max:60','shipping_voucher'=>'nullable|string|max:60','store_vouchers'=>'nullable|array','store_vouchers.*'=>'string|max:60','selection_required'=>'nullable|boolean','cart_ids'=>'required_if:selection_required,1|array|min:1','cart_ids.*'=>'integer','note'=>'nullable|string|max:200']);
   if(!empty($v['store_vouchers']))Support::fail('voucher','Choose only one store voucher using the store voucher field.');
   $checkoutKey=$r->header('Idempotency-Key')??$r->input('_request_key');$calculate=function()use($v,$checkoutKey,$preview){
    $address=DB::table('addresses')->where('id',$v['address_id'])->where('user_id',auth()->id())->first();abort_unless($address,403);
@@ -57,15 +57,17 @@ class Commerce {
     foreach($parts as $pid=>$part){$key=$sid.':'.$pid;$part+=['seller_id'=>$sid,'store'=>$storeDiscount[$pid],'bundle'=>$bundleDiscount[$pid],'shipping'=>$shippingFees[$pid],'voucher'=>$store['voucher'],'net'=>Support::money($part['subtotal']-$storeDiscount[$pid]),'commission'=>$commissions[$pid]];$productGroups[$key]=$part;$productPA[$key]=$platformParts[$pid];$productSA[$key]=$shippingParts[$pid];}
    }
    $groups=$productGroups;$pa=$productPA;$sa=$productSA;
-   if($preview){$summary=['merchandise_total'=>0,'shipping_total'=>0,'discount_total'=>0,'total'=>0,'orders'=>[]];foreach($groups as $key=>$g){$discount=Support::money($g['store']+($pa[$key]??0)+($sa[$key]??0));$total=Support::money($g['subtotal']+$g['shipping']-$discount);$summary['merchandise_total']+=$g['subtotal'];$summary['shipping_total']+=$g['shipping'];$summary['discount_total']+=$discount;$summary['total']+=$total;$summary['orders'][]=['seller_id'=>$g['seller_id'],'product_name'=>$g['items'][0]['p']->name,'merchandise'=>$g['subtotal'],'shipping'=>$g['shipping'],'discount'=>$discount,'total'=>$total];}return $summary;}
+   if($preview){$summary=['merchandise_total'=>0,'shipping_total'=>0,'discount_total'=>0,'total'=>0,'cod_rounding_adjustment'=>0,'orders'=>[]];foreach($groups as $key=>$g){$discount=Support::money($g['store']+($pa[$key]??0)+($sa[$key]??0));$rawTotal=Support::money($g['subtotal']+$g['shipping']-$discount);$total=$v['payment_method']==='cod'?CodAmount::round($rawTotal):$rawTotal;$rounding=Support::money($total-$rawTotal);$summary['cod_rounding_adjustment']=Support::money($summary['cod_rounding_adjustment']+$rounding);$summary['merchandise_total']+=$g['subtotal'];$summary['shipping_total']+=$g['shipping'];$summary['discount_total']+=$discount;$summary['total']+=$total;$summary['orders'][]=['seller_id'=>$g['seller_id'],'product_name'=>$g['items'][0]['p']->name,'merchandise'=>$g['subtotal'],'shipping'=>$g['shipping'],'discount'=>$discount,'total'=>$total,'cod_rounding_adjustment'=>$rounding];}return $summary;}
    $created=[];
    foreach($groups as $groupKey=>$g){$sid=$g['seller_id'];$total=Support::money($g['net']+$g['shipping']-($pa[$groupKey]??0)-($sa[$groupKey]??0));
-    $oid=DB::table('orders')->insertGetId(['checkout_key'=>$checkoutKey,'buyer_id'=>auth()->id(),'seller_id'=>$sid,'address_id'=>$address->id,'address_snapshot'=>json_encode($address),'note'=>$v['note']??null,'status'=>'PLACED','total'=>$total,'discount'=>Support::money($g['store']+($pa[$groupKey]??0)+($sa[$groupKey]??0)),'merchandise_total'=>$g['subtotal'],'shipping_fee'=>$g['shipping'],'shipping_commission'=>Support::money($g['shipping']*.20),'store_discount'=>$g['store'],'platform_discount'=>$pa[$groupKey]??0,'shipping_discount'=>$sa[$groupKey]??0,'commission'=>$g['commission'],'voucher_id'=>$g['voucher']->id??null,'created_at'=>now(),'updated_at'=>now()]);$created[]=$oid;
+    $rawTotal=$total;$total=$v['payment_method']==='cod'?CodAmount::round($total):$total;$rounding=Support::money($total-$rawTotal);
+    $oid=DB::table('orders')->insertGetId(['checkout_key'=>$checkoutKey,'buyer_id'=>auth()->id(),'seller_id'=>$sid,'address_id'=>$address->id,'address_snapshot'=>json_encode($address),'note'=>$v['note']??null,'status'=>'PLACED','total'=>$total,'cod_rounding_adjustment'=>$rounding,'discount'=>Support::money($g['store']+($pa[$groupKey]??0)+($sa[$groupKey]??0)),'merchandise_total'=>$g['subtotal'],'shipping_fee'=>$g['shipping'],'shipping_commission'=>0,'shipping_split_version'=>2,'store_discount'=>$g['store'],'platform_discount'=>$pa[$groupKey]??0,'shipping_discount'=>$sa[$groupKey]??0,'commission'=>$g['commission'],'voucher_id'=>$g['voucher']->id??null,'created_at'=>now(),'updated_at'=>now()]);$created[]=$oid;
     foreach($g['items'] as $x){$p=$x['p'];$var=$x['v'];$images=json_decode($p->images??'[]',true);
      DB::table('order_items')->insert(['order_id'=>$oid,'product_id'=>$p->id,'variation_id'=>$var->id??null,'name'=>$p->name.' '.($var->name??''),'quantity'=>$x['quantity'],'unit_price'=>$x['price'],'image'=>$var->image??($images[0]??null),'created_at'=>now(),'updated_at'=>now()]);}
     $pvids=[];if($g['voucher'])$pvids[$g['voucher']->id]=$g['store']-$g['bundle'];if($platform)$pvids[$platform->id]=$pa[$groupKey];if($shipping)$pvids[$shipping->id]=$sa[$groupKey];
     foreach($pvids as $vid=>$amt)DB::table('order_vouchers')->insert(['order_id'=>$oid,'voucher_id'=>$vid,'amount'=>$amt]);
-    DB::table('payments')->insert(['order_id'=>$oid,'method'=>$v['payment_method'],'status'=>$v['payment_method']==='cod'?'due_on_delivery':'awaiting_manual_confirmation','amount'=>$total,'created_at'=>now(),'updated_at'=>now()]);
+    if($v['payment_method']==='wallet')Wallet::pay(auth()->id(),$oid,$total);
+    DB::table('payments')->insert(['order_id'=>$oid,'method'=>$v['payment_method'],'status'=>$v['payment_method']==='wallet'?'paid':($v['payment_method']==='cod'?'due_on_delivery':'awaiting_manual_confirmation'),'amount'=>$total,'created_at'=>now(),'updated_at'=>now()]);
     $pid=DB::table('parcels')->insertGetId(['order_id'=>$oid,'tracking_code'=>'LKS-'.strtoupper(Str::random(12)),'status'=>'PLACED','created_at'=>now(),'updated_at'=>now()]);
     DB::table('status_history')->insert(['parcel_id'=>$pid,'to_status'=>'PLACED','actor_id'=>auth()->id(),'created_at'=>now(),'updated_at'=>now()]);Support::notify([$sid,auth()->id()],"Order #{$oid} placed.");
    }
@@ -117,11 +119,12 @@ class Commerce {
   });
  }
  public static function refund($o):void {
+  if(DB::table('payments')->where('order_id',$o->id)->where('method','wallet')->exists()){Wallet::refund($o);return;}
   $p=DB::table('payments')->where('order_id',$o->id)->orderByDesc('id')->first();
   if($p&&$p->status==='paid')DB::table('refunds')->updateOrInsert(['order_id'=>$o->id],['amount'=>$o->total,'method'=>$p->method,'status'=>'pending','created_at'=>now(),'updated_at'=>now()]);
  }
  public static function available(int $seller):float {
-  $earned=DB::table('orders')->where('seller_id',$seller)->where('status','COMPLETED')->whereNull('refunded_at')->selectRaw('COALESCE(SUM(merchandise_total-store_discount-commission),0) n')->value('n');
+  $earned=DB::table('orders')->where('seller_id',$seller)->where('status','COMPLETED')->whereNull('refunded_at')->whereExists(fn($q)=>$q->selectRaw('1')->from('payments')->whereColumn('payments.order_id','orders.id')->where('payments.status','paid'))->whereNotIn('id',DB::table('payments')->where('method','wallet')->select('order_id'))->whereNotIn('id',DB::table('wallet_entries')->where('kind','sale')->whereNotNull('order_id')->select('order_id'))->selectRaw('COALESCE(SUM(merchandise_total-store_discount-commission),0) n')->value('n');
   $paid=DB::table('payouts')->where('seller_id',$seller)->whereIn('status',['pending','paid'])->sum('amount');return Support::money($earned-$paid);
  }
 }

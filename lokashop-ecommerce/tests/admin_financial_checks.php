@@ -1,0 +1,38 @@
+<?php
+require __DIR__.'/earnings_report_commission_checks.php';
+use Illuminate\Support\Facades\DB;
+use App\Services\Wallet;
+use App\Http\Controllers\{AdminFinancialController,MarketController,CommonController};
+$begin=$n;
+$fb=user('buyer','financefixturebuyer');$fs=user('seller','financefixtureseller');$fa=user('admin','financefixtureadmin');
+$fid=DB::table('orders')->insertGetId(['buyer_id'=>$fb,'seller_id'=>$fs,'address_id'=>$address,'status'=>'COMPLETED','total'=>150,'merchandise_total'=>100,'shipping_fee'=>50,'commission'=>10,'created_at'=>now(),'updated_at'=>now()]);
+DB::table('payments')->insert(['order_id'=>$fid,'method'=>'wallet','status'=>'refunded','amount'=>150,'created_at'=>now(),'updated_at'=>now()]);
+DB::table('refunds')->insert(['order_id'=>$fid,'method'=>'wallet','status'=>'paid','amount'=>20,'created_at'=>now(),'updated_at'=>now()]);
+DB::table('payouts')->insert(['seller_id'=>$fs,'amount'=>40,'account'=>'LokaShop demo wallet','status'=>'paid','created_at'=>now(),'updated_at'=>now()]);
+Wallet::creditEarnings($fs,9000,'order-release:'.$fid,'sale','Seller earnings',$fid);
+Wallet::creditEarnings($fs,4000,'finance-legacy-import-fixture','earnings_import','Legacy import');
+Wallet::creditEarnings($fa,1000,'platform-commission:'.$fid,'commission','Platform commission',$fid);
+Wallet::cashIn($fb,100000,'finance-cashin-fixture-01');Wallet::transfer($fb,$fs,1000,'finance-transfer-fixture-01');
+$fid2=DB::table('orders')->insertGetId(['buyer_id'=>$fb,'seller_id'=>$fs,'address_id'=>$address,'status'=>'PLACED','total'=>200,'created_at'=>now(),'updated_at'=>now()]);
+DB::table('payments')->insert(['order_id'=>$fid2,'method'=>'cod','status'=>'due_on_delivery','amount'=>200,'created_at'=>now(),'updated_at'=>now()]);
+loginAs($admin);$controller=new AdminFinancialController;$before=Wallet::balance($fa);$r=requestFor(['q'=>'financefixture']);$report=(new MarketController)->panel($r,'payments');$data=$report->getData();
+ok($report->name()==='admin-financial','Old Payments URL now opens financial report');
+ok($data['rows']->total()===6,'Independent source union avoids duplicate settlements and excludes cash-ins/transfers');
+ok((float)$data['stats']->collected===150.0,'Gross collected includes refunded payment but excludes unpaid COD');
+ok((float)$data['stats']->refunded===20.0,'Refund total uses completed refunds');
+ok((float)$data['stats']->settled===130.0,'Seller settlements include new wallet earnings and one legacy import');
+ok((float)$data['stats']->commission===10.0,'Admin commission is separate from customer collections');
+ok($data['rows']->perPage()===12,'Admin report follows 12-row pagination');
+$html=$report->render();ok(str_contains($html,'Financial report')&&str_contains($html,'Download filtered PDF'),'Report renders and offers PDF export');
+ok(!str_contains($html,'Confirm manual payment')&&!str_contains($html,'Record completed refund'),'Financial report contains no payment mutation forms');
+ok(str_contains($html,'/tools/finance-actions'),'Refund and dispute actions remain reachable separately');
+$forms=(new MarketController)->panel(requestFor(),'finance-actions')->getData()['forms'];ok(count($forms)===4,'Existing exception actions remain available');
+$d=$controller->index(requestFor(['q'=>'financefixture','type'=>'commission']))->getData();ok($d['rows']->total()===1&&(float)$d['stats']->commission===10.0&&(float)$d['stats']->collected===0.0,'Type filters affect both totals and rows');
+$d=$controller->index(requestFor(['q'=>'financefixture','method'=>'cod']))->getData();ok($d['rows']->total()===1&&(float)$d['stats']->collected===0.0,'COD filter keeps due payments separate');
+$d=$controller->index(requestFor(['q'=>'financefixture','from'=>'2030-01-01']))->getData();ok($d['rows']->total()===0&&(float)$d['stats']->settled===0.0,'Date filters also apply to summaries');
+$pdf=$controller->index(requestFor(['q'=>'financefixture','format'=>'pdf']));ok(str_starts_with($pdf->getContent(),'%PDF')&&str_contains($pdf->getContent(),'Financial report'),'Financial report exports a labelled PDF');
+ok(Wallet::balance($fa)===$before,'Reading or exporting report never moves wallet funds');
+$links=(new CommonController)->links();ok(isset($links['Financial report'])&&!isset($links['Payments']),'Admin navigation uses Financial report label');
+invalid(fn()=>$controller->index(requestFor(['from'=>'2026-11-06','to'=>'2026-01-01'])),'Invalid report date range rejected');
+loginAs($seller);try{$controller->index(requestFor());throw new RuntimeException('Seller accessed platform finances');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){ok($e->getStatusCode()===403,'Financial report is admin only');}
+echo 'PASS: '.($n-$begin)." admin financial report checks.\n";

@@ -33,7 +33,7 @@ Route::middleware(['auth','role:buyer'])->group(function(){
  Route::post('/cart/{id}/remove',function(int $id){\Illuminate\Support\Facades\DB::table('cart_items')->where('id',$id)->where('buyer_id',auth()->id())->delete();return back()->with('success','Item removed.');});
 });
 Route::middleware(['auth','role:seller'])->group(function(){
- foreach(['store'=>'store','category'=>'category','category/delete'=>'categoryDelete','product-categories'=>'productCategories','product'=>'product','product/action'=>'productAction','variant'=>'variant','variant/delete'=>'variantDelete','promotion'=>'promotion','promotion/end'=>'promotionEnd','voucher'=>'voucher','return/respond'=>'returnRespond','return/received'=>'returnReceived','payout'=>'payout','review/reply'=>'reviewReply'] as $path=>$action)Route::post('/tools/'.$path,[\App\Http\Controllers\MarketController::class,$action]);
+ foreach(['store'=>'store','category'=>'category','category/delete'=>'categoryDelete','product-categories'=>'productCategories','product'=>'product','product/action'=>'productAction','variant'=>'variant','variant/delete'=>'variantDelete','promotion'=>'promotion','promotion/end'=>'promotionEnd','voucher'=>'voucher','return/respond'=>'returnRespond','return/received'=>'returnReceived','review/reply'=>'reviewReply'] as $path=>$action)Route::post('/tools/'.$path,[\App\Http\Controllers\MarketController::class,$action]);
  Route::post('/seller/orders/{id}/cancel',[\App\Http\Controllers\MarketController::class,'cancel']);
  Route::post('/seller/products',[\App\Http\Controllers\MarketController::class,'product']);
  Route::post('/seller/products/{id}',[\App\Http\Controllers\MarketController::class,'product']);
@@ -110,3 +110,12 @@ Route::middleware(['auth','role:seller'])->get('/seller/stock',[\App\Http\Contro
 Route::middleware(['auth','role:admin'])->get('/admin/users/{id}',[\App\Http\Controllers\AdminUserDetailsController::class,'show'])->whereNumber('id');
 
 Route::middleware(['auth','role:seller'])->post('/tools/deal/end',[\App\Http\Controllers\SellerPromotionController::class,'endDeal']);
+
+Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){
+ Route::get('/wallet',[\App\Http\Controllers\WalletController::class,'index']);
+ Route::post('/wallet/transfer',[\App\Http\Controllers\WalletController::class,'transfer'])->middleware('throttle:10,1');
+});
+
+
+
+Route::get('/live/state',[\App\Http\Controllers\LiveUpdatesController::class,'state'])->middleware('throttle:120,1');

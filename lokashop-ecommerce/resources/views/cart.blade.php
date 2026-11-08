@@ -39,7 +39,7 @@
     <label>Delivery address<select name="address_id" required>
      @forelse($addresses as $a)<option value="{{$a->id}}">{{$a->street}}, {{$a->barangay}}, {{$a->city}}, {{$a->province}}</option>@empty<option value="">Add an address first</option>@endforelse
     </select></label>
-    <input type="hidden" name="payment_method" value="cod"><p><b>Payment: Cash on delivery (COD)</b></p>
+    <label>Payment method<select name="payment_method" required><option value="cod" @selected(old('payment_method','cod')==='cod')>Cash on delivery (COD)</option><option value="wallet" @selected(old('payment_method')==='wallet')>LokaShop Wallet (demo)</option></select></label><p>Wallet balance: <strong>₱{{number_format(\App\Services\Wallet::balance(auth()->id())/100,2)}}</strong> · <a href="/wallet">Open Wallet</a></p><p>Shipping distribution: 50% sorting-center pool, 25% driver pool and 25% delivery-rider pool. Missing driver shares remain unallocated. COD totals round to the nearest peso per order; wallet payments retain centavos. Wallet orders are paid immediately. Seller earnings are released after order receipt is confirmed.</p>
 @php $available=\Illuminate\Support\Facades\DB::table('vouchers')->where('active',1)->where(fn($q)=>$q->whereNull('starts_at')->orWhere('starts_at','<=',now()))->where(fn($q)=>$q->whereNull('expires_at')->orWhere('expires_at','>',now()))->get(); @endphp
 @foreach(['platform_voucher'=>'Platform voucher','shipping_voucher'=>'Shipping voucher','voucher'=>'Store voucher'] as $field=>$label)
 <label>{{$label}}<select name="{{$field}}"><option value="">No voucher</option>

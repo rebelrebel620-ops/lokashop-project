@@ -16,11 +16,11 @@
 <header class="purchase-header"><div><strong>{{$o->store_name ?: 'LokaShop seller'}}</strong><small>Order #{{$o->id}} · {{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y')}}</small></div><span class="purchase-status {{$closed?'closed':''}}">{{\App\Services\BuyerOrders::label($o->status)}}</span></header>
 @foreach($items->take(1) as $item) @include('order-item-row',['item'=>$item]) @endforeach
 @if($items->count()>1)<details class="purchase-more"><summary>View {{$items->count()-1}} more {{ $items->count()-1===1?'product':'products' }}</summary>@foreach($items->skip(1) as $item) @include('order-item-row',['item'=>$item]) @endforeach</details>@endif
-<div class="purchase-total"><span>{{$quantity}} {{$quantity===1?'item':'items'}} · Cash on delivery</span><span>Order total <strong>₱{{number_format($o->total,2)}}</strong></span></div>
+<div class="purchase-total"><span>{{$quantity}} {{$quantity===1?'item':'items'}} · {{\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$o->id)->value('method')==='wallet'?'Wallet · prepaid':'Cash on delivery'}}</span><span>Order total <strong>₱{{\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$o->id)->value('method')==='cod'?\App\Services\CodAmount::format($o->total):number_format($o->total,2)}}</strong></span></div>
 @if($tab==='receive')
 <div class="purchase-update"><div><strong>{{\App\Services\BuyerOrders::label($o->status)}}</strong><small>{{$o->failure_reason ?: 'Tracking code: '.$o->tracking_code}}</small></div></div>
 @endif
-@if($o->status==='DELIVERED')<p class="receipt-hint">Delivery is recorded. Confirm receipt after checking your items, or visit Returns if there is a problem.</p>@endif
+@if($o->status==='DELIVERED')<p class="receipt-hint">Delivery is recorded. Press Order received after checking your items to release seller payment, or visit Returns if there is a problem.</p>@endif
 <div class="purchase-actions" role="group" aria-label="Order actions">
 @if($tab==='receive')<a class="btn alt" href="/track/{{rawurlencode($o->tracking_code)}}">Track Order</a>@endif
 @if(in_array($o->status,['DELIVERED','COMPLETED'])&&$o->proof_path)<a class="btn alt" href="/orders/{{$o->id}}/proof" target="_blank" rel="noopener">Delivery photo</a>@endif

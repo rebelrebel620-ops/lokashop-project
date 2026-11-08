@@ -2,10 +2,10 @@
 namespace App\Services;
 use Illuminate\Support\Facades\DB;
 class ShippingEarnings {
- // Seller pickup is free. Only a completed delivery earns 80% of shipping.
  public static function amount(int $orderId,string $kind):float {
   $o=DB::table('orders')->find($orderId);
-  $pool=Support::money(max(0,$o->shipping_fee-$o->shipping_commission));
-  return $kind==='delivery'?$pool:0;
+  if(ShippingDistribution::modern($o)){return $kind==='delivery'?ShippingDistribution::portions($o->shipping_fee)['rider']/100:0;}
+  // Preserve amounts on shipments already credited before the new split.
+  return $kind==='delivery'?Support::money(max(0,$o->shipping_fee-$o->shipping_commission)):($kind==='transfer'?50:0);
  }
 }
