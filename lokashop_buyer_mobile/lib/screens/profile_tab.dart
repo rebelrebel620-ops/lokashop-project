@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../theme.dart';
 import '../widgets/design.dart';
+import '../widgets/logout_button.dart';
 import '../widgets/common.dart';
 import 'buyer_features.dart';
+import '../widgets/wallet_screen.dart';
 import 'addresses_screen.dart';
 import 'notifications_screen.dart';
 import 'complaints_screen.dart';
@@ -45,13 +47,13 @@ class _ProfileTabState extends State<ProfileTab> {
             ? EmptyState(
                 icon: Icons.person_outline,
                 title: 'Welcome to the neighbourhood',
-                subtitle: 'Sign in for saved finds, delivery updates and more.',
+                subtitle: 'Log in for saved finds, delivery updates and more.',
                 action: FilledButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const LoginScreen()),
                   ),
-                  child: const Text('Sign in'),
+                  child: const Text('Log in'),
                 ),
               )
             : RefreshIndicator(
@@ -60,52 +62,119 @@ class _ProfileTabState extends State<ProfileTab> {
                   padding: const EdgeInsets.all(22),
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryDark,
-                        borderRadius: BorderRadius.circular(25),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.line),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0D103B2B),
+                            blurRadius: 22,
+                            offset: Offset(0, 7),
+                          ),
+                        ],
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (user['profile_photo_url'] != null)
-                            ClipOval(child: AppPhoto(
-                              '${user['profile_photo_url']}',
-                              width: 70,
-                              height: 70,
-                            ))
-                          else
-                            CircleAvatar(
-                              radius: 32,
-                              backgroundColor: AppColors.accent,
-                              child: Text(
-                                (user['name'] ?? app.session.name ?? 'B')
-                                    .toString()
-                                    .characters
-                                    .first,
-                                style: const TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w800,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFFF0F5E8),
+                                  border: Border.all(
+                                    color: const Color(0xFFDCE7CF),
+                                  ),
+                                ),
+                                child: ClipOval(
+                                  child: SizedBox(
+                                    width: 68,
+                                    height: 68,
+                                    child: user['profile_photo_url'] != null
+                                        ? AppPhoto(
+                                            '${user['profile_photo_url']}',
+                                            width: 68,
+                                            height: 68,
+                                          )
+                                        : CircleAvatar(
+                                            backgroundColor: AppColors.primary,
+                                            child: Text(
+                                              (user['name'] ??
+                                                          app.session.name ??
+                                                          'B')
+                                                      .toString()
+                                                      .trim()
+                                                      .isEmpty
+                                                  ? 'B'
+                                                  : (user['name'] ??
+                                                            app.session.name ??
+                                                            'B')
+                                                        .toString()
+                                                        .trim()
+                                                        .characters
+                                                        .first,
+                                              style: const TextStyle(
+                                                fontSize: 27,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '${user['name'] ?? app.session.name ?? 'Buyer'}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 24,
-                              color: Colors.white,
-                            ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'MY ACCOUNT',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        letterSpacing: 1.7,
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '${user['name'] ?? app.session.name ?? 'Buyer'}',
+                                      style: const TextStyle(
+                                        fontSize: 21,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '${user['email'] ?? app.session.email ?? ''}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.muted,
+                                      ),
+                                      softWrap: true,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '${user['email'] ?? app.session.email ?? ''}',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.accent,
+                          const Divider(height: 30, color: AppColors.line),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              backgroundColor: const Color(0xFFF5F8F0),
+                              side: const BorderSide(color: Color(0xFFDCE7CF)),
+                              minimumSize: const Size(0, 46),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                             onPressed: () => Navigator.push(
                               context,
@@ -120,6 +189,16 @@ class _ProfileTabState extends State<ProfileTab> {
                       ),
                     ),
                     const SectionHeading('Made for your shopping'),
+                    tile(
+                      Icons.account_balance_wallet_outlined,
+                      'LokaShop Wallet',
+                      'Balance, transfers and transaction history',
+                      WalletScreen(
+                        fetch: (query) => app.api.get('/wallet', query: query),
+                        transfer: (fields) =>
+                            app.api.post('/wallet/transfer', fields),
+                      ),
+                    ),
                     tile(
                       Icons.favorite_border,
                       'Saved finds',
@@ -176,13 +255,13 @@ class _ProfileTabState extends State<ProfileTab> {
                       const ComplaintsScreen(),
                     ),
                     const SizedBox(height: 18),
-                    OutlinedButton.icon(
+                    LogoutButton(
                       onPressed: () async {
                         if (!await confirmAction(
                           context,
-                          'Sign out?',
-                          'You can sign back in whenever you are ready.',
-                          label: 'Sign out',
+                          'Log out?',
+                          'You can log back in whenever you are ready.',
+                          label: 'Log out',
                         )) {
                           return;
                         }
@@ -197,8 +276,6 @@ class _ProfileTabState extends State<ProfileTab> {
                           );
                         }
                       },
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Sign out'),
                     ),
                     const SizedBox(height: 20),
                     const Center(

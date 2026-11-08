@@ -34,7 +34,7 @@
 <p><small>Variation stock and overall product stock both limit purchases.</small></p>
 @forelse($reviewVariants as $variation)
 <div style="padding:12px 0;border-bottom:1px solid #dbe7df">
-@if($variation->image)<img src="{{\App\Services\Support::imageUrl($variation->image)}}" alt="{{$variation->name}}" width="64" height="64" style="object-fit:contain">@endif
+@if($variation->image)<img src="{{\App\Services\Support::productImageUrl($variation->image)}}" alt="{{$variation->name}}" width="64" height="64" style="object-fit:contain">@endif
 <strong>{{$variation->name}}</strong>
 @foreach(json_decode($variation->options??'{}',true)?:[] as $type=>$value)<span> · {{$type}}: {{$value}}</span>@endforeach
 <p>SKU: {{$variation->sku}} · {{$variation->stock}} available · ₱{{number_format(\App\Services\Catalog::price($p,$variation),2)}}</p>

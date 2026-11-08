@@ -34,7 +34,7 @@ class Workflow {
      DB::table('cod_collections')->insertOrIgnore(['parcel_id'=>$p->id,'rider_id'=>$actorId,'company_id'=>$actor->company_id,'amount'=>$pay->amount,'created_at'=>now(),'updated_at'=>now()]);
      DB::table('payments')->where('id',$pay->id)->update(['status'=>'paid','updated_at'=>now()]);
     }elseif($pay&&$pay->status!=='paid')Support::fail('payment','Prepaid payment has not been confirmed.');
-    $extra['proof_path']=$r->file('proof')->store('delivery-proofs','local');$orderExtra['delivered_at']=now();
+    $extra['proof_path']=$r->file('proof')->store('delivery-proofs','local');\App\Services\LogisticsImages::optimized(\Illuminate\Support\Facades\Storage::disk('local')->path($extra['proof_path']),1200);$orderExtra['delivered_at']=now();
     DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'completed','updated_at'=>now()]);WalletEarnings::delivery($assignment->id);
    }
    if($to==='DELIVERY_FAILED'){

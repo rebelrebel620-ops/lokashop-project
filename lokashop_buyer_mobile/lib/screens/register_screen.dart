@@ -219,85 +219,94 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) => AuthLayout(
+    showBanner: true,
     title: 'Your next local find starts here.',
-    subtitle: 'Create a buyer account, save your delivery address and verify your email.',
+    subtitle:
+        'Create account, save your delivery address and verify your email.',
     badge: 'JOIN THE NEIGHBOURHOOD',
     child: Form(
-        key: _form,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Verify your email to start shopping. Buyers do not need admin approval.',
+      key: _form,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Verify your email to start shopping. Buyers do not need admin approval.',
+          ),
+          const SizedBox(height: 20),
+          const AuthSection(
+            icon: Icons.person_outline,
+            title: 'About you',
+            subtitle: 'Your name and date of birth',
+          ),
+          _field('first_name', 'First name'),
+          _field('last_name', 'Last name'),
+          TextFormField(
+            controller: _dobText,
+            readOnly: true,
+            onTap: _busy ? null : _pickBirthday,
+            decoration: InputDecoration(
+              labelText: 'Date of birth',
+              helperText: 'You must be at least 18.',
+              errorText: _errors['date_of_birth'],
+              suffixIcon: const Icon(Icons.calendar_today),
             ),
-            const SizedBox(height: 20),
-            const AuthSection(icon: Icons.person_outline, title: 'About you', subtitle: 'Your name and date of birth'),
-            _field('first_name', 'First name'),
-            _field('last_name', 'Last name'),
-            TextFormField(
-              controller: _dobText,
-              readOnly: true,
-              onTap: _busy ? null : _pickBirthday,
-              decoration: InputDecoration(
-                labelText: 'Date of birth',
-                helperText: 'You must be at least 18.',
-                errorText: _errors['date_of_birth'],
-                suffixIcon: const Icon(Icons.calendar_today),
-              ),
-              validator: (v) =>
-                  _dob == null ? 'Select your date of birth' : null,
+            validator: (v) => _dob == null ? 'Select your date of birth' : null,
+          ),
+          const SizedBox(height: 14),
+          const AuthSection(
+            icon: Icons.lock_outline,
+            title: 'Account details',
+            subtitle: 'Use an email you can verify',
+          ),
+          _field('phone', 'Mobile number', keyboard: TextInputType.phone),
+          _field('email', 'Email', keyboard: TextInputType.emailAddress),
+          _field('password', 'Password'),
+          _field('password_confirmation', 'Confirm password'),
+          const Divider(height: 32),
+          const AuthSection(
+            icon: Icons.location_on_outlined,
+            title: 'Delivery address',
+            subtitle: 'Choose your area, then add your street',
+          ),
+          const SizedBox(height: 14),
+          PlaceFields(
+            enabled: !_busy,
+            errors: _errors,
+            onChanged: (values) {
+              for (final entry in values.entries) {
+                _fields[entry.key]?.text = entry.value;
+              }
+            },
+          ),
+          _field('street', 'Street / house number'),
+          _field('postal_code', 'Postal code', keyboard: TextInputType.number),
+          TextButton(
+            onPressed: _showTerms,
+            child: const Text('Read Terms and Privacy Policy'),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _terms,
+            title: const Text('I accept the Terms and Privacy Policy'),
+            onChanged: _busy
+                ? null
+                : (value) => setState(() {
+                    _terms = value ?? false;
+                    _errors.remove('terms');
+                  }),
+          ),
+          if (_errors['terms'] != null)
+            Text(
+              _errors['terms']!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
-            const SizedBox(height: 14),
-            const AuthSection(icon: Icons.lock_outline, title: 'Account details', subtitle: 'Use an email you can verify'),
-            _field('phone', 'Mobile number', keyboard: TextInputType.phone),
-            _field('email', 'Email', keyboard: TextInputType.emailAddress),
-            _field('password', 'Password'),
-            _field('password_confirmation', 'Confirm password'),
-            const Divider(height: 32),
-            const AuthSection(icon: Icons.location_on_outlined, title: 'Delivery address', subtitle: 'Choose your area, then add your street'),
-            const SizedBox(height: 14),
-            PlaceFields(
-              enabled: !_busy,
-              errors: _errors,
-              onChanged: (values) {
-                for (final entry in values.entries) {
-                  _fields[entry.key]?.text = entry.value;
-                }
-              },
-            ),
-            _field('street', 'Street / house number'),
-            _field(
-              'postal_code',
-              'Postal code',
-              keyboard: TextInputType.number,
-            ),
-            TextButton(
-              onPressed: _showTerms,
-              child: const Text('Read Terms and Privacy Policy'),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _terms,
-              title: const Text('I accept the Terms and Privacy Policy'),
-              onChanged: _busy
-                  ? null
-                  : (value) => setState(() {
-                      _terms = value ?? false;
-                      _errors.remove('terms');
-                    }),
-            ),
-            if (_errors['terms'] != null)
-              Text(
-                _errors['terms']!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _busy ? null : _submit,
-              child: Text(_busy ? 'Sending verification…' : 'Create account & verify email'),
-            ),
-          ],
-        ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _busy ? null : _submit,
+            child: Text(_busy ? 'Sending verification…' : 'Create account'),
+          ),
+        ],
+      ),
     ),
   );
 }

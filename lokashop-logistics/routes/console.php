@@ -94,3 +94,21 @@
 })->purpose('Check local database, storage and email configuration without displaying secrets');
 
 \Illuminate\Support\Facades\Artisan::command('wallet:sync-earnings',function(){\App\Services\WalletAutomation::run();$this->info('Eligible wallet earnings synchronized automatically.');})->purpose('Synchronize eligible earned money without claim requests');
+
+\Illuminate\Support\Facades\Artisan::command('lokashop:optimize-logistics-images', function () {
+ if(!\App\Services\LogisticsImages::available()){$this->error('Enable PHP GD in php.ini and restart PHP/web server.');return 1;}
+ $prepared=0;$missing=0;$fallback=0;
+ $process=function($path,$disk,$size)use(&$prepared,&$missing,&$fallback){
+  if(!is_string($path)||$path==='')return;
+  $prefix=$disk==='public'?'profiles':'delivery-proofs';
+  if(!preg_match('~^'.$prefix.'/[A-Za-z0-9_-]+\.(jpg|jpeg|png)$~i',$path)){$missing++;return;}
+  $storage=\Illuminate\Support\Facades\Storage::disk($disk);
+  $file=$storage->exists($path)?$storage->path($path):($disk==='public'?public_path('storage/'.$path):null);
+  if(!$file||!is_file($file)){$missing++;return;}
+  if(\App\Services\LogisticsImages::optimized($file,$size)===$file)$fallback++;else $prepared++;
+ };
+ foreach(\Illuminate\Support\Facades\DB::table('users')->select('id','profile_photo')->whereNotNull('profile_photo')->orderBy('id')->lazyById(100) as $user)$process($user->profile_photo,'public',400);
+ foreach(\Illuminate\Support\Facades\DB::table('parcels')->select('id','proof_path')->whereNotNull('proof_path')->orderBy('id')->lazyById(100) as $parcel)$process($parcel->proof_path,'local',1200);
+ $this->info("Compressed: {$prepared}; retained originals: {$fallback}; missing/invalid references: {$missing}. Original uploads were preserved.");
+ return $missing?1:0;
+})->purpose('Prepare smaller profile and private delivery proof previews without altering originals');

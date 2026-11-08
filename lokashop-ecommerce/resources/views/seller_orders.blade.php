@@ -23,7 +23,7 @@
 <div class="seller-purchase-items">
 @foreach($items as $item)
 <div class="seller-purchase-item">
-@if($item->image)<img src="{{\App\Services\Support::imageUrl($item->image)}}" alt="{{$item->name}}" loading="lazy">@else<div class="item-placeholder">No photo</div>@endif
+@if($item->image)<img src="{{\App\Services\Support::productImageUrl($item->image)}}" alt="{{$item->name}}" loading="lazy">@else<div class="item-placeholder">No photo</div>@endif
 <div><strong>{{$item->name}}</strong><small>Qty {{$item->quantity}} · ₱{{number_format($item->unit_price,2)}} each</small></div><b>₱{{number_format($item->unit_price*$item->quantity,2)}}</b>
 </div>
 @endforeach

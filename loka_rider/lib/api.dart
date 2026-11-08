@@ -170,7 +170,7 @@ class ApiClient {
     req.fields.addAll(fields);
     for (final entry in files.entries) {
       if (await entry.value.length() > 5 * 1024 * 1024) {
-        throw const ApiException('Choose an image smaller than 5 MB.');
+        throw const ApiException('Choose a file smaller than 5 MB.');
       }
       req.files.add(
         await http.MultipartFile.fromPath(entry.key, entry.value.path),

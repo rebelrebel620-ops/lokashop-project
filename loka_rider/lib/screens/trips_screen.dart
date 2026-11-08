@@ -33,14 +33,21 @@ class _TripsScreenState extends State<TripsScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     load();
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (foreground && !busy && !loading) load(silent: true);
+      if (foreground &&
+          !busy &&
+          !loading &&
+          (ModalRoute.of(context)?.isCurrent ?? false)) {
+        load(silent: true);
+      }
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
-    if (foreground && !busy) load(silent: true);
+    if (foreground && !busy) {
+      load(silent: true);
+    }
   }
 
   @override
@@ -51,7 +58,9 @@ class _TripsScreenState extends State<TripsScreen> with WidgetsBindingObserver {
   }
 
   Future<void> load({bool silent = false}) async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     final attempt = ++version;
     if (!silent) {
       setState(() {
@@ -74,9 +83,13 @@ class _TripsScreenState extends State<TripsScreen> with WidgetsBindingObserver {
         });
       }
     } catch (e) {
-      if (mounted && attempt == version) setState(() => error = e);
+      if (mounted && attempt == version) {
+        setState(() => error = e);
+      }
     } finally {
-      if (mounted && attempt == version) setState(() => loading = false);
+      if (mounted && attempt == version) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -87,7 +100,9 @@ class _TripsScreenState extends State<TripsScreen> with WidgetsBindingObserver {
     Map<String, dynamic> fields = const {},
     String nextTab = 'progress',
   }) async {
-    if (busy) return;
+    if (busy) {
+      return;
+    }
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -105,20 +120,28 @@ class _TripsScreenState extends State<TripsScreen> with WidgetsBindingObserver {
         ],
       ),
     );
-    if (yes != true || !mounted) return;
+    if (yes != true || !mounted) {
+      return;
+    }
     setState(() => busy = true);
     try {
       await widget.session.api.post(path, fields);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         tab = nextTab;
         page = 1;
       });
       await load();
     } catch (e) {
-      if (mounted) toast(context, e);
+      if (mounted) {
+        toast(context, e);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 

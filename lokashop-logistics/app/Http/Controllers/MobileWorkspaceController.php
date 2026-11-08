@@ -89,7 +89,9 @@ class MobileWorkspaceController extends Controller
     {
         $user = $this->user($request);
         abort_unless($user->role === 'sorting_center',403);
+        $request->validate(['report_kind'=>'nullable|in:financial']);
         $request->merge(['format'=>'pdf']);
+        if ($request->query('report_kind') === 'financial') return app(CenterFinancialController::class)->index($request);
         return app(ReportController::class)->index($request);
     }
 

@@ -20,7 +20,9 @@ class DeliveryProofController extends Controller
             return response()->view('proof-unavailable', ['order' => $order], 404)
                 ->header('Cache-Control', 'private, no-store');
         }
-        return response()->file($disk->path($path), [
+        $file=$disk->path($path);
+        if(request()->query('original')!=='1')$file=\App\Services\LogisticsImages::optimized($file,1200);
+        return response()->file($file, [
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'; sandbox",

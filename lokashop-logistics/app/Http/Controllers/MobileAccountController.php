@@ -13,7 +13,7 @@ class MobileAccountController extends Controller {
   Auth::setUser($u);$r->setUserResolver(fn()=>$u);return $u;
  }
  public function profile(Request $r){$u=$this->user($r);Cart::profile($r);return app(MobileWorkspaceController::class)->me($r);}
- public function photo(Request $r){$u=$this->user($r);abort_unless($u->profile_photo&&Storage::disk('public')->exists($u->profile_photo),404);return response()->file(Storage::disk('public')->path($u->profile_photo),['Cache-Control'=>'private, no-store']);}
+ public function photo(Request $r){$u=$this->user($r);abort_unless($u->profile_photo&&Storage::disk('public')->exists($u->profile_photo),404);return response()->file(\App\Services\LogisticsImages::optimized(Storage::disk('public')->path($u->profile_photo),400),['Cache-Control'=>'private, no-store']);}
  public function password(Request $r){$u=$this->user($r);$v=$r->validate(['current_password'=>'required|string','password'=>['required','confirmed',Password::min(8)->mixedCase()->numbers()->symbols()]]);
   if(!Hash::check($v['current_password'],$u->password))Support::fail('current_password','Current password is incorrect.');
   DB::table('users')->where('id',$u->id)->update(['password'=>Hash::make($v['password']),'remember_token'=>null,'updated_at'=>now()]);

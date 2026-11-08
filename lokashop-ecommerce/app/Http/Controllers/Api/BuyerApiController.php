@@ -104,12 +104,12 @@ class BuyerApiController extends Controller
         $rating = DB::table('item_reviews')->join('order_items','order_items.id','=','item_reviews.order_item_id')
             ->where('order_items.product_id', $id);
         return response()->json([
-            'product' => \App\Http\Controllers\Api\MobileBuyerController::productCard($p),
+            'product' => \App\Http\Controllers\Api\MobileBuyerController::productCard($p,1200),
             'seller_name' => $seller->name ?? null,
             'store_name' => $seller->name ?? null,
             'seller_person_name' => DB::table('users')->where('id', $p->seller_id)->value('name'),
             'store_on_vacation' => (bool) ($seller->vacation ?? false),
-            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);$v->option_values=json_decode($v->options??'{}',true)?:new \stdClass();$v->image_url=\App\Services\Support::imageUrl($v->image);return $v;}),
+            'variations' => DB::table('product_variations')->where('product_id', $id)->whereNull('deleted_at')->get()->map(function($v)use($p){$v->effective_price=\App\Services\Catalog::price($p,$v);$v->option_values=json_decode($v->options??'{}',true)?:new \stdClass();$v->image_url=\App\Services\Support::productImageUrl($v->image,1200);return $v;}),
             'review_summary' => \App\Services\ProductReviews::summary($id),
             'reviews' => \App\Services\ProductReviews::listing($id)->through(function($review){$words=preg_split('/\s+/',trim($review->reviewer_name??''));$review->reviewer_name=($words[0]??'')!==''?$words[0].(count($words)>1?' '.mb_substr(end($words),0,1).'.':''):'LokaShop buyer';$review->photo_urls=array_map(fn($p)=>\App\Services\Support::imageUrl($p),json_decode($review->photos??'[]',true)?:[]);unset($review->photos);return $review;}),
             'rating_avg' => round((clone $rating)->avg('stars') ?? 0, 1),
@@ -195,6 +195,7 @@ class BuyerApiController extends Controller
                 ->where('o.buyer_id', auth()->id())
                 ->select('o.*', 'p.id as parcel_id', 'p.tracking_code', 'p.failure_reason',
                     DB::raw("CASE WHEN p.proof_path IS NOT NULL AND o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END as has_delivery_proof"),
+                    DB::raw('(SELECT pay.method FROM payments pay WHERE pay.order_id = o.id ORDER BY pay.id DESC LIMIT 1) as payment_method'),
                     DB::raw('COALESCE(sb.name, s.name) as seller_name'))
                 ->orderByDesc('o.id')->get()->map(function($order){$order->items=DB::table('order_items')->where('order_id',$order->id)->get()->map(function($i){$i->image_url=\App\Services\Support::imageUrl($i->image);return $i;});$order->bucket=\App\Services\BuyerOrders::bucket($order->status);$order->status_label=\App\Services\BuyerOrders::label($order->status);return $order;})
         );

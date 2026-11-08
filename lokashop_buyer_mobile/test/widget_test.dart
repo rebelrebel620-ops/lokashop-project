@@ -97,6 +97,7 @@ void main() {
     expect(app.fake.lastProducts?['main_category'], 'Pet Supplies');
     expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
   testWidgets('checkout displays shipping-inclusive quote for selected rows', (
     tester,

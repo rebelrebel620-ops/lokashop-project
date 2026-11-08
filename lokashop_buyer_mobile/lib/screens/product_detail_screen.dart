@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/auto_refresh.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../services/contracts.dart';
@@ -18,7 +19,37 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends State<ProductDetailScreen>
+    with AutoRefresh<ProductDetailScreen> {
+  bool polling = false;
+  @override
+  bool get autoRefreshEnabled => !loading && !busy && !polling;
+  @override
+  Future<void> refreshAutomatically() async {
+    if (!autoRefreshEnabled) {
+      return;
+    }
+    polling = true;
+    try {
+      final result = await context.read<AppState>().api.get(
+        '/products/${widget.productId}',
+      );
+      if (!mounted || busy) {
+        return;
+      }
+      setState(() {
+        data = Map.from(result);
+        if (variant != null) {
+          final choices = List.from(result['variations'] ?? []);
+          final matches = choices.where((v) => v['id'] == variant!['id']);
+          variant = matches.isEmpty ? null : Map.from(matches.first);
+        }
+      });
+    } finally {
+      polling = false;
+    }
+  }
+
   Map? data;
   bool loading = true, busy = false, saved = false;
   String? error;
@@ -34,7 +65,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     try {
       final app = context.read<AppState>();
       final result = await app.api.get('/products/${widget.productId}');
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       setState(() => data = Map.from(result));
       if (app.isLoggedIn) {
         final wish = await app.api.get('/wishlist');
@@ -46,14 +79,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         }
       }
     } catch (e) {
-      if (context.mounted) setState(() => error = '$e');
+      if (context.mounted) {
+        setState(() => error = '$e');
+      }
     } finally {
-      if (context.mounted) setState(() => loading = false);
+      if (context.mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
   Future<bool> signed() async {
-    if (context.read<AppState>().isLoggedIn) return true;
+    if (context.read<AppState>().isLoggedIn) {
+      return true;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -74,12 +113,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     final p = data!['product'] as Map,
         variations = List.from(data!['variations'] ?? []);
-    final variantPhoto = mediaUrl('${variant?['image_url'] ?? variant?['image'] ?? ''}');
-    final photos = variantPhoto.isNotEmpty ? [variantPhoto] : List.from(p['image_urls'] as List? ?? []);
+    final variantPhoto = mediaUrl(
+      '${variant?['image_url'] ?? variant?['image'] ?? ''}',
+    );
+    final photos = variantPhoto.isNotEmpty
+        ? [variantPhoto]
+        : List.from(p['image_urls'] as List? ?? []);
     final price =
         variant?['effective_price'] ?? p['effective_price'] ?? p['price'];
     final productStock = int.tryParse('${p['stock']}') ?? 0;
-    final variantStock = int.tryParse('${variant?['stock'] ?? p['stock']}') ?? 0;
+    final variantStock =
+        int.tryParse('${variant?['stock'] ?? p['stock']}') ?? 0;
     final stock = productStock < variantStock ? productStock : variantStock;
     final vacation = data!['store_on_vacation'] == true;
     return Scaffold(
@@ -92,21 +136,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             onPressed: busy
                 ? null
                 : () async {
-                    if (!await signed()) return;
-                    if (!context.mounted) return;
+                    if (!await signed()) {
+                      return;
+                    }
+                    if (!context.mounted) {
+                      return;
+                    }
                     setState(() => busy = true);
                     try {
                       await context.read<AppState>().api.post('/wishlist', {
                         'product_id': widget.productId,
                         'enabled': !saved,
                       });
-                      if (context.mounted) setState(() => saved = !saved);
+                      if (context.mounted) {
+                        setState(() => saved = !saved);
+                      }
                     } catch (e) {
                       if (context.mounted) {
                         AppSnack.show(context, '$e', error: true);
                       }
                     } finally {
-                      if (context.mounted) setState(() => busy = false);
+                      if (context.mounted) {
+                        setState(() => busy = false);
+                      }
                     }
                   },
           ),
@@ -119,16 +171,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             SizedBox(
               height: 320,
               child: photos.isEmpty
-                  ? AppPhoto(productPhoto(p))
+                  ? AppPhoto(productPhoto(p), imageSize: 1200)
                   : PageView(
                       key: ValueKey(variant?['id'] ?? 0),
-                      onPageChanged: (index) => setState(() => photoIndex = index),
+                      onPageChanged: (index) =>
+                          setState(() => photoIndex = index),
                       children: photos
-                          .map((url) => AppPhoto('$url', fit: BoxFit.contain))
+                          .map(
+                            (url) => AppPhoto(
+                              '$url',
+                              fit: BoxFit.contain,
+                              imageSize: 1200,
+                            ),
+                          )
                           .toList(),
                     ),
             ),
-            if (photos.isNotEmpty) Center(child: Text('${photoIndex + 1} / ${photos.length} · Swipe to see photos')),
+            if (photos.isNotEmpty)
+              Center(
+                child: Text(
+                  '${photoIndex + 1} / ${photos.length} · Swipe to see photos',
+                ),
+              ),
             const SizedBox(height: 24),
             Eyebrow('${p['category'] ?? 'LOCAL FIND'}'),
             const SizedBox(height: 10),
@@ -141,8 +205,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Row(children: [const Icon(Icons.star_rounded, size: 19, color: Color(0xFFC58C20)), const SizedBox(width: 5),
-              Text('${data!['rating_avg'] ?? 0} · ${data!['rating_count'] ?? 0} ratings', style: const TextStyle(color: AppColors.muted, fontSize: 12))]),
+            Row(
+              children: [
+                const Icon(
+                  Icons.star_rounded,
+                  size: 19,
+                  color: Color(0xFFC58C20),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '${data!['rating_avg'] ?? 0} · ${data!['rating_count'] ?? 0} ratings',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
             Row(
               children: [
@@ -156,7 +232,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                 ),
-                Text('${data!['review_summary']?['sold'] ?? 0} sold', style: const TextStyle(fontSize: 12)),
+                Text(
+                  '${data!['review_summary']?['sold'] ?? 0} sold',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -168,27 +247,60 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   labelText: 'Choose a variation',
                 ),
                 items: [
-                  const DropdownMenuItem<int>(value: 0, child: Text('Original product')),
+                  const DropdownMenuItem<int>(
+                    value: 0,
+                    child: Text('Original product'),
+                  ),
                   ...variations.map(
-                      (v) => DropdownMenuItem<int>(
-                        value: v['id'],
-                        enabled: productStock > 0 && (int.tryParse('${v['stock']}') ?? 0) > 0,
-                        child: Text('${v['name']} · ${money(v['effective_price'] ?? p['effective_price'] ?? p['price'])} · ${v['stock']} left', maxLines: 2, overflow: TextOverflow.ellipsis),
+                    (v) => DropdownMenuItem<int>(
+                      value: v['id'],
+                      enabled:
+                          productStock > 0 &&
+                          (int.tryParse('${v['stock']}') ?? 0) > 0,
+                      child: Text(
+                        '${v['name']} · ${money(v['effective_price'] ?? p['effective_price'] ?? p['price'])} · ${v['stock']} left',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                  ),
                 ],
-                onChanged: busy ? null : (id) => setState(() {
-                  photoIndex = 0;
-                  variant = id == null || id == 0 ? null : Map.from(variations.firstWhere((v) => v['id'] == id));
-                  final available = int.tryParse('${variant?['stock'] ?? p['stock']}') ?? 0;
-                  final max = available < productStock ? available : productStock;
-                  if (quantity > max) quantity = max > 0 ? max : 1;
-                }),
+                onChanged: busy
+                    ? null
+                    : (id) => setState(() {
+                        photoIndex = 0;
+                        variant = id == null || id == 0
+                            ? null
+                            : Map.from(
+                                variations.firstWhere((v) => v['id'] == id),
+                              );
+                        final available =
+                            int.tryParse(
+                              '${variant?['stock'] ?? p['stock']}',
+                            ) ??
+                            0;
+                        final max = available < productStock
+                            ? available
+                            : productStock;
+                        if (quantity > max) {
+                          quantity = max > 0 ? max : 1;
+                        }
+                      }),
               ),
-            if (variant?['option_values'] is Map) Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Wrap(spacing: 8, runSpacing: 6, children: (variant!['option_values'] as Map).entries.map<Widget>((entry) => Chip(label: Text('${entry.key}: ${entry.value}'))).toList()),
-            ),
+            if (variant?['option_values'] is Map)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: (variant!['option_values'] as Map).entries
+                      .map<Widget>(
+                        (entry) =>
+                            Chip(label: Text('${entry.key}: ${entry.value}')),
+                      )
+                      .toList(),
+                ),
+              ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -229,8 +341,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.storefront_outlined),
-                    title: Text('${data!['store_name'] ?? data!['seller_name'] ?? 'Local store'}'),
-                    subtitle: Text('${data!['seller_person_name'] ?? 'Seller'} · View store'),
+                    title: Text(
+                      '${data!['store_name'] ?? data!['seller_name'] ?? 'Local store'}',
+                    ),
+                    subtitle: Text(
+                      '${data!['seller_person_name'] ?? 'Seller'} · View store',
+                    ),
                     onTap: () async {
                       if (await signed() && context.mounted) {
                         Navigator.push(
@@ -271,62 +387,98 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(18),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            OutlinedButton.icon(
-              onPressed: busy || vacation || stock <= 0 || quantity > stock ? null : () async {
-                if (!await signed()) return;
-                if (!context.mounted) return;
-                setState(() => busy = true);
-                try {
-                  final app = context.read<AppState>();
-                  final result = await app.api.post('/cart/buy-now', {'product_id': widget.productId, 'quantity': quantity,
-                    if (variant != null) 'variation_id': variant!['id'], '_request_key': requestKey()});
-                  await app.refreshCart();
-                  if (!context.mounted) return;
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutScreen(cartIds: [int.parse('${result['cart_id']}')])));
-                } catch (e) { if (context.mounted) AppSnack.show(context, '$e', error: true); }
-                finally { if (mounted) setState(() => busy = false); }
-              },
-              icon: const Icon(Icons.bolt_outlined), label: const Text('Buy now'),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-            onPressed:
-                busy || vacation || stock <= 0 || quantity > stock
-                ? null
-                : () async {
-                    if (!await signed()) return;
-                    if (!context.mounted) return;
-                    setState(() => busy = true);
-                    try {
-                      await context.read<AppState>().addToCart(
-                        widget.productId,
-                        quantity,
-                        variationId: variant?['id'],
-                      );
-                      if (context.mounted) {
-                        AppSnack.show(context, 'Added to your bag.');
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppSnack.show(context, '$e', error: true);
-                      }
-                    } finally {
-                      if (context.mounted) setState(() => busy = false);
-                    }
-                  },
-            icon: const Icon(Icons.shopping_bag_outlined),
-            label: Text(
-              busy
-                  ? 'Adding…'
-                  : vacation
-                  ? 'Store is on vacation'
-                  : stock <= 0
-                  ? 'Out of stock'
-                  : 'Add to bag · ${money((double.tryParse('$price') ?? 0) * quantity)}',
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OutlinedButton.icon(
+                onPressed: busy || vacation || stock <= 0 || quantity > stock
+                    ? null
+                    : () async {
+                        if (!await signed()) {
+                          return;
+                        }
+                        if (!context.mounted) {
+                          return;
+                        }
+                        setState(() => busy = true);
+                        try {
+                          final app = context.read<AppState>();
+                          final result = await app.api.post('/cart/buy-now', {
+                            'product_id': widget.productId,
+                            'quantity': quantity,
+                            if (variant != null) 'variation_id': variant!['id'],
+                            '_request_key': requestKey(),
+                          });
+                          await app.refreshCart();
+                          if (!context.mounted) {
+                            return;
+                          }
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CheckoutScreen(
+                                cartIds: [int.parse('${result['cart_id']}')],
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (context.mounted) {
+                            AppSnack.show(context, '$e', error: true);
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => busy = false);
+                          }
+                        }
+                      },
+                icon: const Icon(Icons.bolt_outlined),
+                label: const Text('Buy now'),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: busy || vacation || stock <= 0 || quantity > stock
+                    ? null
+                    : () async {
+                        if (!await signed()) {
+                          return;
+                        }
+                        if (!context.mounted) {
+                          return;
+                        }
+                        setState(() => busy = true);
+                        try {
+                          await context.read<AppState>().addToCart(
+                            widget.productId,
+                            quantity,
+                            variationId: variant?['id'],
+                          );
+                          if (context.mounted) {
+                            AppSnack.show(context, 'Added to your bag.');
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            AppSnack.show(context, '$e', error: true);
+                          }
+                        } finally {
+                          if (context.mounted) {
+                            setState(() => busy = false);
+                          }
+                        }
+                      },
+                icon: const Icon(Icons.shopping_bag_outlined),
+                label: Text(
+                  busy
+                      ? 'Adding…'
+                      : vacation
+                      ? 'Store is on vacation'
+                      : stock <= 0
+                      ? 'Out of stock'
+                      : 'Add to bag · ${money((double.tryParse('$price') ?? 0) * quantity)}',
+                ),
+              ),
+            ],
           ),
-          ]),
         ),
       ),
     );

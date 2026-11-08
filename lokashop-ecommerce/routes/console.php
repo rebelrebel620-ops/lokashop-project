@@ -79,3 +79,14 @@
 })->purpose('Check local database, storage and email configuration without displaying secrets');
 
 \Illuminate\Support\Facades\Artisan::command('wallet:sync-earnings',function(){\App\Services\WalletAutomation::run();$this->info('Eligible wallet earnings synchronized automatically.');})->purpose('Synchronize eligible earned money without claim requests');
+
+\Illuminate\Support\Facades\Artisan::command('lokashop:optimize-product-images', function () {
+ if(!\App\Services\ProductImages::available()){$this->error('Enable PHP GD in php.ini and restart PHP/web server before optimizing photos.');return 1;}
+ $count=0;
+ foreach(\Illuminate\Support\Facades\DB::table('products')->select('id','images')->orderBy('id')->lazyById(100) as $product){
+  foreach(json_decode($product->images??'[]',true)?:[] as $path){if(is_string($path)){\App\Services\ProductImages::warm($path);$count++;}}
+ }
+ foreach(\Illuminate\Support\Facades\DB::table('product_variations')->select('id','image')->whereNotNull('image')->orderBy('id')->lazyById(100) as $variant){\App\Services\ProductImages::warm($variant->image);$count++;}
+ $this->info("Processed {$count} photo references. Originals retained; unsupported, oversized or non-beneficial conversions use the original.");
+ return 0;
+})->purpose('Prepare compressed 400px and 1200px product photos without changing original uploads');

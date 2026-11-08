@@ -14,7 +14,7 @@
 <div class="business-field-grid"><label>Product<select name="product_id" required data-offer-product><option value="">Choose a product</option>
 @foreach($ready as $p)
 @php $images=json_decode($p->images??'[]',true); @endphp
-<option value="{{$p->id}}" data-price="{{round($p->price*(1-$p->discount_percent/100),2)}}" data-stock="{{$p->stock}}" data-photo="{{\App\Services\Support::imageUrl(is_array($images)?($images[0]??null):null)}}" @selected((string)old('product_id')===(string)$p->id)>{{$p->name}}</option>
+<option value="{{$p->id}}" data-price="{{round($p->price*(1-$p->discount_percent/100),2)}}" data-stock="{{$p->stock}}" data-photo="{{\App\Services\Support::productImageUrl(is_array($images)?($images[0]??null):null)}}" @selected((string)old('product_id')===(string)$p->id)>{{$p->name}}</option>
 @endforeach
 </select></label><label>Offer type<select name="type" data-offer-type><option value="sale" @selected(old('type')==='sale')>Sale · scheduled lower price</option><option value="flash" @selected(old('type')==='flash')>Flash sale · limited discounted units</option></select></label><label>Offer price (₱)<input type="number" name="price" min="1" step="0.01" required value="{{old('price')}}" placeholder="Price for one unit"></label><label data-flash-field>Discounted unit limit<input type="number" name="quantity" min="1" step="1" value="{{old('quantity')}}"><small>Required only for a flash sale. Must not exceed current product stock.</small></label><label>Starts<input type="datetime-local" name="starts_at" step="1" value="{{old('starts_at',now()->format('Y-m-d\TH:i:s'))}}" required></label><label>Ends<input type="datetime-local" name="ends_at" step="1" value="{{old('ends_at',now()->addWeek()->format('Y-m-d\TH:i:s'))}}" required></label></div>
 <div class="offer-preview"><img data-offer-photo hidden alt="Selected product"><p data-offer-summary aria-live="polite">Choose a product to see its current price, stock and your offer savings.</p></div><div class="business-actions"><button class="btn" @disabled($ready->isEmpty())>Schedule offer</button></div></form></section>
@@ -23,7 +23,7 @@
 @php $state=!$offer->active||now()->gte($offer->ends_at)?'Ended':(now()->lt($offer->starts_at)?'Scheduled':($offer->type==='flash'&&$offer->used>=$offer->quantity?'Sold out':'Live'));$photos=json_decode($offer->images??'[]',true);$photo=is_array($photos)?($photos[0]??null):null; @endphp
 <article class="business-panel promotion-record"><div class="business-product">
 @if($photo)
-<img src="{{\App\Services\Support::imageUrl($photo)}}" alt="{{$offer->product_name}}" loading="lazy">
+<img src="{{\App\Services\Support::productImageUrl($photo)}}" alt="{{$offer->product_name}}" loading="lazy">
 @endif
 <div><small class="business-eyebrow">{{$offer->type==='flash'?'FLASH SALE':'SALE'}}</small><h3>{{$offer->product_name??'Unavailable product'}}</h3><p>₱{{number_format($offer->price,2)}} per unit</p></div><span class="business-status {{strtolower($state)==='live'?'live':($state==='Scheduled'?'scheduled':'ended')}}">{{$state}}</span></div><p class="promotion-schedule">{{\Illuminate\Support\Carbon::parse($offer->starts_at)->format('M j, Y g:i A')}} → {{\Illuminate\Support\Carbon::parse($offer->ends_at)->format('M j, Y g:i A')}}</p>
 @if($offer->type==='flash')

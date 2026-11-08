@@ -1,7 +1,7 @@
 name: lokashop_buyer
 description: LokaShop buyer app — browse, cart, checkout and track orders.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.9.0 <4.0.0'
@@ -32,3 +32,4 @@ flutter:
     - assets/places.json
     - assets/images/buyer-shopping-banner.png
     - assets/images/buyer-sage-background.png
+    - assets/images/buyer-auth-mint-background.png

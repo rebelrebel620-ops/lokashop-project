@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
-import 'screens/workspace_screen.dart';
+import 'screens/center/center_shell.dart';
 import 'session.dart';
 import 'theme.dart';
 
@@ -38,8 +38,11 @@ class LokaShopRiderApp extends StatelessWidget {
           }
           return session.loggedIn
               ? (session.rider?.isCenter == true
-                  ? WorkspaceScreen(key: ValueKey(session.rider!.id), session: session, title: 'Sorting center')
-                  : HomeShell(session: session))
+                    ? CenterShell(
+                        key: ValueKey(session.rider!.id),
+                        session: session,
+                      )
+                    : HomeShell(session: session))
               : LoginScreen(session: session);
         },
       ),

@@ -62,6 +62,7 @@ Route::post('/register/courier',[\App\Http\Controllers\PublicCourierController::
 Route::get('/media/{path}',function(string $path){
  abort_unless(preg_match('~^(uploads|stores|profiles|variants)/[A-Za-z0-9_./-]+\.(jpg|jpeg|png)$~i',$path)&&!str_contains($path,'..'),404);
  $disk=\Illuminate\Support\Facades\Storage::disk('public');$file=$disk->exists($path)?$disk->path($path):public_path('storage/'.$path);abort_unless(is_file($file),404);
+ if(str_starts_with($path,'profiles/'))$file=\App\Services\LogisticsImages::optimized($file,400);
  return response()->file($file,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'public, max-age=3600']);
 })->where('path','.*');
 

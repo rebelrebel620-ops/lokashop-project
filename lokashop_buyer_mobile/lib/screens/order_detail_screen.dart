@@ -1,7 +1,10 @@
+import '../widgets/auto_refresh.dart';
+import '../widgets/photo_viewer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
+import '../services/contracts.dart';
 import '../widgets/design.dart';
 import '../widgets/common.dart';
 import '../theme.dart';
@@ -15,7 +18,12 @@ class OrderDetailScreen extends StatefulWidget {
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
-class _OrderDetailScreenState extends State<OrderDetailScreen> {
+class _OrderDetailScreenState extends State<OrderDetailScreen>
+    with AutoRefresh<OrderDetailScreen> {
+  @override
+  bool get autoRefreshEnabled => !loading && !busy;
+  @override
+  Future<void> refreshAutomatically() => load();
   Map? data;
   bool loading = true, busy = false;
   String? error;
@@ -25,17 +33,31 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     load();
   }
 
+  bool fetching = false;
   Future<void> load() async {
-    if (mounted) setState(() => error = null);
+    if (fetching) {
+      return;
+    }
+    fetching = true;
+    if (mounted) {
+      setState(() => error = null);
+    }
     try {
       final r = await context.read<AppState>().api.get(
         '/orders/${widget.orderId}',
       );
-      if (mounted) setState(() => data = Map.from(r));
+      if (mounted) {
+        setState(() => data = Map.from(r));
+      }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(() => error = '$e');
+      }
     } finally {
-      if (mounted) setState(() => loading = false);
+      fetching = false;
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -44,19 +66,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       await context.read<AppState>().api.post(path, fields);
       await load();
-      if (mounted) AppSnack.show(context, 'Order updated.');
+      if (mounted) {
+        AppSnack.show(context, 'Order updated.');
+      }
     } catch (e) {
-      if (mounted) AppSnack.show(context, '$e', error: true);
+      if (mounted) {
+        AppSnack.show(context, '$e', error: true);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
-  Widget _totalRow(String label, dynamic value, {bool discount = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(children: [Expanded(child: Text(label, style: const TextStyle(color: AppColors.muted))),
-      Text('${discount ? '−' : ''}${money(value)}', style: const TextStyle(fontWeight: FontWeight.w700))]),
-  );
+  Widget _totalRow(String label, dynamic value, {bool discount = false}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(color: AppColors.muted),
+              ),
+            ),
+            Text(
+              '${discount ? '−' : ''}${money(value)}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -163,76 +204,121 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               const SectionHeading('Delivery journey'),
               SheetCard(
                 child: Column(
-                  children: (List.from(data!['timeline'] ?? data!['history'] ?? []))
-                      .map(
-                        (h) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.check_circle_outline,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${h['title'] ?? h['to_status']}'.replaceAll('_', ' '),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${h['at'] ?? h['created_at']}',
-                                      style: const TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                    if (h['reason'] != null)
-                                      Text(
-                                        '${h['reason']}',
-                                        style: const TextStyle(
-                                          color: AppColors.danger,
-                                          fontSize: 12,
+                  children:
+                      (List.from(data!['timeline'] ?? data!['history'] ?? []))
+                          .map(
+                            (h) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${h['title'] ?? h['to_status']}'
+                                              .replaceAll('_', ' '),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
-                                      ),
-                                  ],
-                                ),
+                                        Text(
+                                          '${h['at'] ?? h['created_at']}',
+                                          style: const TextStyle(
+                                            color: AppColors.muted,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        if (h['reason'] != null)
+                                          Text(
+                                            '${h['reason']}',
+                                            style: const TextStyle(
+                                              color: AppColors.danger,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
+                            ),
+                          )
+                          .toList(),
                 ),
               ),
               if (status == 'OUT_FOR_DELIVERY')
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: SheetCard(
                     child: Text(
-                      'Your rider is on the way. Prepare the cash-on-delivery amount. After delivery, tap Order received to complete your order.',
+                      data!['payment']?['method'] == 'wallet'
+                          ? 'Your order is paid using Wallet. No cash collection is needed. Check the parcel before confirming receipt.'
+                          : 'Your rider is on the way. Prepare the cash-on-delivery amount. After delivery, tap Order received to complete your order.',
                     ),
                   ),
                 ),
               if (o['proof_url'] != null) ...[
                 const SectionHeading('Proof of delivery'),
                 SheetCard(
-                  child: AppPhoto(
-                    '${o['proof_url']}',
-                    height: 280,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    private: true,
+                  child: Column(
+                    children: [
+                      AppPhoto(
+                        '${o['proof_url']}',
+                        height: 280,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                        private: true,
+                        imageSize: 1200,
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          final raw = '${o['proof_url']}';
+                          final uri = Uri.parse(mediaUrl(raw));
+                          final original = uri
+                              .replace(
+                                queryParameters: {
+                                  ...uri.queryParameters,
+                                  'original': '1',
+                                },
+                              )
+                              .toString();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PhotoViewer(
+                                url: original,
+                                headers: context
+                                    .read<AppState>()
+                                    .api
+                                    .imageHeaders(original),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.zoom_in),
+                        label: const Text('View original photo'),
+                      ),
+                    ],
                   ),
                 ),
               ],
+              if (status == 'DELIVERED')
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Confirm Order received after checking your parcel. Eligible orders complete automatically seven days after delivery if there is no active return or dispute. Seller funds are released after completion.',
+                  ),
+                ),
               const SectionHeading('Delivery & payment'),
               SheetCard(
                 child: Column(
@@ -244,15 +330,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       ),
                     const Divider(height: 28),
                     Text(
-                      'Cash on delivery · ${data!['payment']?['status'] ?? ''}',
+                      '${data!['payment']?['method'] == 'wallet' ? 'LokaShop Wallet' : 'Cash on delivery'} · ${data!['payment']?['status'] ?? ''}',
                       style: const TextStyle(color: AppColors.muted),
                     ),
                     const SizedBox(height: 16),
                     _totalRow('Items subtotal', o['merchandise_total']),
                     _totalRow('Shipping cost', o['shipping_fee']),
-                    _totalRow('Store discount', o['store_discount'], discount: true),
-                    if ((double.tryParse('${o['platform_discount']}') ?? 0) > 0) _totalRow('Platform discount', o['platform_discount'], discount: true),
-                    if ((double.tryParse('${o['shipping_discount']}') ?? 0) > 0) _totalRow('Shipping discount', o['shipping_discount'], discount: true),
+                    if ((double.tryParse('${o['cod_rounding_adjustment']}') ??
+                            0) !=
+                        0)
+                      _totalRow('COD rounding', o['cod_rounding_adjustment']),
+                    _totalRow(
+                      'Store discount',
+                      o['store_discount'],
+                      discount: true,
+                    ),
+                    if ((double.tryParse('${o['platform_discount']}') ?? 0) > 0)
+                      _totalRow(
+                        'Platform discount',
+                        o['platform_discount'],
+                        discount: true,
+                      ),
+                    if ((double.tryParse('${o['shipping_discount']}') ?? 0) > 0)
+                      _totalRow(
+                        'Shipping discount',
+                        o['shipping_discount'],
+                        discount: true,
+                      ),
                     const Divider(height: 24),
                     Text(
                       'Total ${money(o['total'])}',

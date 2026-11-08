@@ -31,16 +31,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final d = await widget.session.api.upload(
         '/api/mobile/profile',
         {'name': name.text.trim(), 'phone': widget.session.rider?.phone ?? ''},
-        {if (photo != null) 'profile_photo': photo!},
+        {'profile_photo': ?photo},
       );
       widget.session.updateRider(
         Rider.fromJson(Map<String, dynamic>.from(d['rider'])),
       );
-      if (mounted) setState(() => message = 'Profile saved.');
+      if (mounted) {
+        setState(() => message = 'Profile saved.');
+      }
     } catch (e) {
-      if (mounted) setState(() => message = '$e');
+      if (mounted) {
+        setState(() => message = '$e');
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -56,7 +62,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await save();
       }
     } catch (e) {
-      if (mounted) setState(() => message = '$e');
+      if (mounted) {
+        setState(() => message = '$e');
+      }
     }
   }
 
@@ -68,7 +76,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             AccountSecurityScreen(session: widget.session, kind: kind),
       ),
     );
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -205,7 +215,9 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
   }
 
   Future<void> submit() async {
-    if (!form.currentState!.validate()) return;
+    if (!form.currentState!.validate()) {
+      return;
+    }
     setState(() => busy = true);
     try {
       final api = widget.session.api;
@@ -215,7 +227,9 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
           'password': value.text,
           'password_confirmation': confirm.text,
         });
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Password changed. Log in with your new password.'),
@@ -250,9 +264,13 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => message = '$e');
+      if (mounted) {
+        setState(() => message = '$e');
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 

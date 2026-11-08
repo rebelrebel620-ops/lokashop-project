@@ -50,6 +50,39 @@ void main() {
         keys.every((k) => RegExp(r'^[a-f0-9]{48}$').hasMatch(k)),
     'Checkout request keys are unique and server compatible',
   );
+  check(
+    Uri.parse(displayPhotoUrl('uploads/example.jpg')).queryParameters['size'] ==
+        '400',
+    'Product cards request compressed 400px copies',
+  );
+  check(
+    Uri.parse(
+          displayPhotoUrl('variants/example.png', size: 1200),
+        ).queryParameters['size'] ==
+        '1200',
+    'Product details request compressed 1200px copies',
+  );
+  check(
+    displayPhotoUrl('/api/orders/7/proof?original=1') ==
+        mediaUrl('/api/orders/7/proof?original=1'),
+    'Private original proof URLs keep their access route and query',
+  );
+  check(
+    displayPhotoUrl('https://images.example.test/photo.png') ==
+        'https://images.example.test/photo.png',
+    'External images are not sent unsupported resize parameters',
+  );
+  check(
+    displayPhotoUrl('').isEmpty,
+    'Empty image paths cannot cause an origin parsing exception',
+  );
+  check(
+    Uri.parse(
+          displayPhotoUrl('/media/uploads/example.jpg?v=2'),
+        ).queryParameters['v'] ==
+        '2',
+    'Image query parameters survive resize selection',
+  );
   // ignore: avoid_print
-  print('PASS: 8 native contract checks.');
+  print('PASS: 14 native contract checks.');
 }

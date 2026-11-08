@@ -44,3 +44,25 @@ double cartUnit(Map row) {
       discount = double.tryParse('${row['discount_percent']}') ?? 0;
   return (price + adjustment) * (1 - discount / 100);
 }
+
+/// Only same-server public product images support the resize query.
+/// Preserve private proof URLs and third-party image URLs exactly.
+String displayPhotoUrl(String? raw, {int size = 400}) {
+  final resolved = mediaUrl(raw);
+  final uri = Uri.tryParse(resolved), origin = Uri.parse(apiBaseUrl);
+  if (uri != null &&
+      uri.hasScheme &&
+      ['http', 'https'].contains(uri.scheme) &&
+      uri.origin == origin.origin &&
+      RegExp(r'/media/(uploads|variants)/').hasMatch(uri.path)) {
+    return uri
+        .replace(
+          queryParameters: {
+            ...uri.queryParameters,
+            'size': '${size == 1200 ? 1200 : 400}',
+          },
+        )
+        .toString();
+  }
+  return resolved;
+}

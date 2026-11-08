@@ -20,7 +20,7 @@
 @if($payment)<p class="order-payment">{{strtoupper($payment->method)}} · {{ucfirst(str_replace('_',' ',$payment->status))}}</p>@endif
 @if($address)<h3>Delivery address</h3><p class="order-address">{{$address->recipient ?? $buyer->name ?? 'Buyer'}}<br>{{$address->phone ?? ''}}<br>{{$address->street ?? ''}}, {{$address->barangay ?? ''}}, {{$address->city ?? ''}}, {{$address->province ?? ''}} {{$address->postal_code ?? ''}}</p>@endif
 </section>
-@if(in_array($order->status,['DELIVERED','COMPLETED'])&&$parcel->proof_path)<section class="purchase-card"><h2>Proof of delivery</h2><p>The rider's photo covers this order and the items listed above.</p><a href="/orders/{{$order->id}}/proof" target="_blank" rel="noopener"><img class="tracking-proof" src="/orders/{{$order->id}}/proof" alt="Delivery proof for order {{$order->id}}" loading="lazy">Open delivery photo</a></section>@endif
+@if(in_array($order->status,['DELIVERED','COMPLETED'])&&$parcel->proof_path)<section class="purchase-card"><h2>Proof of delivery</h2><p>The rider's photo covers this order and the items listed above.</p><a href="/orders/{{$order->id}}/proof?original=1" target="_blank" rel="noopener"><img class="tracking-proof" src="/orders/{{$order->id}}/proof" alt="Delivery proof for order {{$order->id}}" loading="lazy">Open delivery photo</a></section>@endif
 @if(auth()->id()==$order->buyer_id && $order->status==='DELIVERED')<section class="purchase-card"><h2>Received your items?</h2><p>Check the items before confirming receipt.</p><form method="post" action="/orders/{{$order->id}}/confirm">@csrf<button class="btn">Order received</button></form><p><a href="/tools/returns">Report a problem / Returns</a></p></section>@endif
 </aside>
 </div>

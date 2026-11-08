@@ -84,8 +84,13 @@ Route::middleware(['auth','role:admin'])->group(function(){Route::get('/admin/ap
 // Uploaded images: restricted to image directories and safe raster formats.
 Route::get('/media/{path}',function(string $path){
  abort_unless(preg_match('~^(uploads|stores|profiles|variants)/[A-Za-z0-9_./-]+\.(jpg|jpeg|png)$~i',$path)&&!str_contains($path,'..'),404);
- $disk=\Illuminate\Support\Facades\Storage::disk('public');$file=$disk->exists($path)?$disk->path($path):public_path('storage/'.$path);abort_unless(is_file($file),404);
- return response()->file($file,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'public, max-age=3600']);
+ $file=\App\Services\ProductImages::source($path);abort_unless($file,404);
+ $size=request()->query('size');
+ if($size!==null){abort_unless(is_string($size)&&in_array($size,['400','1200'],true),404);$file=\App\Services\ProductImages::optimized($file,(int)$size);}
+ $response=response()->file($file,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'public, max-age=3600']);
+ $response->setLastModified((new \DateTimeImmutable())->setTimestamp(filemtime($file)));
+ $response->isNotModified(request());
+ return $response;
 })->where('path','.*');
 
 

@@ -30,6 +30,9 @@ class Support {
   $files=$r->file($field,[]);if(count($files)<$min)self::fail($field,"Upload at least {$min} image(s).");
   return array_map(fn($f)=>$f->store('uploads',$disk),$files);
  }
+ public static function productImageUrl(?string $path,int $size=400): ?string {
+  return $path ? self::imageUrl($path).'?size='.(in_array($size,ProductImages::SIZES,true)?$size:400) : null;
+ }
  public static function imageUrl(?string $path): ?string{return $path?url('/media/'.$path):null;}
  public static function money($n): float{return round((float)$n,2,PHP_ROUND_HALF_UP);}
  public static function ownsOrder(int $id){$o=DB::table('orders')->find($id);abort_unless($o,404);$u=auth()->user();abort_unless($o->buyer_id==$u->id||$o->seller_id==$u->id||$u->role==='admin',403);return $o;}
