@@ -20,8 +20,14 @@ class CenterApi extends ApiClient {
       'title': path.endsWith('overview')
           ? 'My native center'
           : 'Native section',
-      'records': [],
-      'actions': [],
+      'records': path.endsWith('overview') ? [
+        {'title': 'Recent parcel', 'facts': [], 'actions': [
+          {'label': 'Open parcel operations', 'module': 'pickups'},
+        ]},
+      ] : [],
+      'actions': path.endsWith('overview') ? [
+        {'label': 'Go to pickups', 'module': 'pickups'},
+      ] : [],
       'current_page': 1,
       'last_page': 1,
       'metrics': [
@@ -42,26 +48,50 @@ class CenterApi extends ApiClient {
 }
 
 void main() {
-  testWidgets('center navigation uses native screens without a WebView', (
+  testWidgets('center shows only requested grouped navigation and a read-only overview', (
     tester,
   ) async {
     final api = CenterApi();
-    // Use the injected client directly; no real server or account is contacted.
     final s = Session(apiClient: api);
     await tester.pumpWidget(MaterialApp(home: CenterShell(session: s)));
     await tester.pumpAndSettle();
     expect(find.text('My native center'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Recent parcel'), 400);
+    expect(find.text('Recent parcel'), findsOneWidget);
+    expect(find.text('Go to pickups'), findsNothing);
+    expect(find.text('Open parcel operations'), findsNothing);
+    expect(find.byType(NavigationBar), findsNothing);
     expect(find.byType(WebViewWidget), findsNothing);
-    await tester.tap(find.text('Pickups'));
+
+    Future<void> openMenu() async {
+      tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
+      await tester.pumpAndSettle();
+    }
+
+    await openMenu();
+    expect(find.text('Pickups'), findsNothing);
+    expect(find.text('Transfers'), findsNothing);
+    expect(find.text('Deliveries'), findsNothing);
+    expect(find.text('More'), findsNothing);
+    await tester.tap(find.text('Finance & Reports'));
     await tester.pumpAndSettle();
-    expect(api.calls.last, '/api/center/pickups');
-    await tester.tap(find.text('Transfers'));
+    for (final label in ['Wallet', 'Financial report',
+      'COD Collections & Remittances', 'Filtered report']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    await tester.tap(find.text('Financial report'));
     await tester.pumpAndSettle();
-    expect(api.calls.last, '/api/center/transfers');
-    await tester.tap(find.text('More'));
+    expect(api.calls.last, '/api/center/finance');
+    await openMenu();
+    await tester.tap(find.text('Filtered report'));
     await tester.pumpAndSettle();
-    expect(find.text('Service areas'), findsOneWidget);
-    expect(find.byType(WebViewWidget), findsNothing);
+    expect(api.calls.last, '/api/center/reports');
+    await openMenu();
+    await tester.tap(find.text('Overview'));
+    await tester.pumpAndSettle();
+    expect(api.calls.last, '/api/center/overview');
+    expect(find.text('Go to pickups'), findsNothing);
+    expect(find.text('Open parcel operations'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     s.dispose();
   });

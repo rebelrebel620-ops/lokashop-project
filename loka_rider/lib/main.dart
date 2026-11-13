@@ -5,6 +5,8 @@ import 'screens/login_screen.dart';
 import 'screens/center/center_shell.dart';
 import 'session.dart';
 import 'theme.dart';
+import 'widgets/logistics_background.dart';
+import 'screens/startup_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -28,13 +30,29 @@ class LokaShopRiderApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: courierTheme(),
+      builder: (context, child) => ListenableBuilder(
+        listenable: session,
+        builder: (context, _) {
+          final theme = Theme.of(context);
+          final user = session.rider;
+          final asset = LogisticsBackground.forUser(user);
+          return LogisticsBackground(
+            asset: asset,
+            child: Theme(
+              data: theme.copyWith(
+                scaffoldBackgroundColor: user == null
+                    ? theme.scaffoldBackgroundColor : Colors.transparent,
+              ),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        },
+      ),
       home: ListenableBuilder(
         listenable: session,
         builder: (context, _) {
           if (!session.ready) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+            return const StartupScreen();
           }
           return session.loggedIn
               ? (session.rider?.isCenter == true

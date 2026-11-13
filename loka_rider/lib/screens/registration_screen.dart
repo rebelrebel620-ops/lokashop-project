@@ -4,12 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../session.dart';
 import '../widgets/place_fields.dart';
+import '../widgets/logistics_background.dart';
 
 class SignUpScreen extends StatelessWidget {
   final Session session;
   const SignUpScreen({super.key, required this.session});
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => RegistrationScaffold(
     appBar: AppBar(title: const Text('Sign up')),
     body: ListView(
       padding: const EdgeInsets.all(22),
@@ -355,7 +356,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       }
     },
-    child: Scaffold(
+    child: RegistrationScaffold(
       appBar: AppBar(
         title: Text(
           token != null

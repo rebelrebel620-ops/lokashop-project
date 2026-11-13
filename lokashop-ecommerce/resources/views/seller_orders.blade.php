@@ -38,7 +38,7 @@
 @endif</div>
 @endif
 <footer class="seller-order-actions">
-<a class="btn alt" href="/seller/orders/{{$o->id}}/label" target="_blank" rel="noopener">Print label</a>
+<a class="btn alt" href="/seller/orders/{{$o->id}}/label" target="_blank" rel="noopener">{{ $tab === 'pending' ? 'Print label' : 'View label' }}</a>
 @if($next && ($next[0]!=='READY_FOR_PICKUP'||($pickup&&in_array($pickup->status,['offered','accepted']))))
 <form method="post" action="/seller/orders/{{$o->id}}/status">@csrf<input type="hidden" name="status" value="{{$next[0]}}"><button class="btn">{{$next[1]}}</button></form>
 @endif

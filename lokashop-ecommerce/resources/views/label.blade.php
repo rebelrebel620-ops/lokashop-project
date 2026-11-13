@@ -1,14 +1,23 @@
+@php $labelViewOnly = $order->status !== 'PLACED'; @endphp
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LokaShop shipping label · {{$parcel->tracking_code}}</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:28px;background:#edf2ee;font:12px Arial,sans-serif;color:#15281c}.print-toolbar{max-width:420px;margin:0 auto 16px;display:flex;justify-content:space-between;align-items:center;gap:12px}.print-toolbar p{font-size:12px;color:#506557}.print-toolbar button{background:#0b6639;color:#fff;border:0;border-radius:8px;padding:12px 20px;font-weight:bold;cursor:pointer}.label{width:100mm;min-height:150mm;background:white;margin:auto;border:1.5px solid #163d29;overflow-wrap:anywhere}.brand-row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:2px solid #183d29}.brand{display:flex;align-items:center;gap:9px}.brand img{width:38px;height:38px;object-fit:contain}.brand strong{font-size:22px;color:#0b6639}.brand small{display:block;font-size:9px;letter-spacing:.1em;margin-top:3px}.service{text-align:right;font-size:10px;font-weight:bold}.service span{display:block;border:1px solid #183d29;padding:5px 8px;margin-bottom:4px}.tracking{text-align:center;padding:12px 10px 10px;border-bottom:1px solid #183d29}.tracking small{font-size:9px;letter-spacing:.12em}.tracking h1{font-size:20px;margin:7px 0 5px;letter-spacing:.04em}.tracking p{margin:0;font-size:10px}.address-block{display:grid;grid-template-columns:40px 1fr;border-bottom:1px solid #183d29}.address-tag{background:#f1f6f2;border-right:1px solid #183d29;padding:12px 7px;font-size:10px;font-weight:bold;text-align:center}.address-copy{padding:11px 12px;line-height:1.55}.address-copy strong{font-size:14px}.address-copy p{margin:4px 0 0}.destination{font-size:15px;font-weight:bold;margin-top:6px!important}.sender .address-copy{font-size:10px}.sender .address-copy strong{font-size:12px}.shipping-meta{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #183d29}.shipping-meta>div{padding:10px 12px}.shipping-meta>div+div{border-left:1px solid #183d29}.shipping-meta small{display:block;font-size:9px;color:#455b4a;margin-bottom:5px}.shipping-meta strong{font-size:17px}.scan-section{display:flex;align-items:center;gap:15px;padding:12px;border-bottom:1px solid #183d29}#qr{width:112px;height:112px;flex-shrink:0;background:#fff}#qr img,#qr canvas{width:112px!important;height:112px!important}.scan-copy{font-size:10px;line-height:1.6}.scan-copy strong{font-size:13px;display:block}.items{padding:10px 12px;font-size:10px;line-height:1.6}.items p{margin:3px 0}.label-footer{border-top:1px dashed #7a8d7e;padding:8px 12px;text-align:center;font-size:9px;color:#455b4a}.qr-error{font-size:10px;color:#b32e2e}@page{size:100mm 150mm;margin:0}@media print{body{padding:0;background:white}.print-toolbar{display:none}.label{margin:0;width:100mm;min-height:150mm;border:1px solid #000;box-shadow:none}.address-tag{background:white}.brand strong{color:black}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}@media screen and (max-width:440px){body{padding:12px}.label{width:100%}}
+@if($labelViewOnly)
+@page{size:auto;margin:20mm}
+@media print{body>*{display:none!important}body::before{content:"This shipping label is view only. Printing is unavailable for this order.";display:block;font:16px Arial,sans-serif;color:#15281c}}
+@endif
 </style></head><body>
 @php
 $store=\Illuminate\Support\Facades\DB::table('seller_businesses')->where('user_id',$order->seller_id)->first();
 $sender=\Illuminate\Support\Facades\DB::table('addresses')->where('user_id',$order->seller_id)->orderByDesc('is_default')->orderByDesc('id')->first();
 $labelItems=\Illuminate\Support\Facades\DB::table('order_items')->where('order_id',$order->id)->get();
 @endphp
+@if($labelViewOnly)
+<div class="print-toolbar"><p><strong>Shipping label · View only</strong></p></div>
+@else
 <div class="print-toolbar"><p>Shipping label · 100 × 150 mm<br>Select Actual size / 100% when printing.</p><button type="button" onclick="window.print()">Print label</button></div>
+@endif
 <main class="label">
 <header class="brand-row"><div class="brand"><img src="{{asset('logo.jpg')}}" alt=""><div><strong>LokaShop</strong><small>PARCEL DELIVERY</small></div></div><div class="service"><span>CASH ON DELIVERY</span>Order #{{$order->id}}</div></header>
 <section class="tracking"><small>TRACKING NUMBER</small><h1>{{$parcel->tracking_code}}</h1><p>Parcel #{{$parcel->id}}</p></section>
@@ -21,5 +30,5 @@ $labelItems=\Illuminate\Support\Facades\DB::table('order_items')->where('order_i
 </main>
 <script src="{{asset('js/vendor/qrcode.min.js')}}"></script>
 <script>
-if(typeof QRCode==='function')new QRCode(document.getElementById('qr'),{text:@json($trackUrl),width:112,height:112,correctLevel:QRCode.CorrectLevel.M});else{document.getElementById('qr-status').textContent='QR unavailable. Reload before printing, or use the tracking number.';document.getElementById('qr-status').className='qr-error';}
+if(typeof QRCode==='function')new QRCode(document.getElementById('qr'),{text:@json($trackUrl),width:112,height:112,correctLevel:QRCode.CorrectLevel.M});else{document.getElementById('qr-status').textContent=@json($labelViewOnly ? 'QR unavailable. Reload to view the QR code, or use the tracking number.' : 'QR unavailable. Reload before printing, or use the tracking number.');document.getElementById('qr-status').className='qr-error';}
 </script></body></html>

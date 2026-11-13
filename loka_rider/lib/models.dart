@@ -80,6 +80,11 @@ class RiderStats {
     this.totalEarnings = 0,
   });
 
+  /// The center endpoint uses [] for absent stats; rider responses use objects.
+  factory RiderStats.fromApiStats(dynamic raw) => RiderStats.fromJson(
+    raw is Map ? Map<String, dynamic>.from(raw) : const <String, dynamic>{},
+  );
+
   factory RiderStats.fromJson(Map<String, dynamic> j) => RiderStats(
     pickupsAssigned: _i(j['pickups_assigned']),
     deliveriesInProgress: _i(j['deliveries_in_progress']),

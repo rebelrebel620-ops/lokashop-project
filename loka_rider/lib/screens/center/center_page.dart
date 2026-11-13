@@ -6,15 +6,19 @@ import '../../widgets/auto_refresh.dart';
 import '../../widgets/common.dart';
 import 'center_contracts.dart';
 import 'center_form.dart';
+import 'center_overview_content.dart';
+import 'center_finance_widgets.dart';
 
 class CenterPage extends StatefulWidget {
   final Session session;
   final String module;
+  final Widget? navigationDrawer;
   final Map<String, String> initialQuery;
   const CenterPage({
     super.key,
     required this.session,
     required this.module,
+    this.navigationDrawer,
     this.initialQuery = const {},
   });
   @override
@@ -91,6 +95,7 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
   }
 
   Future<void> action(Map a) async {
+    if (widget.module == 'overview') return;
     if (a['download'] != null) {
       await download('${a['download']}');
       return;
@@ -119,7 +124,11 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
     }
   }
 
-  Widget card(Map row) => Card(
+  bool get financeDesign => ['finance', 'cod', 'reports'].contains(widget.module);
+
+  Widget card(Map row) => financeDesign
+      ? CenterRecordCard(row: row, onAction: action)
+      : Card(
     margin: const EdgeInsets.symmetric(vertical: 8),
     child: Padding(
       padding: const EdgeInsets.all(18),
@@ -140,7 +149,8 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Text('${f['label']}: ${f['value']}'),
             ),
-          if ((row['actions'] as List? ?? []).isNotEmpty)
+          if (widget.module != 'overview' &&
+              (row['actions'] as List? ?? []).isNotEmpty)
             Wrap(
               spacing: 8,
               children: [
@@ -299,16 +309,27 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
       'finance',
     ].contains(widget.module);
     return Scaffold(
+      drawer: widget.navigationDrawer,
       appBar: AppBar(
-        title: Text('${data?['title'] ?? 'Sorting center'}'),
+        title: widget.module == 'overview'
+            ? const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('LokaShop', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  Text('Sorting Center', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400)),
+                ],
+              )
+            : financeDesign
+                ? const Text('Finance & Reports', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700))
+                : Text('${data?['title'] ?? 'Sorting center'}'),
         actions: [
-          if (['overview', 'reports', 'finance'].contains(widget.module))
+          if (!financeDesign && ['reports', 'finance'].contains(widget.module))
             IconButton(
               onPressed: filters,
               icon: const Icon(Icons.filter_alt_outlined),
               tooltip: 'Filter report',
             ),
-          if (data?['export'] != null)
+          if (!financeDesign && widget.module != 'overview' && data?['export'] != null)
             IconButton(
               onPressed: () => download('${data!['export']}'),
               icon: const Icon(Icons.picture_as_pdf_outlined),
@@ -339,6 +360,20 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                         ),
                       ),
                     ),
+                  if (financeDesign) ...[
+                    CenterSectionHeader(
+                      title: {'finance': 'Financial report', 'cod': 'COD Collections & Remittances', 'reports': 'Filtered report'}[widget.module]!,
+                      subtitle: {'finance': 'Your balance, costs and payment activity.', 'cod': 'Review cash collections and remittance records.', 'reports': 'Search and filter your center’s operational records.'}[widget.module]!,
+                    ),
+                    if (widget.module != 'cod') Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Wrap(spacing: 10, runSpacing: 8, children: [
+                        OutlinedButton.icon(onPressed: loading ? null : filters, icon: const Icon(Icons.filter_alt_outlined, size: 18), label: const Text('Filters')),
+                        if (data?['export'] != null)
+                          OutlinedButton.icon(onPressed: () => download('${data!['export']}'), icon: const Icon(Icons.picture_as_pdf_outlined, size: 18), label: const Text('Save PDF')),
+                      ]),
+                    ),
+                  ],
                   if (data?['notice'] != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -348,6 +383,9 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                     TextField(
                       controller: search,
                       decoration: InputDecoration(
+                        filled: financeDesign ? true : null,
+                        fillColor: financeDesign ? Colors.white : null,
+                        prefixIcon: financeDesign ? const Icon(Icons.search, size: 20) : null,
                         labelText: widget.module == 'couriers'
                             ? 'Search name or email'
                             : 'Search records',
@@ -366,7 +404,7 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                         load();
                       },
                     ),
-                  if (tabs.isNotEmpty)
+                  if (widget.module != 'overview' && tabs.isNotEmpty)
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -391,7 +429,12 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                         ],
                       ),
                     ),
-                  if (data?['metrics'] != null)
+                  if (widget.module == 'overview' && data != null)
+                    CenterOverviewContent(data: data!),
+                  if (financeDesign) const SizedBox(height: 18),
+                  if (widget.module == 'finance' && data?['metrics'] != null)
+                    CenterFinanceSummary(metrics: data!['metrics'] as List),
+                  if (!financeDesign && widget.module != 'overview' && data?['metrics'] != null)
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -420,7 +463,9 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                           ),
                       ],
                     ),
-                  for (final a in data?['actions'] as List? ?? [])
+                  for (final a in (widget.module == 'overview'
+                      ? const []
+                      : data?['actions'] as List? ?? []))
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: FilledButton(
@@ -428,15 +473,35 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                         child: Text('${a['label']}'),
                       ),
                     ),
-                  if (data != null && (data!['records'] as List? ?? []).isEmpty)
+                  if (financeDesign && data != null && error == null && (data!['records'] as List? ?? []).isEmpty)
+                    CenterEmptyState(
+                      title: widget.module == 'cod' ? 'No remittances yet' : 'No matching records',
+                      message: widget.module == 'cod'
+                          ? 'Remittance records will appear here when they are available. Pull down to refresh.'
+                          : 'Try another search or adjust your date filters. Pull down to refresh.',
+                      icon: widget.module == 'cod' ? Icons.payments_outlined : Icons.manage_search_outlined,
+                    ),
+                  if (financeDesign && (data?['records'] as List? ?? []).isNotEmpty)
+                    const Padding(padding: EdgeInsets.only(top: 8, bottom: 12), child: Text('Records', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: centerForest))),
+                  if (!financeDesign && widget.module != 'overview' && data != null && (data!['records'] as List? ?? []).isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
                       child: Text('No records in this section.'),
                     ),
+                  if (widget.module == 'overview' && (data?['records'] as List? ?? []).isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 24, bottom: 8),
+                      child: Text('Recent Parcels', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF123E32))),
+                    ),
                   for (final row in data?['records'] as List? ?? [])
                     card(Map.from(row)),
-                  if (data != null) pagination(data!),
-                  if (data?['secondary'] != null) ...[
+                  if (widget.module == 'overview' && data != null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text('Pull down to refresh', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF718278), fontStyle: FontStyle.italic)),
+                    ),
+                  if (widget.module != 'overview' && data != null && (!financeDesign || (int.tryParse('${data!['last_page']}') ?? 1) > 1)) pagination(data!),
+                  if (widget.module != 'overview' && data?['secondary'] != null) ...[
                     const Text(
                       'Individual transfers',
                       style: TextStyle(

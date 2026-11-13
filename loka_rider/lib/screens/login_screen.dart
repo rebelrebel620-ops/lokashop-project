@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../session.dart';
 import 'registration_screen.dart';
+import '../widgets/logistics_background.dart';
 
 class LoginScreen extends StatefulWidget {
   final Session session;
@@ -43,14 +44,10 @@ class _LoginScreenState extends State<LoginScreen> {
   );
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFE5EFE8), Color(0xFFF8FAF4)],
-        ),
-      ),
+    backgroundColor: Colors.transparent,
+    body: LogisticsBackground(
+      asset: LogisticsBackground.login,
+      veilOpacity: 0.64,
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -72,13 +69,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 54,
                           ),
                           const SizedBox(width: 12),
-                          const Text(
+                          const Expanded(child: Text(
                             'LokaShop Logistics',
                             style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 22,
                             ),
-                          ),
+                          )),
                         ],
                       ),
                       const SizedBox(height: 25),
@@ -86,6 +83,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.all(25),
                         decoration: BoxDecoration(
                           color: const Color(0xFF123E32),
+                          image: const DecorationImage(
+                            image: AssetImage(LogisticsBackground.loginBanner),
+                            fit: BoxFit.cover,
+                            alignment: Alignment.centerRight,
+                            colorFilter: ColorFilter.mode(Color(0x66123E32), BlendMode.srcOver),
+                          ),
                           borderRadius: BorderRadius.circular(26),
                         ),
                         child: const Column(

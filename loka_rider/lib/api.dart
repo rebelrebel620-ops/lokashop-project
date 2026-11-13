@@ -264,9 +264,7 @@ class ApiClient {
     final data = await _send('GET', '/api/mobile/me');
     return (
       rider: Rider.fromJson(data['rider'] as Map<String, dynamic>),
-      stats: RiderStats.fromJson(
-        (data['stats'] as Map?)?.cast<String, dynamic>() ?? {},
-      ),
+      stats: RiderStats.fromApiStats(data['stats']),
     );
   }
 
