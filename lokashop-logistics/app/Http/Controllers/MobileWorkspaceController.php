@@ -13,10 +13,7 @@ class MobileWorkspaceController extends Controller
 {
     public static function allowed($user): bool
     {
-        return $user && in_array($user->role, ['rider','sorting_center'], true)
-            && $user->approval_status === 'approved' && $user->active
-            && $user->account_status === 'active'
-            && (!$user->verification_required || $user->email_verified_at);
+        return \App\Services\MobileAccountPolicy::allowed($user);
     }
 
     private function user(Request $request): User

@@ -30,8 +30,8 @@ class RiderApiController extends Controller
         if (!$u || !Hash::check($v['password'], (string) $u->password)) {
             return response()->json(['message' => 'Incorrect login details.'], 422);
         }
-        if ($u->approval_status !== 'approved' || !$u->active || $u->account_status !== 'active') {
-            return response()->json(['message' => 'Account waiting for approval or inactive.'], 403);
+        if (!\App\Services\MobileAccountPolicy::allowed($u)) {
+            return response()->json(['message' => 'Use an approved, active account with completed email verification.'], 403);
         }
         if ($u->role !== 'rider') {
             return response()->json(['message' => 'This app is for riders only. Use the LokaShop website for your role.'], 403);

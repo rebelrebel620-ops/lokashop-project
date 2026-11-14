@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'login.throttle' => \App\Http\Middleware\LoginThrottle::class,
             'role' => \App\Http\Middleware\Role::class,
             'api.buyer' => \App\Http\Middleware\ApiBuyerAuth::class,
         ]);

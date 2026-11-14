@@ -3,7 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{CommonController as C,ShopController as S,SellerController as V,AdminController as A};
 Route::get('/',[S::class,'landing']);Route::get('/shop',[S::class,'home']);Route::get('/product/{id}',[S::class,'product']);
 Route::get('/track/{code}',[C::class,'track']);
-Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login']);Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register'])->middleware('throttle:5,1');
+Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login'])->middleware('login.throttle');Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register'])->middleware('throttle:5,1');
 Route::post('/logout',[C::class,'logout'])->middleware('auth');
 Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){Route::get('/dashboard',[C::class,'dashboard']);Route::get('/profile',[C::class,'profile']);Route::post('/profile',[C::class,'updateProfile']);Route::get('/messages',[C::class,'messages']);Route::post('/messages',[C::class,'sendMessage']);});
 Route::middleware(['auth','role:buyer'])->group(function(){Route::get('/cart',[S::class,'cart']);Route::post('/cart',[S::class,'add']);Route::post('/addresses',[S::class,'address']);Route::post('/checkout',[S::class,'checkout']);Route::get('/orders',[S::class,'orders']);Route::post('/orders/{id}/confirm',[S::class,'confirm']);Route::post('/orders/{id}/rating',[S::class,'rating']);});

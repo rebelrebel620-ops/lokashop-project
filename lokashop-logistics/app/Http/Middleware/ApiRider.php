@@ -13,7 +13,8 @@ class ApiRider
     {
         $user = ApiToken::user($request->bearerToken());
 
-        if (!$user || ($user->last_seen_at && now()->diffInMinutes($user->last_seen_at,true)>=30) || $user->role !== 'rider' || $user->approval_status !== 'approved' || (!$user->active||$user->account_status!=='active')) {
+        if (!\App\Services\MobileAccountPolicy::allowed($user) || $user->role !== 'rider'
+            || ($user->last_seen_at && now()->diffInMinutes($user->last_seen_at,true)>=30)) {
             return response()->json(['message' => 'Session expired. Please log in again.'], 401);
         }
 
