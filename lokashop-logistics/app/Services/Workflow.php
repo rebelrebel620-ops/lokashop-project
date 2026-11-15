@@ -13,6 +13,7 @@ class Workflow {
    $riderReturn=$p->status==='PICKED_UP'&&$to==='AT_SORTING_CENTER'&&$actor->role==='rider';
    if(!$riderReturn&&!$centerReadiness&&($map[$p->status][$to]??null)!==$actor->role)Support::fail('status','This status change is not allowed. Follow the order sequence.');
    if($actor->role==='rider' && request()->filled('scanned_code') && !hash_equals($p->tracking_code, \App\Services\ParcelCode::parse((string)request()->input('scanned_code'))))Support::fail('scanned_code','The scanned label does not match this parcel.');
+   if($actor->role==='seller'&&!empty($p->return_request_id)&&$to!=='RETURN_RECEIVED')Support::fail('status','The sorting center manages the approved return pickup.');
    if($actor->role==='seller')abort_unless($o->seller_id==$actorId,403);
    if($actor->role==='buyer')abort_unless($o->buyer_id==$actorId,403);
    if($actor->role==='sorting_center')abort_unless(DB::table('sorting_centers')->where('id',$centerId??$p->center_id)->where('user_id',$actorId)->exists()&&(!$p->center_id||$p->center_id==($centerId??$p->center_id)),403);
@@ -29,14 +30,15 @@ class Workflow {
    if($to==='DELIVERED'){
     $r=request();$r->validate(['scanned_code'=>'required|string|max:2000','proof'=>['required','file','mimes:jpg,jpeg,png','extensions:jpg,jpeg,png','max:5120'],'cod_amount'=>'nullable|numeric|min:0']);
     $pay=DB::table('payments')->where('order_id',$o->id)->orderByDesc('id')->lockForUpdate()->first();
-    if($pay&&$pay->method==='cod'){
+    if(empty($p->return_request_id)&&$pay&&$pay->method==='cod'){
      if(!$r->filled('cod_amount')||Support::money($r->cod_amount)!==Support::money($pay->amount))Support::fail('cod_amount','Enter the exact COD amount shown on this order.');
      DB::table('cod_collections')->insertOrIgnore(['parcel_id'=>$p->id,'rider_id'=>$actorId,'company_id'=>$actor->company_id,'amount'=>$pay->amount,'created_at'=>now(),'updated_at'=>now()]);
      DB::table('payments')->where('id',$pay->id)->update(['status'=>'paid','updated_at'=>now()]);
-    }elseif($pay&&$pay->status!=='paid')Support::fail('payment','Prepaid payment has not been confirmed.');
-    $extra['proof_path']=$r->file('proof')->store('delivery-proofs','local');\App\Services\LogisticsImages::optimized(\Illuminate\Support\Facades\Storage::disk('local')->path($extra['proof_path']),1200);$orderExtra['delivered_at']=now();
-    DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'completed','updated_at'=>now()]);WalletEarnings::delivery($assignment->id);
+    }elseif(empty($p->return_request_id)&&$pay&&$pay->status!=='paid')Support::fail('payment','Prepaid payment has not been confirmed.');
+    $proofKey=empty($p->return_request_id)?'proof_path':'return_proof_path';$extra[$proofKey]=$r->file('proof')->store('delivery-proofs','local');\App\Services\LogisticsImages::optimized(\Illuminate\Support\Facades\Storage::disk('local')->path($extra[$proofKey]),1200);if(empty($p->return_request_id))$orderExtra['delivered_at']=now();
+    DB::table('assignments')->where('id',$assignment->id)->update(['status'=>'completed','updated_at'=>now()]);if(empty($p->return_request_id))WalletEarnings::delivery($assignment->id);
    }
+   if($to==='DELIVERED'&&!empty($p->return_request_id))$to='RETURNED';
    if($to==='DELIVERY_FAILED'){
     if(!in_array($reason,['Buyer not home','Wrong address','Refused'],true))Support::fail('reason','Choose Buyer not home, Wrong address or Refused.');
     $extra['attempts']=$p->attempts+1;$extra['failure_reason']=$reason;
@@ -48,7 +50,7 @@ class Workflow {
     if(DB::table('return_requests')->where('order_id',$o->id)->whereIn('status',['requested','approved','disputed'])->exists())Support::fail('order','Resolve the active return request first.');
     $orderExtra['completed_at']=now();DB::table('orders')->where('id',$o->id)->update(['status'=>'COMPLETED','completed_at'=>$orderExtra['completed_at'],'updated_at'=>now()]);Wallet::release($o);
    }
-   if($to==='RETURN_RECEIVED'){Commerce::restore($o);Commerce::refund($o);}
+   if($to==='RETURN_RECEIVED'){Commerce::restore($o);Commerce::refund($o);if(!empty($p->return_request_id))DB::table('return_requests')->where('id',$p->return_request_id)->update(['status'=>'received','updated_at'=>now()]);}
    DB::table('parcels')->where('id',$p->id)->update($extra+['status'=>$to,'center_id'=>$centerId??$p->center_id,'delivery_area_id'=>$areaId??$p->delivery_area_id,'updated_at'=>now()]);
    DB::table('orders')->where('id',$o->id)->update($orderExtra+['status'=>$to,'updated_at'=>now()]);
    if($to==='DELIVERED'){ShippingDistribution::finalize($o->id);WalletAutomation::shippingCommission($o->id);}

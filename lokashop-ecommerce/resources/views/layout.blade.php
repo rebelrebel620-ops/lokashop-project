@@ -9,16 +9,16 @@
 <link rel="stylesheet" href="{{ asset('css/public-navigation.css') }}">
 <link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
+<link rel="stylesheet" href="{{asset('css/phone-header.css')}}">
+<script src="{{asset('js/phone-header.js')}}" defer></script>
+<link rel="stylesheet" href="{{asset('css/phone-density.css')}}">
 </head>
 <body class="@yield('body-class')">
 <div class="topribbon">&#128666; Free delivery on selected orders &middot; Shop local, live better.</div>
 <header class="site">
  <a class="brand" href="/"><img src="/logo.jpg" alt="LokaShop logo">LokaShop<small>Shop Local. Live Better.</small></a>
- <form class="hsearch" action="/shop" method="get">
-  <input name="q" placeholder="Search products, brands, or stores...">
-  <button>Search</button>
- </form>
- <nav class="hnav">
+ <button type="button" class="phone-nav-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="marketplace-header-nav"><span aria-hidden="true">☰</span> Menu</button>
+ <nav class="hnav" id="marketplace-header-nav" aria-label="Main navigation">
   <a href="/shop">Shop</a>
   @auth
    <a href="/dashboard">Dashboard</a>

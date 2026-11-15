@@ -267,7 +267,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                     ),
                   ),
                 ),
-              if (o['proof_url'] != null) ...[
+              if (data!['return_request'] == null && o['proof_url'] != null) ...[
                 const SectionHeading('Proof of delivery'),
                 SheetCard(
                   child: Column(
@@ -312,11 +312,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   ),
                 ),
               ],
-              if (status == 'DELIVERED')
+              if (status == 'DELIVERED' && data!['return_request'] == null)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    'Confirm Order received after checking your parcel. Eligible orders complete automatically seven days after delivery if there is no active return or dispute. Seller funds are released after completion.',
+                    'Confirm Order received after checking your parcel. Eligible orders complete automatically seven days after delivery if there is no active return or dispute. COD seller funds are released after completion and sorting-center confirmation of remittance.',
                   ),
                 ),
               const SectionHeading('Delivery & payment'),
@@ -369,7 +369,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                 ),
               ),
               const SizedBox(height: 20),
-              if (['PLACED', 'CONFIRMED', 'PREPARING'].contains(status))
+              if (data!['return_request'] == null && ['PLACED', 'CONFIRMED', 'PREPARING'].contains(status))
                 OutlinedButton(
                   onPressed: busy
                       ? null
@@ -388,7 +388,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                         },
                   child: const Text('Cancel order'),
                 ),
-              if (status == 'DELIVERED') ...[
+              if (status == 'DELIVERED' && data!['return_request'] == null) ...[
                 FilledButton(
                   onPressed: busy
                       ? null
@@ -408,24 +408,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
                   child: const Text('Order received'),
                 ),
                 const SizedBox(height: 10),
-                OutlinedButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => data!['return_request'] == null
-                          ? ReturnEditor(orderId: widget.orderId)
-                          : const ReturnsScreen(),
-                    ),
-                  ).then((_) => load()),
-                  child: Text(
-                    data!['return_request'] == null
-                        ? 'Request return'
-                        : 'View returns',
-                  ),
+                if (data!['can_return'] == true) OutlinedButton(
+                  onPressed: busy ? null : () async {
+                    await showReturnRequest(context, widget.orderId);
+                    if (mounted) await load();
+                  },
+                  child: const Text('Request return'),
                 ),
               ],
+              if (data!['return_request'] != null)
+                FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReturnsScreen())).then((_) => load()), child: const Text('View my return')),
               const SizedBox(height: 10),
-              TextButton(
+              if (data!['return_request'] == null) TextButton(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(

@@ -1,3 +1,4 @@
+import 'stats_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/wallet_screen.dart';
 import '../widgets/auto_refresh.dart';
@@ -250,6 +251,8 @@ class CodScreen extends StatelessWidget {
             'COD is money collected for orders. It is separate from your earnings.',
           ),
         ),
+        RemitAllButton(session: session, amount: (double.tryParse('${d['unremitted']}') ?? 0) + (double.tryParse('${d['shortages']}') ?? 0), afterSave: reload),
+        const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('A reference is generated automatically. COD seller earnings wait for sorting-center confirmation and order completion.')),
         if (pending == null && (double.tryParse('${d['unremitted']}') ?? 0) > 0)
           FilledButton.icon(
             onPressed: () => open(
@@ -258,7 +261,7 @@ class CodScreen extends StatelessWidget {
                 session: session,
                 title: 'Submit remittance',
                 endpoint: '/api/rider/remit',
-                fields: const ['amount', 'reference'],
+                fields: const ['amount'],
                 afterSave: reload,
               ),
             ),
@@ -281,7 +284,7 @@ class CodScreen extends StatelessWidget {
                 session: session,
                 title: 'Top up remittance',
                 endpoint: '/api/rider/remit/topup',
-                fields: const ['amount', 'reference'],
+                fields: const ['amount'],
                 hidden: {'id': '${pending!['id']}'},
                 afterSave: reload,
               ),
@@ -354,6 +357,7 @@ class AccountScreen extends StatelessWidget {
               '${r.email}\n${r.courierType == 'driver' ? 'Driver' : 'Rider'} • ${r.vehicle ?? 'Vehicle not set'}',
           icon: Icons.person_outline,
         ),
+        InfoCard(title: 'Stats', text: 'Activity and status charts', icon: Icons.insights_outlined, onTap: () => open(c, StatsScreen(session: session))),
         InfoCard(
           title: 'Profile',
           text: 'Profile photo, phone, email and password',
@@ -1130,4 +1134,31 @@ class _MessagesScreenState extends State<MessagesScreen>
             ),
     );
   }
+}
+
+class RemitAllButton extends StatefulWidget {
+  final Session session;
+  final double amount;
+  final FutureOr<void> Function() afterSave;
+  const RemitAllButton({super.key, required this.session, required this.amount, required this.afterSave});
+  @override
+  State<RemitAllButton> createState() => _RemitAllButtonState();
+}
+class _RemitAllButtonState extends State<RemitAllButton> {
+  bool busy = false;
+  String key = requestKey();
+  Future<void> submit() async {
+    if (busy || widget.amount <= 0) return;
+    final yes = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+      title: const Text('Remit all COD'), content: Text('Submit ${peso(widget.amount)} for all unsubmitted collections and shortages? Hand over this cash to your sorting center. The center must still confirm receipt.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Submit all'))],
+    ));
+    if (yes != true || !mounted || busy) return;
+    setState(() => busy = true);
+    try { await widget.session.api.post('/api/rider/remit', {'remit_all': true, '_request_key': key}); key = requestKey(); await widget.afterSave(); }
+    catch(e){if(mounted)toast(context,e);}
+    finally{if(mounted)setState(()=>busy=false);}
+  }
+  @override
+  Widget build(BuildContext context) => FilledButton.icon(onPressed: busy || widget.amount <= 0 ? null : submit, icon: const Icon(Icons.payments_outlined), label: Text(busy ? 'Submitting…' : 'Remit all · ${peso(widget.amount)}'));
 }

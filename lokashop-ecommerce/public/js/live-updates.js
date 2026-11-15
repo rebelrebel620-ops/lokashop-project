@@ -3,6 +3,10 @@
 'use strict';
 const script=document.getElementById('lokashop-live-script');
 if(!script)return;
+// Product browsing must never be interrupted by catalog/order polling.
+// Product price/stock have a dedicated in-place poller; never reload its gallery.
+if(script.dataset.refreshMode==='product')return;
+const manualRefresh=script.dataset.refreshMode==='manual';
 const url=new URL(location.href);url.searchParams.delete('_live_refresh');
 history.replaceState(history.state,'',url);
 const scrollKey='lokashop-live-scroll:'+url.pathname+url.search;
@@ -27,11 +31,11 @@ function show(){
  if(badge)return;
  badge=document.createElement('div');badge.setAttribute('role','status');
  badge.style.cssText='position:fixed;bottom:16px;right:16px;z-index:99999;background:#103f2d;color:white;padding:12px 16px;border-radius:12px;box-shadow:0 4px 20px #0003;font:14px system-ui;max-width:340px';
- badge.append(document.createTextNode('Updates available. Finish editing to update automatically. '));
+ badge.append(document.createTextNode(manualRefresh?'Product updates available. Update when you are ready. ':'Updates available. Finish editing to update automatically. '));
  const button=document.createElement('button');button.type='button';button.textContent='Update now';button.style.cssText='margin-left:8px;padding:6px;border-radius:6px;cursor:pointer';
  button.onclick=()=>{if(!unsafe()||confirm('Update this page? Any unfinished edits or selected uploads will be cleared.'))refresh();};badge.append(button);document.body.append(badge);
 }
-function apply(){if(pending&&!stopped){if(unsafe())show();else refresh();}}
+function apply(){if(pending&&!stopped){if(manualRefresh||unsafe())show();else refresh();}}
 function schedule(){clearTimeout(timer);if(!stopped)timer=setTimeout(poll,delay);}
 async function poll(){
  if(stopped||busy)return;

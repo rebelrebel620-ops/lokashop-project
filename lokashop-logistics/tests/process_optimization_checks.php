@@ -29,6 +29,10 @@ $history=(new ProcessController())->history()->render();$closed=DB::table('parce
 $links=(new App\Http\Controllers\CommonController())->links();ok(isset($links['Wallet'],$links['Pickups'],$links['Transfers'],$links['Deliveries'])&&!isset($links['History'],$links['Setup']),'Sorting center has wallet and current operational navigation');
 // Source no longer sees parcel in outgoing after destination receipt.
 $html=$transfer->index()->render();ok(!str_contains($html,$parcel->tracking_code),'Transferred parcel leaves origin work queue');
-ok(DB::table('wallet_courier_payments')->where('assignment_id',$job->id)->where('center_user_id',$company)->where('status','paid')->exists(),'Destination receipt immediately credits driver wallet; origin center owes settlement');
-\App\Services\Wallet::cashIn($company,10000,'single-transfer-funding-01');\App\Services\WalletEarnings::payPending($company);ok(\App\Services\Wallet::balance($driver)===5000,'Single-parcel driver payment reaches wallet after center funding');
+ok(!DB::table('wallet_courier_payments')->where('assignment_id',$job->id)->exists(),'Modern transfer waits for final delivery before allocating the shipping pool');
+DB::table('orders')->where('id',$orderId)->update(['status'=>'DELIVERED']);DB::table('payments')->where('order_id',$orderId)->update(['status'=>'paid']);
+\App\Services\ShippingDistribution::finalize($orderId);
+$share=\App\Services\ShippingDistribution::portions(DB::table('orders')->where('id',$orderId)->value('shipping_fee'))['driver'];
+ok(\App\Services\Wallet::balance($driver)===$share,'Delivered order allocates one 25 percent driver share');
+\App\Services\ShippingDistribution::finalize($orderId);ok(\App\Services\Wallet::balance($driver)===$share,'Driver share cannot duplicate on retry');
 echo 'PASS: '.($n-$before)." process optimization and cross-municipality integration checks.\n";

@@ -12,6 +12,22 @@
 <link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
 <link rel="stylesheet" href="{{asset('css/role-backgrounds.css')}}">
 <link rel="stylesheet" href="{{ asset('css/navigation-polish.css').'?v=3' }}">
+<link rel="stylesheet" href="{{asset('css/phone-density.css')}}">
+<style id="workspace-drawer-styles">
+.workspace-menu-close,.workspace-menu-backdrop{display:none!important}
+@media screen and (max-width:1024px){
+ body .appshell>.sidebar,body .appshell>.sidebar.dark{position:fixed;inset:0 auto 0 0;z-index:1001;width:min(300px,86vw);height:100vh;height:100dvh;max-height:none;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;transform:translateX(-100%);visibility:hidden;box-shadow:8px 0 30px #0003}
+ body.workspace-menu-open .appshell>.sidebar{transform:translateX(0);visibility:visible}
+ body.workspace-menu-open{overflow:hidden}
+ body .appshell{display:flex!important}
+ body .appshell>.sidebar~div{width:100%;margin-left:0}
+ body .menu-toggle[data-workspace-menu]{display:inline-flex!important;align-items:center;justify-content:center;width:44px;height:44px;flex:0 0 44px;cursor:pointer}
+ body .sidebar .brand{padding-right:44px}
+ body .sidebar .workspace-menu-close{display:flex!important;position:sticky;top:8px;align-self:flex-end;flex-shrink:0;align-items:center;justify-content:center;z-index:2;width:40px;height:40px;min-height:40px;margin:0 0 4px auto;padding:0;background:#173f32;color:#fff;border:1px solid #a9cdb84d;border-radius:8px;font-size:28px;cursor:pointer}
+ body .workspace-menu-backdrop:not([hidden]){display:block!important;position:fixed;inset:0;z-index:1000;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:0;background:#061f18a3;cursor:pointer}
+ body .workspace-menu-close:focus-visible,body [data-workspace-menu]:focus-visible{outline:2px solid #b4e88d;outline-offset:2px}
+}
+</style>
 </head>
 <body class="@yield('body-class')" data-workspace-role="{{auth()->user()->role}}">
 @php
@@ -71,15 +87,12 @@
 
 @if($isBuyer)
 <header class="topbar" style="padding:12px 4%">
- <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+ <button type="button" class="menu-toggle" data-workspace-menu aria-controls="workspace-sidebar" aria-expanded="false" aria-label="Open navigation">&#9776;</button>
  <a href="/" class="brand" style="display:flex;align-items:center;gap:9px;color:var(--dark);font-weight:800">
   <img src="/logo.jpg" alt="LokaShop" style="width:36px;height:36px;border-radius:9px">LokaShop
  </a>
- <form class="tsearch" action="/shop" method="get" style="margin:0">
-  <input name="q" placeholder="Search products, brands, or stores...">
- </form>
  <div class="ticons">
-  <a href="/notifications" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
+  <a href="/notifications" title="Notifications" data-notification-bell aria-label="Notifications, {{$unread}} unread">&#128276;<span class="badge-dot" data-notification-count @if(!$unread) hidden @endif>{{$unread}}</span></a>
   <a href="/cart" title="Cart">&#128722;@if($cartCount)<span class="badge-dot">{{$cartCount}}</span>@endif</a>
   <div class="who"><a class="av" href="/profile" aria-label="Your profile">@if(auth()->user()->profile_photo)<img src="{{\App\Services\Support::imageUrl(auth()->user()->profile_photo)}}" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%">@else{{$initial}}@endif</a><div><b>{{auth()->user()->name}}</b><small>Buyer</small></div></div>
  </div>
@@ -87,7 +100,9 @@
 @endif
 
 <div class="appshell">
- <aside class="{{$sidebarClass}}">
+ <button type="button" class="workspace-menu-backdrop" aria-label="Close navigation" tabindex="-1" hidden></button>
+ <aside class="{{$sidebarClass}}" id="workspace-sidebar" aria-label="Main navigation">
+  <button type="button" class="workspace-menu-close" aria-label="Close navigation">&times;</button>
   @unless($isBuyer)
   <a href="/" class="brand">
    <img src="/logo.jpg" alt="LokaShop">
@@ -105,12 +120,9 @@
  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
   @unless($isBuyer)
   <header class="topbar">
-   <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
-   <form class="tsearch" style="margin:0" onsubmit="return false">
-    <input placeholder="Search {{ $role==='admin' ? 'users, orders, products...' : 'orders, products, or buyers...' }}">
-   </form>
+   <button type="button" class="menu-toggle" data-workspace-menu aria-controls="workspace-sidebar" aria-expanded="false" aria-label="Open navigation">&#9776;</button>
    <div class="ticons">
-    <a href="/notifications" title="Notifications">&#128276;@if($unread)<span class="badge-dot">{{$unread}}</span>@endif</a>
+    <a href="/notifications" title="Notifications" data-notification-bell aria-label="Notifications, {{$unread}} unread">&#128276;<span class="badge-dot" data-notification-count @if(!$unread) hidden @endif>{{$unread}}</span></a>
     <div class="who"><a class="av" href="/profile" aria-label="Your profile">@if(auth()->user()->profile_photo)<img src="{{\App\Services\Support::imageUrl(auth()->user()->profile_photo)}}" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%">@else{{$initial}}@endif</a><div><b>{{auth()->user()->name}}</b><small>{{ucfirst(str_replace('_',' ',$role))}}</small></div></div>
    </div>
   </header>
@@ -124,5 +136,20 @@
  </div>
 </div>
 <script>document.querySelectorAll('form[method="post"]').forEach(f=>{if(!f.querySelector('[name="_request_key"]')){const k=document.createElement('input');k.type='hidden';k.name='_request_key';k.value=crypto.randomUUID();f.appendChild(k);}f.addEventListener('submit',e=>{if(f.dataset.submitted){e.preventDefault();return;}f.dataset.submitted='1';setTimeout(()=>f.querySelectorAll('button[type="submit"],button:not([type])').forEach(b=>b.disabled=true),0);});});</script>@include('shared-interactions')
+<script src="{{asset('js/notification-badge.js')}}" defer></script>
+<script id="workspace-drawer-controls">(() => {
+ const sidebar=document.getElementById('workspace-sidebar');
+ const toggles=[...document.querySelectorAll('[data-workspace-menu]')];
+ const close=document.querySelector('.workspace-menu-close'),backdrop=document.querySelector('.workspace-menu-backdrop');
+ if(!sidebar||!toggles.length||!close||!backdrop)return;
+ const compact=window.matchMedia('(max-width:1024px)');let opener=toggles[0];
+ const items=()=>[...sidebar.querySelectorAll('a[href],button,summary,input,select,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
+ function setOpen(value,restore=true){const open=compact.matches&&value;document.body.classList.toggle('workspace-menu-open',open);sidebar.classList.remove('open');toggles.forEach(t=>{t.setAttribute('aria-expanded',String(open));t.setAttribute('aria-label',open?'Close navigation':'Open navigation')});backdrop.hidden=!open;sidebar.inert=compact.matches&&!open;if(sidebar.inert)sidebar.setAttribute('aria-hidden','true');else sidebar.removeAttribute('aria-hidden');if(open)close.focus();else if(restore&&compact.matches)opener.focus();}
+ toggles.forEach(t=>t.addEventListener('click',()=>{opener=t;setOpen(!document.body.classList.contains('workspace-menu-open'))}));
+ close.addEventListener('click',()=>setOpen(false));backdrop.addEventListener('click',()=>setOpen(false));
+ sidebar.addEventListener('click',e=>{if(e.target.closest('a[href]'))setOpen(false,false)});
+ document.addEventListener('keydown',e=>{if(!compact.matches||!document.body.classList.contains('workspace-menu-open'))return;if(e.key==='Escape'){e.preventDefault();setOpen(false)}if(e.key==='Tab'){const a=items(),first=a[0],last=a[a.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
+ if(compact.addEventListener)compact.addEventListener('change',()=>setOpen(false,false));else compact.addListener(()=>setOpen(false,false));setOpen(false,false);
+})();</script>
 </body>
 </html>

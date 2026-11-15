@@ -360,17 +360,6 @@ class _TripsScreenState extends State<TripsScreen> with WidgetsBindingObserver {
           tooltip: 'Refresh trips',
           icon: const Icon(Icons.refresh),
         ),
-        PopupMenuButton<String>(
-          enabled: !busy,
-          tooltip: 'More trip options',
-          onSelected: (_) => individualTransfers(),
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'individual',
-              child: Text('Individual transfers'),
-            ),
-          ],
-        ),
       ],
     ),
     body: Column(

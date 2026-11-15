@@ -1,3 +1,4 @@
+import '../stats_screen.dart';
 import 'package:flutter/material.dart';
 import '../../session.dart';
 import '../../widgets/wallet_screen.dart';
@@ -138,6 +139,7 @@ class _CenterShellState extends State<CenterShell> {
                   ))),
             ]),
             group('Account', Icons.person_outline, [
+              menuItem('Stats', Icons.insights_outlined, () => openPage(drawerContext, StatsScreen(session: widget.session))),
               menuItem('Account', Icons.person_outline,
                   () => openPage(drawerContext, ProfileScreen(session: widget.session))),
             ]),

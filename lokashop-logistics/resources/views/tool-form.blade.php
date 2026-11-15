@@ -1,4 +1,5 @@
 <form method="post" action="{{$form['action']}}" enctype="multipart/form-data" data-safe-submit>@csrf
+@if($form['action']==='/ops/rate')<input type="hidden" name="_rate_popup" value="1"><input type="hidden" name="id" value="{{old('id')}}">@endif
 <input type="hidden" name="_request_key" value="{{(string)\Illuminate\Support\Str::uuid()}}">
 @foreach($form['fields'] as $definition)
 @php

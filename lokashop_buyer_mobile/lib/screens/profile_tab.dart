@@ -1,3 +1,4 @@
+import 'stats_screen.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -189,6 +190,7 @@ class _ProfileTabState extends State<ProfileTab> {
                       ),
                     ),
                     const SectionHeading('Made for your shopping'),
+                    tile(Icons.insights_outlined, 'Stats', 'Order activity and status charts', const StatsScreen()),
                     tile(
                       Icons.account_balance_wallet_outlined,
                       'LokaShop Wallet',

@@ -2,6 +2,15 @@
 namespace App\Services;
 class VoucherDisplay
 {
+ public static function availableForBuyer(int $buyer){
+  $vouchers=\Illuminate\Support\Facades\DB::table('vouchers')->where('active',1)
+   ->where(fn($q)=>$q->whereNull('starts_at')->orWhere('starts_at','<=',now()))
+   ->where(fn($q)=>$q->whereNull('expires_at')->orWhere('expires_at','>',now()))->get();
+  $uses=\Illuminate\Support\Facades\DB::table('voucher_redemptions')->where('buyer_id',$buyer)
+   ->whereIn('voucher_id',$vouchers->pluck('id'))->selectRaw('voucher_id, COUNT(*) as total')->groupBy('voucher_id')->pluck('total','voucher_id');
+  return $vouchers->filter(fn($voucher)=>self::state($voucher,(int)$uses->get($voucher->id,0))==='Available')->values();
+ }
+
  public static function kind($voucher):string{return $voucher->seller_id?'store':($voucher->type==='shipping'?'shipping':'lokashop');}
  public static function label($voucher):string{return ['store'=>'Store voucher','shipping'=>'Shipping voucher','lokashop'=>'LokaShop'][self::kind($voucher)];}
  public static function offer($voucher):string{

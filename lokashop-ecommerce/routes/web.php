@@ -20,9 +20,9 @@ Route::get('/terms',fn()=>view('terms'));
 // Additional marketplace workflows.
 Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){
  Route::get('/tools/{module}',[\App\Http\Controllers\MarketController::class,'panel']);
- Route::post('/tools/password',[\App\Http\Controllers\MarketController::class,'password']);
- Route::post('/tools/contact/request',[\App\Http\Controllers\MarketController::class,'contactRequest']);
- Route::post('/tools/contact/verify',[\App\Http\Controllers\MarketController::class,'contactVerify']);
+ Route::post('/tools/password',[\App\Http\Controllers\AccountSecurityController::class,'password']);
+ Route::post('/tools/contact/request',[\App\Http\Controllers\AccountSecurityController::class,'contactRequest']);
+ Route::post('/tools/contact/verify',[\App\Http\Controllers\AccountSecurityController::class,'contactVerify']);
  Route::post('/tools/notifications/read',[\App\Http\Controllers\MarketController::class,'notificationsRead']);
 });
 Route::middleware(['auth','role:buyer'])->group(function(){
@@ -95,7 +95,7 @@ Route::get('/media/{path}',function(string $path){
 
 
 
-Route::middleware(['auth','role:buyer|seller|admin'])->get('/notifications',function(){return view('notifications',['links'=>app(C::class)->links(),'notifications'=>\Illuminate\Support\Facades\DB::table('notifications')->where('user_id',auth()->id())->orderByDesc('id')->paginate(25)]);});
+
 
 Route::middleware(['auth','role:admin'])->post('/admin/users/{id}/initial-category',function(\Illuminate\Http\Request $r,int $id){
  $v=$r->validate(['category'=>['required',\Illuminate\Validation\Rule::in(config('registration.categories'))]]);
@@ -124,3 +124,12 @@ Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){
 
 
 Route::get('/live/state',[\App\Http\Controllers\LiveUpdatesController::class,'state'])->middleware('throttle:120,1');
+
+Route::middleware(['auth','role:buyer|seller|admin'])->get('/returns/{id}/video',function(int $id){$x=\Illuminate\Support\Facades\DB::table('return_requests')->find($id);abort_unless($x&&(auth()->id()==$x->buyer_id||auth()->id()==$x->seller_id||auth()->user()->role==='admin'),403);abort_unless($x->video_path,404);return response()->file(\Illuminate\Support\Facades\Storage::disk('local')->path($x->video_path),['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'private, no-store']);});
+
+// Serve product videos from the configured public disk, including Windows/shared storage.
+Route::get('/product-videos/{id}',[\App\Http\Controllers\ProductVideoController::class,'show'])->whereNumber('id');
+
+Route::get('/product/{id}/state',[\App\Http\Controllers\ProductStateController::class,'show'])->whereNumber('id');
+
+Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){Route::get('/notifications',[\App\Http\Controllers\NotificationController::class,'index']);Route::get('/notifications/count',[\App\Http\Controllers\NotificationController::class,'count']);Route::post('/notifications/read',[\App\Http\Controllers\NotificationController::class,'read']);});

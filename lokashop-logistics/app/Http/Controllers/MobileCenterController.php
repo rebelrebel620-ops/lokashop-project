@@ -21,7 +21,7 @@ class MobileCenterController
         return collect($rows)->map(fn($x) => ['value' => (string)$x->id, 'label' => (string)($x->$label ?? '#'.$x->id)])->values()->all();
     }
     private function field(string $name, string $label, string $type = 'text', array $extra = []): array {
-        return ['name'=>$name,'label'=>$label,'type'=>$type,'required'=>true] + $extra;
+        return array_merge(['name'=>$name,'label'=>$label,'type'=>$type,'required'=>true], $extra);
     }
     private function action(string $key, string $label, int $id = 0, array $fields = [], array $fixed = []): array {
         return compact('key','label','id','fields','fixed');
@@ -46,7 +46,7 @@ class MobileCenterController
     }
     private function docs(int $user): array {
         return DB::table('registration_documents')->where('user_id',$user)->get(['id','kind'])->map(fn($d)=>[
-            'label'=>'Save '.ucwords(str_replace('_',' ',$d->kind)), 'download'=>'/api/center/documents/'.$d->id])->all();
+            'label'=>'Save '.\App\Services\DocumentLabels::label($d->kind), 'download'=>'/api/center/documents/'.$d->id])->all();
     }
     private function parcel($p, array $actions = []): array {
         return $this->card($p->tracking_code ?? 'Parcel #'.$p->id,
@@ -61,7 +61,7 @@ class MobileCenterController
         case 'overview':
             $d=$this->data(app(LogisticsWorkspaceController::class)->overview($r));
             $out['title']=$d['center']->name ?? 'Sorting center';
-            $out['metrics']=$d['cards'];
+            $out['charts']=\App\Services\OverviewCharts::data();$out['metrics']=$d['cards'];$out['metrics'][]=['label'=>'Unread notifications','value'=>DB::table('notifications')->where('user_id',$u->id)->whereNull('read_at')->count()];
             $out['metrics'][]=['label'=>'Delivery areas','value'=>DB::table('delivery_areas')->where('center_id',$d['center']->id)->count()];
             $out['metrics'][]=['label'=>'Incoming transfers','value'=>$d['incomingTransfers']];
             $out['metrics'][]=['label'=>'Unremitted COD','value'=>'PHP '.number_format($d['unremittedCod'],2)];
@@ -129,8 +129,8 @@ class MobileCenterController
             foreach($d['jobs'] as $status=>$count)$out['records'][]=$this->card(ucwords(strtolower(str_replace('_',' ',$status))),[['label'=>'Jobs','value'=>(string)$count]]);
             break;
         case 'applications':
-            $d=$this->data(app(LogisticsAdminController::class)->approvals());$out['title']='Courier applications';
-            $out=array_merge($out,$this->page($d['users'],fn($m)=>$this->card($m->name,$this->facts($m,['email'=>'Email','phone'=>'Phone','courier_type'=>'Role','vehicle'=>'Vehicle','approval_status'=>'Approval']),array_merge($this->docs($m->id),$this->decision($m->id,'application-review')))));break;
+            $d=$this->data(app(LogisticsAdminController::class)->approvals());$out['title']='Courier applications';$out['tabs']=['pending'=>'Pending review','approved'=>'Approved','rejected'=>'Rejected'];$out['tab_parameter']='status';
+            $out=array_merge($out,$this->page($d['users'],fn($m)=>$this->card($m->name,$this->facts($m,['email'=>'Email','phone'=>'Phone','courier_type'=>'Role','vehicle'=>'Vehicle','approval_status'=>'Approval']),array_merge($this->docs($m->id),$m->approval_status==='pending'?$this->decision($m->id,'application-review'):($m->approval_status==='pending_activation'?[$this->action('courier-resend','Resend activation',$m->id)]:[])))));break;
         case 'appeals':
             $d=$this->data(app(CenterManagementController::class)->appeals());$out['title']='Courier appeals';
             $out=array_merge($out,$this->page($d['appeals'],fn($a)=>$this->card($a->name,$this->facts($a,['message'=>'Appeal','status'=>'Status','review_reason'=>'Review reason','created_at'=>'Submitted']),$a->status==='pending'?[
@@ -140,7 +140,7 @@ class MobileCenterController
             if($module==='rates'){$c=DB::table('sorting_centers')->where('user_id',$u->id)->first();$out['actions'][]=$this->rate(null,$c);}
             $out=array_merge($out,$this->page(\App\Services\ProcessRouting::paginate(collect($d['records'])->values()),function($x)use($module,$u){
                 $actions=[];
-                if($module==='cod' && $x->status!=='confirmed')$actions[]=$this->action('cod-confirm','Confirm remittance',$x->id,[$this->reason()]);
+                if($module==='cod' && $x->status!=='confirmed')$actions[]=$this->action('cod-confirm','Confirm remittance',$x->id);
                 if($module==='returns')$actions[]=$this->action('parcel-return','Confirm returned to seller',$x->id);
                 if($module==='tracking' && !in_array($x->status,['COMPLETED','CANCELLED','REFUNDED','RETURN_RECEIVED','DELIVERED'])){
                     $actions[]=$this->action('parcel-exception','Report lost / damaged',$x->id,[$this->field('status','Incident','select',['options'=>[['value'=>'LOST','label'=>'Lost'],['value'=>'DAMAGED','label'=>'Damaged']]]),$this->reason(),$this->field('proof','Evidence photo (required for damage)','file',['required'=>false])]);

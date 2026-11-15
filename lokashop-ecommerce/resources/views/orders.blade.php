@@ -1,36 +1,44 @@
 @extends('app')
 @section('title','My Orders - LokaShop')
 @section('content')
-<link rel="stylesheet" href="{{asset('css/buyer-orders.css')}}">
+<link rel="stylesheet" href="{{asset('css/buyer-orders.css')}}"><link rel="stylesheet" href="{{asset('css/return-request-dialog.css')}}"><script src="{{asset('js/return-request-dialog.js')}}" defer></script>
 <div class="page-head"><div><span class="order-eyebrow">YOUR PURCHASES</span><h1>My orders</h1><p>Follow your purchases from seller acceptance to your doorstep.</p></div></div>
 <nav class="order-tabs" aria-label="Order categories">
-@foreach(['pending'=>'My Orders','receive'=>'To Receive','completed'=>'Completed'] as $key=>$label)
+@foreach(['pending'=>'My Orders','receive'=>'To Receive','completed'=>'Completed','returns'=>'Returns & Cancelled'] as $key=>$label)
 <a href="{{url('/orders').'?'.http_build_query(['tab'=>$key])}}" @if($tab===$key) aria-current="page" @endif>{{$label}} <span>{{$counts[$key]}}</span></a>
 @endforeach
 </nav>
-<p class="order-tab-hint">{{['pending'=>'Orders waiting for the seller to accept.','receive'=>'Accepted orders being prepared, picked up, transported or delivered.','completed'=>'Delivered orders and closed order history. Cancelled and refunded orders keep their own status.'][$tab]}}</p>
+<p class="order-tab-hint">{{['pending'=>'Orders waiting for the seller to accept.','receive'=>'Accepted orders being prepared, picked up, transported or delivered.','completed'=>'Delivered orders and confirmed purchases.','returns'=>'Return requests, cancelled orders and refunds. View your return for updates.'][$tab]}}</p>
 <div class="buyer-order-list">
 @forelse($orders as $o)
-@php $items=$orderItems->get($o->id,collect());$quantity=$items->sum('quantity');$closed=in_array($o->status,['CANCELLED','REFUNDED','RETURN_RECEIVED']); @endphp
+@php $returnRequest=($returnsByOrder??collect())->get($o->id);$canReturn=$o->status==='DELIVERED'&&$o->delivered_at&&now()->lt(\Illuminate\Support\Carbon::parse($o->delivered_at)->addDays(7))&&!$returnRequest;$isReturn=!empty(\Illuminate\Support\Facades\DB::table('parcels')->find($o->parcel_id)->return_request_id);$items=$orderItems->get($o->id,collect());$quantity=$items->sum('quantity');$closed=in_array($o->status,['CANCELLED','REFUNDED','RETURN_RECEIVED']); @endphp
 <article class="purchase-card">
-<header class="purchase-header"><div><strong>{{$o->store_name ?: 'LokaShop seller'}}</strong><small>Order #{{$o->id}} · {{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y')}}</small></div><span class="purchase-status {{$closed?'closed':''}}">{{\App\Services\BuyerOrders::label($o->status)}}</span></header>
+<header class="purchase-header"><div><strong>{{$o->store_name ?: 'LokaShop seller'}}</strong><small>Order #{{$o->id}} · {{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y')}}</small></div><span class="purchase-status {{$closed?'closed':''}}">{{$returnRequest?'Return '.ucfirst($returnRequest->status):\App\Services\BuyerOrders::label($o->status)}}</span></header>
 @foreach($items->take(1) as $item) @include('order-item-row',['item'=>$item]) @endforeach
 @if($items->count()>1)<details class="purchase-more"><summary>View {{$items->count()-1}} more {{ $items->count()-1===1?'product':'products' }}</summary>@foreach($items->skip(1) as $item) @include('order-item-row',['item'=>$item]) @endforeach</details>@endif
 <div class="purchase-total"><span>{{$quantity}} {{$quantity===1?'item':'items'}} · {{\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$o->id)->value('method')==='wallet'?'Wallet · prepaid':'Cash on delivery'}}</span><span>Order total <strong>₱{{\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$o->id)->value('method')==='cod'?\App\Services\CodAmount::format($o->total):number_format($o->total,2)}}</strong></span></div>
 @if($tab==='receive')
-<div class="purchase-update"><div><strong>{{\App\Services\BuyerOrders::label($o->status)}}</strong><small>{{$o->failure_reason ?: 'Tracking code: '.$o->tracking_code}}</small></div></div>
+@if($isReturn)<p><strong>Return shipment to seller.</strong> Keep the parcel ready for collection and retain its tracking label. <a href="/tools/returns">View return request</a></p>@endif<div class="purchase-update"><div><strong>{{\App\Services\BuyerOrders::label($o->status)}}</strong><small>{{$o->failure_reason ?: 'Tracking code: '.$o->tracking_code}}</small></div></div>
 @endif
-@if($o->status==='DELIVERED')<p class="receipt-hint">Delivery is recorded. Press Order received after checking your items to release seller payment, or visit Returns if there is a problem.</p>@endif
+@if($o->status==='DELIVERED'&&!$returnRequest)<p class="receipt-hint">Delivery is recorded. Press Order received after checking your items, or visit Returns if there is a problem. COD seller earnings are released after the sorting center confirms the rider remittance.</p>@endif
 <div class="purchase-actions" role="group" aria-label="Order actions">
+@if($returnRequest)<a class="btn alt" href="/tools/returns">View my return</a>@else
 @if($tab==='receive')<a class="btn alt" href="/track/{{rawurlencode($o->tracking_code)}}">Track Order</a>@endif
 @if(in_array($o->status,['DELIVERED','COMPLETED'])&&$o->proof_path)<a class="btn alt" href="/orders/{{$o->id}}/proof" target="_blank" rel="noopener">Delivery photo</a>@endif
-@if($o->status==='DELIVERED')<form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Order received</button></form><a class="btn alt" href="/tools/returns">Returns</a>@endif
+@if($o->status==='DELIVERED')<form method="post" action="/orders/{{$o->id}}/confirm">@csrf<button class="btn">Order received</button></form>@if($canReturn)<button type="button" class="btn alt" data-return-dialog="return-order-{{$o->id}}" aria-haspopup="dialog" aria-controls="return-order-{{$o->id}}">Returns</button>@elseif($returnRequest)<a class="btn alt" href="/tools/returns">View return</a>@endif @endif
 @if($o->status==='COMPLETED')<a class="btn" href="/ratings">Review items</a>@endif
-@if(in_array($o->status,['PLACED','CONFIRMED','PREPARING']))<details class="cancel-order"><summary>Cancel order</summary><form method="post" action="/orders/{{$o->id}}/cancel">@csrf<label>Cancellation reason<textarea name="reason" minlength="10" maxlength="300" required placeholder="Tell us why (at least 10 characters)"></textarea></label><button class="btn danger">Confirm cancellation</button></form></details>@endif
+@if(!$isReturn && in_array($o->status,['PLACED','CONFIRMED','PREPARING']))<details class="cancel-order"><summary>Cancel order</summary><form method="post" action="/orders/{{$o->id}}/cancel">@csrf<label>Cancellation reason<textarea name="reason" minlength="10" maxlength="300" required placeholder="Tell us why (at least 10 characters)"></textarea></label><button class="btn danger">Confirm cancellation</button></form></details>@endif
+@endif
 </div>
+@if($canReturn)
+<dialog id="return-order-{{$o->id}}" class="return-request-dialog" aria-labelledby="return-title-{{$o->id}}" @if($errors->any()&&(string)old('_return_popup')===(string)$o->id) data-reopen-return-dialog @endif>
+<header><div><span>ORDER RETURN</span><h2 id="return-title-{{$o->id}}">Request return</h2></div><button type="button" class="return-dialog-close" data-close-return-dialog aria-label="Close return request">×</button></header>
+@include('return-request-form',['returnOrder'=>$o])
+</dialog>
+@endif
 </article>
 @empty
-<section class="purchase-card order-empty"><h2>{{['pending'=>'No orders waiting for acceptance','receive'=>'No orders on the way','completed'=>'No completed orders yet'][$tab]}}</h2><p>Your orders will appear here as they progress.</p><a class="btn" href="/shop">Browse products</a></section>
+<section class="purchase-card order-empty"><h2>{{['pending'=>'No orders waiting for acceptance','receive'=>'No orders on the way','completed'=>'No completed orders yet','returns'=>'No returned or cancelled orders'][$tab]}}</h2><p>Your orders will appear here as they progress.</p><a class="btn" href="/shop">Browse products</a></section>
 @endforelse
 </div>
 {{$orders->links('components.pagination')}}

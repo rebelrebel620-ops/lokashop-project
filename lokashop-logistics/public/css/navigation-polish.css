@@ -59,3 +59,27 @@ body #logout-confirm #logout-no:hover{background:#f5f7f5!important}
 body #logout-confirm button:focus-visible{outline:2px solid #547a61;outline-offset:3px}
 @media(max-width:980px){body.logi .sidebar,body.logi.operations-redesign .sidebar{display:flex;flex-direction:column;width:100%;height:auto;max-height:65dvh;overflow:auto}body.logi .sidebar nav.grouped-navigation{flex-direction:column;align-items:stretch;overflow:visible}body.logi .sidebar nav.grouped-navigation a{white-space:normal}}
 @media(prefers-reduced-motion:reduce){body .sidebar .nav-chevron{transition:none}}
+
+/* Decorative green navigation surface: preserves menu dimensions and behavior. */
+body .sidebar,body .sidebar.dark,body .appshell>.sidebar:not(.dark){
+  background-color:#0b3025;
+  background-image:
+    radial-gradient(ellipse at 0% 0%,#39845b55 0%,transparent 48%),
+    radial-gradient(ellipse at 100% 90%,#246d4740 0%,transparent 44%),
+    repeating-linear-gradient(135deg,transparent 0px,transparent 37px,#bce7c805 38px,transparent 39px),
+    linear-gradient(165deg,#143e30 0%,#0b3025 58%,#08271f 100%)!important;
+  border-right:1px solid #729a7d40;
+}
+body .sidebar .brand{background:linear-gradient(110deg,#b8ee8810,transparent 85%);border-bottom:1px solid #d2ecd51a}
+body .sidebar .nav-group>summary:hover{background:linear-gradient(100deg,#d0f8b51c,#d0f8b508)}
+body .sidebar nav a.active,body .sidebar.dark nav a.active{
+  background:linear-gradient(105deg,#cdf5aa,#b4e88d)!important;
+  color:#173b27;box-shadow:0 3px 12px #031b1830,inset 0 1px 0 #efffe87a;
+}
+body .sidebar .sidebot{background:linear-gradient(130deg,#ffffff0c,#ffffff04);border-color:#c5e8cf24}
+
+/* Separate green picture for this project's navigation; no layout changes. */
+body .sidebar,body .sidebar.dark,body .appshell>.sidebar:not(.dark){
+  background-image:linear-gradient(180deg,#072b2426,#072b2414),url('../images/backgrounds/sidebar-logistics-green.webp')!important;
+  background-size:cover!important;background-position:center bottom!important;background-repeat:no-repeat!important;
+}

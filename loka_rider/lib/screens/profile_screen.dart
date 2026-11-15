@@ -1,3 +1,4 @@
+import 'stats_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models.dart';
@@ -90,6 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+              ListTile(leading: const Icon(Icons.insights_outlined), title: const Text('Stats'), subtitle: const Text('Activity and status charts'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StatsScreen(session: widget.session)))),
           Center(
             child: CircleAvatar(
               radius: 46,

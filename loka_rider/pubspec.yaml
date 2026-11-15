@@ -1,7 +1,7 @@
 name: lokashop_rider
 description: "LokaShop rider app"
 publish_to: 'none'
-version: 1.1.0+7
+version: 1.1.2+9
 
 environment:
   sdk: '>=3.9.0 <4.0.0'

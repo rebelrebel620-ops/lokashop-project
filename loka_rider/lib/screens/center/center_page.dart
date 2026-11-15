@@ -112,12 +112,10 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
         ),
       );
     } else {
-      await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CenterForm(session: widget.session, action: a),
-        ),
-      );
+      await showDialog<bool>(context: context, barrierDismissible: false, builder: (c) => Dialog(
+        insetPadding: const EdgeInsets.all(16), clipBehavior: Clip.antiAlias,
+        child: SizedBox(width: 680, height: MediaQuery.sizeOf(c).height * .88, child: CenterForm(session: widget.session, action: a)),
+      ));
     }
     if (mounted) {
       load();
@@ -157,6 +155,7 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                 for (final a in row['actions'])
                   OutlinedButton(
                     onPressed: () => action(Map.from(a)),
+                    style: '${a['label']}'.toLowerCase().contains('reject') ? OutlinedButton.styleFrom(foregroundColor: const Color(0xFFBB3030), side: const BorderSide(color: Color(0xFFBB3030))) : null,
                     child: Text('${a['label']}'),
                   ),
               ],
@@ -501,7 +500,7 @@ class _CenterPageState extends State<CenterPage> with AutoRefresh<CenterPage> {
                       child: Text('Pull down to refresh', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF718278), fontStyle: FontStyle.italic)),
                     ),
                   if (widget.module != 'overview' && data != null && (!financeDesign || (int.tryParse('${data!['last_page']}') ?? 1) > 1)) pagination(data!),
-                  if (widget.module != 'overview' && data?['secondary'] != null) ...[
+                  if (widget.module != 'overview' && widget.module != 'transfers' && data?['secondary'] != null) ...[
                     const Text(
                       'Individual transfers',
                       style: TextStyle(

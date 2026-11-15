@@ -3,7 +3,7 @@
 @section('panel')
 <p class="notice">For new shipments, drivers share a single 25% pool per parcel. Final earnings are calculated after delivery confirms the full route; transfer handover alone does not release this share.</p>
 <div class="page-head"><div><h1>Driver trips</h1><p>Accept one trip for all parcels. Start transport once. Each destination center confirms only its own parcels.</p></div></div>
-<details class="design-card setup-details"><summary>Older individual transfers</summary><p>Use this only for individual transfers assigned before bulk trips.</p><a class="btn alt" href="/rider/assignments">Open individual assignments</a></details>
+
 <nav class="operation-tabs">@foreach(['new'=>'New trips','progress'=>'In progress','completed'=>'Completed'] as $key=>$label)<a class="{{$tab===$key?'active':''}}" href="/driver/trips?tab={{$key}}">{{$label}}</a>@endforeach</nav>
 @forelse($trips as $trip)
 <div class="panel-card" style="padding:24px"><h2>Trip #{{$trip['id']}} · {{ucfirst(str_replace('_',' ',$trip['status']))}}</h2><p>{{count($trip['stops'])}} destination centers · {{collect($trip['stops'])->sum(fn($s)=>$s['parcels']->count())}} parcels</p>

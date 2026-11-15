@@ -57,6 +57,7 @@ class Wallet {
    $p=DB::table('payments')->where('order_id',$o->id)->orderByDesc('id')->first();
    if(!$p||$p->status!=='paid'||$o->refunded_at)return;
    if($o->status!=='COMPLETED')Support::fail('order','Order receipt must be confirmed by the buyer or the seven-day automatic completion before seller settlement.');
+   if($p->method==='cod'&&!CodSettlement::ready($o->id))return;
    $amount=max(0,self::cents($o->merchandise_total)-self::cents($o->store_discount)-self::cents($o->commission));
    $admin=DB::table('users')->where('role','admin')->where('active',1)->where('approval_status','approved')->where('account_status','active')->orderBy('id')->value('id');
    self::lock(array_filter([(int)$o->seller_id,$admin?(int)$admin:null]));self::entry((int)$o->seller_id,$amount,'order-release:'.$o->id,'sale','Order #'.$o->id.' earnings after store discount and commission',$o->id,(int)$o->buyer_id);

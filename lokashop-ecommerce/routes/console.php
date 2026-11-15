@@ -93,3 +93,14 @@
 
 
 require __DIR__.'/security.php';
+
+\Illuminate\Support\Facades\Artisan::command('lokashop:optimize-product-videos {--product= : Only optimize this product ID}',function(){
+ $id=$this->option('product');
+ if($id!==null&&(!ctype_digit((string)$id)||(int)$id<1)){$this->error('Enter a valid product ID.');return 1;}
+ if(!config('product_video.compress',true)){$this->error('Enable PRODUCT_VIDEO_COMPRESS before running optimization.');return 1;}
+ try{(new \Symfony\Component\Process\Process([(string)config('product_video.ffmpeg_binary','ffmpeg'),'-version']))->setTimeout(10)->mustRun();}catch(\Throwable $e){$this->error('FFmpeg is unavailable. Set FFMPEG_BINARY to ffmpeg.exe and run php artisan optimize:clear.');return 1;}
+ $q=\Illuminate\Support\Facades\DB::table('products')->whereNotNull('video_path')->whereNull('deleted_at');if($id!==null)$q->where('id',(int)$id);
+ $changed=0;$cache=[];
+ foreach($q->orderBy('id')->get(['id','video_path']) as $product){$old=$product->video_path;$new=$cache[$old]??=\App\Services\ProductVideos::optimize($old);if($new!==$old){$changed+=\Illuminate\Support\Facades\DB::table('products')->where('id',$product->id)->where('video_path',$old)->update(['video_path'=>$new,'updated_at'=>now()]);}else $this->line('Product #'.$product->id.': unchanged (already smaller, or compression unavailable; check the application log).');}
+ $this->info('Products updated with smaller videos: '.$changed.'. Original files retained.');return 0;
+})->purpose('Compress existing public product videos to lightweight MP4 without modifying return evidence');

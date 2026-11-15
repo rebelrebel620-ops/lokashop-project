@@ -197,7 +197,7 @@ class BuyerApiController extends Controller
                     DB::raw("CASE WHEN p.proof_path IS NOT NULL AND o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END as has_delivery_proof"),
                     DB::raw('(SELECT pay.method FROM payments pay WHERE pay.order_id = o.id ORDER BY pay.id DESC LIMIT 1) as payment_method'),
                     DB::raw('COALESCE(sb.name, s.name) as seller_name'))
-                ->orderByDesc('o.id')->get()->map(function($order){$order->items=DB::table('order_items')->where('order_id',$order->id)->get()->map(function($i){$i->image_url=\App\Services\Support::imageUrl($i->image);return $i;});$order->bucket=\App\Services\BuyerOrders::bucket($order->status);$order->status_label=\App\Services\BuyerOrders::label($order->status);return $order;})
+                ->orderByDesc('o.id')->get()->map(function($order){$order->items=DB::table('order_items')->where('order_id',$order->id)->get()->map(function($i){$i->image_url=\App\Services\Support::imageUrl($i->image);return $i;});$return=DB::table('return_requests')->where('order_id',$order->id)->first(['id','status']);$order->return_request_id=$return?->id;$order->bucket=\App\Services\BuyerOrders::bucket($order->status,(bool)$return);$order->status_label=$return?'Return '.ucfirst($return->status):\App\Services\BuyerOrders::label($order->status);return $order;})
         );
     }
 
@@ -221,6 +221,7 @@ class BuyerApiController extends Controller
             'history' => DB::table('status_history')->where('parcel_id', $order->parcel_id)->orderBy('id')->get(),
             'timeline' => \App\Services\BuyerOrders::timeline($order, DB::table('parcels')->find($order->parcel_id)),
             'rating' => DB::table('ratings')->where('order_id', $id)->first(),
+            'can_return'=>$order->status==='DELIVERED'&&$order->delivered_at&&now()->lt(\Illuminate\Support\Carbon::parse($order->delivered_at)->addDays(7))&&!DB::table('return_requests')->where('order_id',$id)->exists(),
             'return_request'=>DB::table('return_requests')->where('order_id',$id)->where('buyer_id',auth()->id())->first(),
         ]);
     }

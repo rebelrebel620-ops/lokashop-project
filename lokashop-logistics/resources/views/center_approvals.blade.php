@@ -17,7 +17,7 @@
       </div>
       @foreach($docs[$u->id] ?? [] as $d)
         <a href="/center/documents/{{ $d->id }}" style="display:flex;align-items:center;gap:6px;font-size:.87rem;margin-bottom:4px">
-          <x-icon name="clipboard" size="15"/> View {{ $d->kind }} document
+          <x-icon name="clipboard" size="15"/> View {{ \App\Services\DocumentLabels::label($d->kind) }} · {{ $u->name }} · #{{ $d->id }}
         </a>
       @endforeach
       <form method="post" action="/center/approvals/{{ $u->id }}" style="margin-top:10px">

@@ -88,3 +88,20 @@
 .category-photo-card .category-arrow{font-size:1.35rem;color:#087b2b}
 .category-all-link{grid-column:1/-1;justify-self:end;color:#087b2b;font-weight:700;padding:8px 0}
 @media(max-width:700px){.category-photo-card .category-caption{gap:6px;padding:10px}.category-photo-card .category-caption>span:first-of-type{font-size:.8rem}.category-photo-card .category-caption .ic{flex-basis:28px;width:28px;height:28px;font-size:.95rem}}
+
+/* Phone-only hero artwork. Tablet and desktop rules above remain unchanged. */
+@media screen and (max-width:600px){
+ body.landing-page .photo-hero::before{
+  content:"";
+  display:block;
+  order:-1;
+  flex:0 0 auto;
+  width:calc(100% + 13.637%);
+  height:clamp(180px,52vw,280px);
+  min-height:180px;
+  margin:-32px -6.819% 26px;
+  background:#eef5e9 url('../images/landing-bg.webp') right center/cover no-repeat;
+  pointer-events:none;
+ }
+ body.landing-page .photo-hero::after{content:none;display:none}
+}

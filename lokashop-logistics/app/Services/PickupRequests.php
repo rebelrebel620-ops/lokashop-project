@@ -18,6 +18,7 @@ class PickupRequests {
     $latest=DB::table('assignments')->where('parcel_id',$p->id)->where('kind','pickup')->orderByDesc('id')->first();
     if(!$latest||$latest->id!==$a->id)return;
     $order=DB::table('orders')->find($p->order_id);if(!$order)return;
+    if(!empty($p->return_request_id)){DB::table('assignments')->where('id',$a->id)->update(['expires_at'=>now()->addHours(12),'updated_at'=>now()]);return;}
     DB::table('assignments')->where('id',$a->id)->update(['status'=>'expired','updated_at'=>now()]);
     $company=DB::table('sorting_centers')->where('id',$p->center_id)->value('user_id');
     Support::notify([$order->seller_id],"Pickup unsuccessful for {$p->tracking_code}: no rider was assigned within 12 hours. You can request pickup again.");
@@ -32,7 +33,7 @@ class PickupRequests {
  }
  public static function request(int $orderId,int $sellerId,?int $ignoredRider=null):void {
   $o=DB::table('orders')->where('id',$orderId)->where('seller_id',$sellerId)->first();abort_unless($o,403);
-  $existing=DB::table('parcels')->where('order_id',$orderId)->first();abort_unless($existing,404);self::refresh($existing->id);
+  $existing=DB::table('parcels')->where('order_id',$orderId)->first();abort_unless($existing,404);if(!empty($existing->return_request_id))Support::fail('pickup','The return pickup is managed by the buyer sorting center.');self::refresh($existing->id);
   DB::transaction(function()use($existing,$sellerId){
    $p=DB::table('parcels')->where('id',$existing->id)->lockForUpdate()->first();abort_unless(in_array($p->status,['PREPARING','READY_FOR_PICKUP']),422);
    if(DB::table('assignments')->where('parcel_id',$p->id)->where('kind','pickup')->whereIn('status',['requested','offered','accepted'])->exists())Support::fail('pickup','A pickup request is already waiting for the center or rider.');

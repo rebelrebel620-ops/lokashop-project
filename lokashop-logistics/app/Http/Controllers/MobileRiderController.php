@@ -16,6 +16,7 @@ class MobileRiderController extends Controller
         $id=auth()->id();
         $q=DB::table('assignments')->where('rider_id',$id);
         return response()->json([
+            'charts'=>\App\Services\OverviewCharts::data(),
             'offered'=>\App\Services\BulkTrips::workload($id,['offered']),
             'active'=>\App\Services\BulkTrips::workload($id,['accepted']),
             'completed'=>(clone $q)->where('status','completed')->count(),
@@ -39,6 +40,7 @@ class MobileRiderController extends Controller
     {
         $q=DB::table('remittances')->where('rider_id',auth()->id());
         return response()->json([
+            'shortages'=>(float)(clone $q)->where('status','short')->get()->sum(fn($x)=>max(0,$x->expected-$x->amount)),
             'unremitted'=>(float)DB::table('cod_collections')->where('rider_id',auth()->id())->whereNull('remittance_id')->sum('amount'),
             'open'=>(clone $q)->whereIn('status',['pending','short'])->first(),
             'records'=>$q->orderByDesc('id')->paginate(12),

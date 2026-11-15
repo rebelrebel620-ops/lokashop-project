@@ -19,16 +19,15 @@ class SellerController extends Controller {
  public function addVariation(Request $r,int $id){$r->merge(['product_id'=>$id]);return app(MarketController::class)->variant($r);}
  public function orders(){
   \App\Services\PickupRequests::refresh(null,auth()->id());
-  $closed=['DELIVERED','COMPLETED','CANCELLED','REFUNDED','RETURN_RECEIVED'];
-  $tab=(string)request('tab','pending');if(!in_array($tab,['pending','receive','completed'],true))$tab='pending';
+  $tab=(string)request('tab','pending');if(!in_array($tab,['pending','receive','completed','returns'],true))$tab='pending';
   $base=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->leftJoin('users as b','b.id','=','o.buyer_id')->where('o.seller_id',auth()->id());
-  $counts=['pending'=>(clone $base)->where('o.status','PLACED')->count(),'receive'=>(clone $base)->where('o.status','!=','PLACED')->whereNotIn('o.status',$closed)->count(),'completed'=>(clone $base)->whereIn('o.status',$closed)->count()];
-  $query=clone $base;if($tab==='pending')$query->where('o.status','PLACED');elseif($tab==='completed')$query->whereIn('o.status',$closed);else $query->where('o.status','!=','PLACED')->whereNotIn('o.status',$closed);
+  $counts=[];foreach(['pending','receive','completed','returns'] as $key)$counts[$key]=\App\Services\BuyerOrders::filter(clone $base,$key)->count();
+  $query=\App\Services\BuyerOrders::filter(clone $base,$tab);
   $search=mb_substr(trim((string)request('q','')),0,120);if($search!=='')$query->where(function($q)use($search){$q->where('p.tracking_code','like','%'.$search.'%')->orWhere('b.name','like','%'.$search.'%')->orWhereIn('o.id',DB::table('order_items')->where('name','like','%'.$search.'%')->select('order_id'));if(ctype_digit(ltrim($search,'#')))$q->orWhere('o.id',(int)ltrim($search,'#'));});
   $orders=$query->select('o.*','p.id as parcel_id','p.tracking_code','b.name as buyer_name')->orderByDesc('o.id')->paginate(12)->withQueryString();
   $items=DB::table('order_items')->whereIn('order_id',$orders->pluck('id'))->get()->groupBy('order_id');
   $pickups=DB::table('assignments')->whereIn('parcel_id',$orders->pluck('parcel_id'))->where('kind','pickup')->orderByDesc('id')->get()->unique('parcel_id')->keyBy('parcel_id');
-  return view('seller_orders',['links'=>app(CommonController::class)->links(),'orders'=>$orders,'orderItems'=>$items,'pickups'=>$pickups,'counts'=>$counts,'tab'=>$tab,'search'=>$search]);
+  return view('seller_orders',['links'=>app(CommonController::class)->links(),'orders'=>$orders,'orderItems'=>$items,'pickups'=>$pickups,'returnsByOrder'=>DB::table('return_requests')->where('seller_id',auth()->id())->whereIn('order_id',$orders->pluck('id'))->get()->keyBy('order_id'),'counts'=>$counts,'tab'=>$tab,'search'=>$search]);
  }
  public function transition(Request $r,int $id){$v=$r->validate(['status'=>'required|in:CONFIRMED,PREPARING,READY_FOR_PICKUP']);$p=DB::table('parcels')->where('order_id',$id)->first();abort_unless($p,404);Workflow::move($p->id,$v['status'],auth()->id());return back()->with('success','Status updated.');}
  public function voucher(Request $r){$v=$r->validate(['code'=>'required|max:60|unique:vouchers,code','discount_percent'=>'required|numeric|between:0,100','expires_at'=>'nullable|date|after:now']);DB::table('vouchers')->insert($v+['seller_id'=>auth()->id(),'active'=>1,'created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Voucher created.');}

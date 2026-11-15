@@ -15,7 +15,7 @@ class WorkspaceRecords
         foreach($rows as $row){
             $fields=[];
             foreach($row as $key=>$value){
-                if(in_array($key,['id','photos','address_snapshot','municipality_key','profile_photo','edit_count','deleted_at','created_at','updated_at','name','tracking_code','code','status','reference'])||preg_match('/password|token|hash|secret|proof_path|document|attachment/i',$key))continue;
+                if(in_array($key,['id','photos','video_path','pickup_snapshot','destination_snapshot','address_snapshot','municipality_key','profile_photo','edit_count','deleted_at','created_at','updated_at','name','tracking_code','code','status','reference'])||preg_match('/password|token|hash|secret|proof_path|document|attachment/i',$key))continue;
                 $label=ucwords(str_replace('_',' ',preg_replace('/_id$/','',$key)));
                 if(isset($relations[$key]))$value=$value?($names[$key][$value]??'Unavailable'):null;
                 elseif($key==='order_id')$value=$value?'Order #'.$value:null;
