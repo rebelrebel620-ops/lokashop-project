@@ -74,7 +74,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> _warmSession(String? token) async {
     try {
-      final results = await Future.wait<dynamic>([api.get('/me'), api.get('/cart')]);
+      final results = await Future.wait<dynamic>([
+        api.get('/me'),
+        api.get('/cart'),
+      ]);
       if (session.token != token) return;
       user = Map<String, dynamic>.from(results[0]);
       cart = List<dynamic>.from(results[1]);
@@ -126,7 +129,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshCart() async {
+    final token = session.token;
     final res = await api.get('/cart');
+    if (session.token != token) return;
     cart = List<dynamic>.from(res);
     _syncSelection();
     notifyListeners();

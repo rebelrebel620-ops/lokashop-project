@@ -21,7 +21,7 @@
 <article class="sales-order"><div class="sales-order-heading"><div><strong>Order #{{$o->id}}</strong><small>{{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y · g:i A')}} · {{$o->buyer_name??'Buyer'}}</small></div><span class="business-status {{$cancelled?'ended':($successful?'live':'scheduled')}}">{{ucfirst(strtolower(str_replace('_',' ',$o->status)))}}</span></div>
 <div class="sales-order-main"><div class="business-product">
 @if($first&&$first->image)
-<img src="{{\App\Services\Support::imageUrl($first->image)}}" alt="{{$first->name}}" loading="lazy">
+<img src="{{\App\Services\Support::productImageUrl($first->image)}}" alt="{{$first->name}}" loading="lazy">
 @else
 <div class="business-photo-empty">No photo</div>
 @endif

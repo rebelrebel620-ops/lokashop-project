@@ -90,6 +90,9 @@ class MobileRiderController extends Controller
     {
         $a=DB::table('assignments')->where('id',$id)->where('rider_id',auth()->id())->where('kind','delivery')->where('status','completed')->first();abort_unless($a,404);
         $path=DB::table('parcels')->where('id',$a->parcel_id)->value('proof_path');abort_unless($path&&Storage::disk('local')->exists($path),404);
-        return response()->file(Storage::disk('local')->path($path),['Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff']);
+        // Authorization above applies equally to compressed and original proof photos.
+        $file=Storage::disk('local')->path($path);
+        if(request()->query('original')!=='1')$file=\App\Services\LogisticsImages::optimized($file,1200);
+        return response()->file($file,['Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff']);
     }
 }

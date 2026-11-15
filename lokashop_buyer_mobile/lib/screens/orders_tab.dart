@@ -1,3 +1,4 @@
+import '../widgets/auto_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
@@ -13,7 +14,12 @@ class OrdersTab extends StatefulWidget {
   State<OrdersTab> createState() => _OrdersTabState();
 }
 
-class _OrdersTabState extends State<OrdersTab> {
+class _OrdersTabState extends State<OrdersTab> with AutoRefresh<OrdersTab> {
+  @override
+  bool get autoRefreshEnabled =>
+      !loading && context.read<AppState>().isLoggedIn;
+  @override
+  Future<void> refreshAutomatically() => load();
   List orders = [];
   bool loading = true;
   String filter = 'My Orders';
@@ -24,19 +30,32 @@ class _OrdersTabState extends State<OrdersTab> {
     load();
   }
 
+  bool fetching = false;
   Future<void> load() async {
+    if (fetching) {
+      return;
+    }
+    fetching = true;
     if (!context.read<AppState>().isLoggedIn) {
       setState(() => loading = false);
+      fetching = false;
       return;
     }
     setState(() => error = null);
     try {
       final data = await context.read<AppState>().api.get('/orders');
-      if (mounted) setState(() => orders = List.from(data));
+      if (mounted) {
+        setState(() => orders = List.from(data));
+      }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(() => error = '$e');
+      }
     } finally {
-      if (mounted) setState(() => loading = false);
+      fetching = false;
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -51,10 +70,21 @@ class _OrdersTabState extends State<OrdersTab> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     String bucket(dynamic o) {
-      if (o['status'] == 'PLACED') return 'My Orders';
-      if (['DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED', 'RETURN_RECEIVED'].contains(o['status'])) return 'Completed';
+      if (o['status'] == 'PLACED') {
+        return 'My Orders';
+      }
+      if ([
+        'DELIVERED',
+        'COMPLETED',
+        'CANCELLED',
+        'REFUNDED',
+        'RETURN_RECEIVED',
+      ].contains(o['status'])) {
+        return 'Completed';
+      }
       return 'To Receive';
     }
+
     final rows = orders.where((o) => bucket(o) == filter).toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Your local deliveries')),
@@ -63,13 +93,13 @@ class _OrdersTabState extends State<OrdersTab> {
             ? EmptyState(
                 icon: Icons.receipt_long_outlined,
                 title: 'Your orders live here',
-                subtitle: 'Sign in to track your deliveries.',
+                subtitle: 'Log in to track your deliveries.',
                 action: FilledButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const LoginScreen()),
                   ),
-                  child: const Text('Sign in'),
+                  child: const Text('Log in'),
                 ),
               )
             : loading
@@ -85,20 +115,20 @@ class _OrdersTabState extends State<OrdersTab> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children:
-                            ['My Orders', 'To Receive', 'Completed']
-                                .map(
-                                  (f) => Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                      label: Text('$f (${orders.where((o) => bucket(o) == f).length})'),
-                                      selected: filter == f,
-                                      onSelected: (_) =>
-                                          setState(() => filter = f),
-                                    ),
+                        children: ['My Orders', 'To Receive', 'Completed']
+                            .map(
+                              (f) => Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    '$f (${orders.where((o) => bucket(o) == f).length})',
                                   ),
-                                )
-                                .toList(),
+                                  selected: filter == f,
+                                  onSelected: (_) => setState(() => filter = f),
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -153,16 +183,29 @@ class _OrdersTabState extends State<OrdersTab> {
                                 ),
                                 const SizedBox(height: 18),
                                 StatusBadge(status: '${o['status']}'),
-                                if (o['status_label'] != null) Text('${o['status_label']}'),
+                                if (o['status_label'] != null)
+                                  Text('${o['status_label']}'),
                                 if ((o['items'] as List? ?? []).isNotEmpty) ...[
                                   const SizedBox(height: 14),
                                   _item(o['items'][0]),
                                   if ((o['items'] as List).length > 1)
                                     ExpansionTile(
-                                      title: Text('View ${(o['items'] as List).length - 1} more products'),
-                                      children: (o['items'] as List).skip(1).map<Widget>(_item).toList(),
+                                      title: Text(
+                                        'View ${(o['items'] as List).length - 1} more products',
+                                      ),
+                                      children: (o['items'] as List)
+                                          .skip(1)
+                                          .map<Widget>(_item)
+                                          .toList(),
                                     ),
-                                  Text('${(o['items'] as List).fold<int>(0, (sum, i) => sum + (int.tryParse('${i['quantity']}') ?? 0))} items · Cash on delivery', style: const TextStyle(fontSize: 12)),
+                                  Text(
+                                    '${(o['items'] as List).fold<int>(0, (sum, i) => sum + (int.tryParse('${i['quantity']}') ?? 0))} items · ${o['payment_method'] == 'wallet'
+                                        ? 'LokaShop Wallet'
+                                        : o['payment_method'] == 'cod'
+                                        ? 'Cash on delivery'
+                                        : 'View payment details'}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                                 ],
                                 const SizedBox(height: 12),
                                 Text(

@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../session.dart';
 import 'profile_screen.dart';
+import '../widgets/wallet_screen.dart';
 
 /// Uses the same authenticated role pages and permissions as logistics web.
 class WorkspaceScreen extends StatefulWidget {
@@ -152,10 +153,10 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       final path = uri.path.startsWith('/center/documents/')
           ? '/api/mobile/documents/${uri.pathSegments.last}'
           : '/api/mobile/report';
-      final result = await widget.session.api.download(
-        path,
-        uri.queryParameters,
-      );
+      final result = await widget.session.api.download(path, {
+        ...uri.queryParameters,
+        if (uri.path == '/center/financial-report') 'report_kind': 'financial',
+      });
       final saved = await FilePicker.platform.saveFile(
         fileName: result.filename,
         bytes: result.bytes,
@@ -203,8 +204,14 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
           'Pickups': '/center/pickups',
           'Deliveries': '/center/delivery',
           'Transfers': '/ops/transfers',
-          'History': '/center/history',
-          'Setup & couriers': '/center/setup',
+          'Wallet': '/wallet',
+          'Financial report': '/center/financial-report',
+          'Couriers': '/ops/riders',
+          'Courier appeals': '/center/appeals',
+          'Shipping rates': '/ops/rates',
+          'COD & remittances': '/ops/cod',
+          'Returns': '/ops/returns',
+          'Tracking': '/ops/tracking',
           'Areas': '/center/areas',
           'Applications': '/center/approvals',
           'Reports': '/center/reports',
@@ -217,6 +224,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
           'Availability': '/ops/availability',
           'Vehicle': '/ops/vehicle',
           'Earnings': '/rider/earnings',
+          'Wallet': '/wallet',
           'Messages': '/messages',
           'Account': '/profile',
         };
@@ -240,6 +248,22 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
             PopupMenuButton<String>(
               tooltip: 'Workspace sections',
               onSelected: (path) async {
+                if (path == '/wallet') {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WalletScreen(
+                        fetch: (query) =>
+                            widget.session.api.get('/api/mobile/wallet', query),
+                        transfer: (fields) => widget.session.api.post(
+                          '/api/mobile/wallet/transfer',
+                          fields,
+                        ),
+                      ),
+                    ),
+                  );
+                  return;
+                }
                 if (path == '/profile') {
                   await Navigator.push(
                     context,

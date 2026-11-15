@@ -170,7 +170,7 @@ class ApiClient {
     req.fields.addAll(fields);
     for (final entry in files.entries) {
       if (await entry.value.length() > 5 * 1024 * 1024) {
-        throw const ApiException('Choose an image smaller than 5 MB.');
+        throw const ApiException('Choose a file smaller than 5 MB.');
       }
       req.files.add(
         await http.MultipartFile.fromPath(entry.key, entry.value.path),
@@ -264,9 +264,7 @@ class ApiClient {
     final data = await _send('GET', '/api/mobile/me');
     return (
       rider: Rider.fromJson(data['rider'] as Map<String, dynamic>),
-      stats: RiderStats.fromJson(
-        (data['stats'] as Map?)?.cast<String, dynamic>() ?? {},
-      ),
+      stats: RiderStats.fromApiStats(data['stats']),
     );
   }
 

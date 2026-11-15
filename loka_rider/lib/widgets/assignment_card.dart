@@ -6,6 +6,7 @@ import '../api.dart';
 import '../models.dart';
 import '../screens/scan_screen.dart';
 import 'common.dart';
+import 'photo_viewer.dart';
 
 Color parcelStatusColor(String s) =>
     ['DELIVERED', 'COMPLETED', 'AT_SORTING_CENTER'].contains(s)
@@ -385,7 +386,11 @@ class DeliveryScreen extends StatefulWidget {
 }
 
 class _DeliveryScreenState extends State<DeliveryScreen> {
-  final cod = TextEditingController();
+  late final cod = TextEditingController(
+    text: widget.assignment.payment?.method == 'cod'
+        ? widget.assignment.payment!.amount.toStringAsFixed(2)
+        : '',
+  );
   late final labelCode = TextEditingController(text: widget.scannedCode ?? '');
   final form = GlobalKey<FormState>();
   XFile? proof;
@@ -538,13 +543,15 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
             if (pay?.method == 'cod')
               TextFormField(
                 controller: cod,
+                readOnly: true,
                 enabled: !busy,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: 'COD collected',
-                  helperText: 'Exact amount required: ${peso(pay!.amount)}',
+                  labelText: 'COD to collect',
+                  helperText:
+                      'Collect exactly ${peso(pay!.amount)} before confirming delivery.',
                 ),
                 validator: (s) => double.tryParse(s ?? '') == pay.amount
                     ? null
@@ -639,10 +646,37 @@ class _JobHistoryState extends State<JobHistory> {
                 ),
                 Image.network(
                   widget.api.mediaUrl(data!['proof_url']),
+                  cacheWidth: 1200,
                   headers: widget.api.imageHeaders(data!['proof_url']),
                   errorBuilder: (_, e, s) => const Text(
                     'Proof unavailable. Check shared media storage.',
                   ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    final uri = Uri.parse(
+                      widget.api.mediaUrl(data!['proof_url']),
+                    );
+                    final original = uri
+                        .replace(
+                          queryParameters: {
+                            ...uri.queryParameters,
+                            'original': '1',
+                          },
+                        )
+                        .toString();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PhotoViewer(
+                          url: original,
+                          headers: widget.api.imageHeaders(original),
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.zoom_in),
+                  label: const Text('View original photo'),
                 ),
               ],
             ],

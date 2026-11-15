@@ -68,7 +68,18 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Scan parcel'), findsOneWidget);
-      expect(find.text('COD collected'), findsOneWidget);
+      expect(find.text('COD to collect'), findsOneWidget);
+      final field = find.byType(TextFormField).last;
+      final cod = tester.widget<TextFormField>(field);
+      expect(cod.controller?.text, '150.00');
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(of: field, matching: find.byType(TextField)),
+            )
+            .readOnly,
+        isTrue,
+      );
       expect(find.text('Take photo'), findsOneWidget);
     },
   );

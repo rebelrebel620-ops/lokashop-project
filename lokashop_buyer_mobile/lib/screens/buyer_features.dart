@@ -1,3 +1,4 @@
+import '../widgets/auto_refresh.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import '../services/app_state.dart';
 import '../services/api_service.dart';
 import '../widgets/common.dart';
 import '../widgets/design.dart';
+import '../widgets/logout_button.dart';
 import '../widgets/product_card.dart';
 import '../theme.dart';
 import 'product_detail_screen.dart';
@@ -27,7 +29,13 @@ class ResourcePage extends StatefulWidget {
   State<ResourcePage> createState() => _ResourcePageState();
 }
 
-class _ResourcePageState extends State<ResourcePage> {
+class _ResourcePageState extends State<ResourcePage>
+    with AutoRefresh<ResourcePage> {
+  @override
+  bool get autoRefreshEnabled =>
+      !loading && (widget.allowGuest || context.read<AppState>().isLoggedIn);
+  @override
+  Future<void> refreshAutomatically() => load(silent: true);
   dynamic data;
   String? error;
   bool loading = true;
@@ -37,9 +45,13 @@ class _ResourcePageState extends State<ResourcePage> {
     load();
   }
 
-  Future<void> load() async {
+  bool fetching = false;
+  Future<void> load({bool silent = false}) async {
+    if (fetching) return;
+    fetching = true;
     if (!context.read<AppState>().isLoggedIn && !widget.allowGuest) {
       setState(() => loading = false);
+      fetching = false;
       return;
     }
     try {
@@ -51,8 +63,9 @@ class _ResourcePageState extends State<ResourcePage> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted && !silent) setState(() => error = '$e');
     } finally {
+      fetching = false;
       if (mounted) setState(() => loading = false);
     }
   }
@@ -65,13 +78,13 @@ class _ResourcePageState extends State<ResourcePage> {
           ? EmptyState(
               icon: Icons.lock_outline,
               title: 'Make yourself at home',
-              subtitle: 'Sign in to use this part of your buyer account.',
+              subtitle: 'Log in to use this part of your buyer account.',
               action: FilledButton(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                 ),
-                child: const Text('Sign in'),
+                child: const Text('Log in'),
               ),
             )
           : loading
@@ -212,14 +225,40 @@ class VouchersScreen extends StatelessWidget {
                               width: double.infinity,
                               padding: const EdgeInsets.all(18),
                               decoration: BoxDecoration(
-                                color: v['seller_id'] != null ? const Color(0xFF86573C) : v['type'] == 'shipping' ? const Color(0xFF29778A) : AppColors.primary,
+                                color: v['seller_id'] != null
+                                    ? const Color(0xFF86573C)
+                                    : v['type'] == 'shipping'
+                                    ? const Color(0xFF29778A)
+                                    : AppColors.primary,
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Row(children: [
-                                Icon(v['seller_id'] != null ? Icons.storefront : v['type'] == 'shipping' ? Icons.local_shipping : Icons.local_offer, color: Colors.white, size: 36),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text(v['seller_id'] != null ? 'STORE VOUCHER' : v['type'] == 'shipping' ? 'SHIPPING VOUCHER' : 'LOKASHOP VOUCHER', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
-                              ]),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    v['seller_id'] != null
+                                        ? Icons.storefront
+                                        : v['type'] == 'shipping'
+                                        ? Icons.local_shipping
+                                        : Icons.local_offer,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      v['seller_id'] != null
+                                          ? 'STORE VOUCHER'
+                                          : v['type'] == 'shipping'
+                                          ? 'SHIPPING VOUCHER'
+                                          : 'LOKASHOP VOUCHER',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 10),
                             Text(
@@ -247,11 +286,21 @@ class VouchersScreen extends StatelessWidget {
                                 fontSize: 12,
                               ),
                             ),
-                            if ((double.tryParse('${v['cap']}') ?? 0) > 0) Text('Up to ${money(v['cap'])} discount'),
-                            Text(v['expires_at'] == null ? 'No expiry date' : 'Valid until ${v['expires_at']}'),
-                            ExpansionTile(title: const Text('Terms & conditions'), children: [
-                              Text('Up to ${v['per_buyer_limit'] ?? 1} use(s) per buyer. Claiming saves the voucher. Select its code at checkout; eligibility is checked there.'),
-                            ]),
+                            if ((double.tryParse('${v['cap']}') ?? 0) > 0)
+                              Text('Up to ${money(v['cap'])} discount'),
+                            Text(
+                              v['expires_at'] == null
+                                  ? 'No expiry date'
+                                  : 'Valid until ${v['expires_at']}',
+                            ),
+                            ExpansionTile(
+                              title: const Text('Terms & conditions'),
+                              children: [
+                                Text(
+                                  'Up to ${v['per_buyer_limit'] ?? 1} use(s) per buyer. Claiming saves the voucher. Select its code at checkout; eligibility is checked there.',
+                                ),
+                              ],
+                            ),
                             const Divider(height: 28),
                             Row(
                               children: [
@@ -278,7 +327,11 @@ class VouchersScreen extends StatelessWidget {
                                 if (v['claimable'] == 1 ||
                                     v['claimable'] == true)
                                   FilledButton.tonal(
-                                    onPressed: v['claimed'] == true || (v['display_state'] != null && v['display_state'] != 'Available')
+                                    onPressed:
+                                        v['claimed'] == true ||
+                                            (v['display_state'] != null &&
+                                                v['display_state'] !=
+                                                    'Available')
                                         ? null
                                         : () => runAction(context, () async {
                                             await context
@@ -290,7 +343,12 @@ class VouchersScreen extends StatelessWidget {
                                             await reload();
                                           }, success: 'Voucher saved.'),
                                     child: Text(
-                                      v['display_state'] != null && v['display_state'] != 'Available' ? '${v['display_state']}' : v['claimed'] == true ? 'Saved' : 'Claim',
+                                      v['display_state'] != null &&
+                                              v['display_state'] != 'Available'
+                                          ? '${v['display_state']}'
+                                          : v['claimed'] == true
+                                          ? 'Saved'
+                                          : 'Claim',
                                     ),
                                   ),
                               ],
@@ -985,7 +1043,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
         padding: const EdgeInsets.all(22),
         children: [
           const Text(
-            'Account changes require your current password. You will sign in again after a successful change.',
+            'Account changes require your current password. You will log in again after a successful change.',
           ),
           const SizedBox(height: 16),
           TextField(
@@ -1106,7 +1164,7 @@ class AppealScreen extends StatelessWidget {
                 },
                 child: const Text('Submit appeal'),
               ),
-              TextButton(
+              LogoutButton(
                 onPressed: () async {
                   await context.read<AppState>().logout();
                   if (context.mounted) {
@@ -1117,7 +1175,6 @@ class AppealScreen extends StatelessWidget {
                     );
                   }
                 },
-                child: const Text('Sign out'),
               ),
             ],
           ),

@@ -23,7 +23,7 @@
 <div class="seller-purchase-items">
 @foreach($items as $item)
 <div class="seller-purchase-item">
-@if($item->image)<img src="{{\App\Services\Support::imageUrl($item->image)}}" alt="{{$item->name}}" loading="lazy">@else<div class="item-placeholder">No photo</div>@endif
+@if($item->image)<img src="{{\App\Services\Support::productImageUrl($item->image)}}" alt="{{$item->name}}" loading="lazy">@else<div class="item-placeholder">No photo</div>@endif
 <div><strong>{{$item->name}}</strong><small>Qty {{$item->quantity}} · ₱{{number_format($item->unit_price,2)}} each</small></div><b>₱{{number_format($item->unit_price*$item->quantity,2)}}</b>
 </div>
 @endforeach
@@ -38,7 +38,7 @@
 @endif</div>
 @endif
 <footer class="seller-order-actions">
-<a class="btn alt" href="/seller/orders/{{$o->id}}/label" target="_blank" rel="noopener">Print label</a>
+<a class="btn alt" href="/seller/orders/{{$o->id}}/label" target="_blank" rel="noopener">{{ $tab === 'pending' ? 'Print label' : 'View label' }}</a>
 @if($next && ($next[0]!=='READY_FOR_PICKUP'||($pickup&&in_array($pickup->status,['offered','accepted']))))
 <form method="post" action="/seller/orders/{{$o->id}}/status">@csrf<input type="hidden" name="status" value="{{$next[0]}}"><button class="btn">{{$next[1]}}</button></form>
 @endif

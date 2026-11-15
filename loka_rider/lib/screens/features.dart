@@ -1,4 +1,6 @@
 import 'profile_screen.dart';
+import '../widgets/wallet_screen.dart';
+import '../widgets/auto_refresh.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -33,7 +35,11 @@ class DataPage extends StatefulWidget {
   State<DataPage> createState() => _DataPageState();
 }
 
-class _DataPageState extends State<DataPage> {
+class _DataPageState extends State<DataPage> with AutoRefresh<DataPage> {
+  @override
+  bool get autoRefreshEnabled => !busy;
+  @override
+  Future<void> refreshAutomatically() => load(silent: true);
   Map<String, dynamic>? data;
   Object? error;
   bool busy = false;
@@ -43,8 +49,10 @@ class _DataPageState extends State<DataPage> {
     load();
   }
 
-  Future<void> load() async {
-    if (busy) return;
+  Future<void> load({bool silent = false}) async {
+    if (busy) {
+      return;
+    }
     busy = true;
     try {
       final v = await widget.session.api.get(widget.path);
@@ -55,7 +63,9 @@ class _DataPageState extends State<DataPage> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => error = e);
+      if (mounted && !silent) {
+        setState(() => error = e);
+      }
     } finally {
       busy = false;
     }
@@ -115,7 +125,9 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => error = e);
+      if (mounted) {
+        setState(() => error = e);
+      }
     }
   }
 
@@ -126,11 +138,17 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
         'online': online,
       });
       await refresh();
-      if (mounted) toast(context, d['message']);
+      if (mounted) {
+        toast(context, d['message']);
+      }
     } catch (e) {
-      if (mounted) toast(context, e);
+      if (mounted) {
+        toast(context, e);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -382,6 +400,19 @@ class AccountScreen extends StatelessWidget {
           onTap: () => open(c, EarningsScreen(session: session)),
         ),
         InfoCard(
+          title: 'LokaShop Wallet',
+          text: 'Automatic earnings, transfers and history',
+          icon: Icons.account_balance_wallet_outlined,
+          onTap: () => open(
+            c,
+            WalletScreen(
+              fetch: (query) => session.api.get('/api/mobile/wallet', query),
+              transfer: (fields) =>
+                  session.api.post('/api/mobile/wallet/transfer', fields),
+            ),
+          ),
+        ),
+        InfoCard(
           title: 'Complete logistics workspace',
           text: 'Open all web functions available to your account',
           icon: Icons.space_dashboard_outlined,
@@ -405,7 +436,9 @@ class AccountScreen extends StatelessWidget {
                 ],
               ),
             );
-            if (yes == true) await session.logout();
+            if (yes == true) {
+              await session.logout();
+            }
           },
           icon: const Icon(Icons.logout),
           label: const Text('Log out'),
@@ -499,7 +532,9 @@ class _EditScreenState extends State<EditScreen> {
   }
 
   Future<void> save() async {
-    if (!form.currentState!.validate()) return;
+    if (!form.currentState!.validate()) {
+      return;
+    }
     setState(() {
       busy = true;
       error = null;
@@ -513,15 +548,21 @@ class _EditScreenState extends State<EditScreen> {
       final d = files.isEmpty
           ? await widget.session.api.post(widget.endpoint, fields)
           : await widget.session.api.upload(widget.endpoint, fields, files);
-      if (widget.afterSave != null) await widget.afterSave!();
+      if (widget.afterSave != null) {
+        await widget.afterSave!();
+      }
       if (mounted) {
         toast(context, d['message'] ?? 'Saved.');
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) setState(() => error = e);
+      if (mounted) {
+        setState(() => error = e);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -594,7 +635,9 @@ class _EditScreenState extends State<EditScreen> {
                             setState(() => files[f] = x);
                           }
                         } catch (e) {
-                          if (mounted) toast(this.context, e);
+                          if (mounted) {
+                            toast(this.context, e);
+                          }
                         }
                       },
                 icon: const Icon(Icons.add_photo_alternate_outlined),
@@ -677,9 +720,13 @@ class _AddressScreenState extends State<AddressScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) toast(context, e);
+      if (mounted) {
+        toast(context, e);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -760,7 +807,9 @@ class _RecordListState extends State<RecordList> {
                     reload();
                   }
                 } catch (e) {
-                  if (c.mounted) toast(c, e);
+                  if (c.mounted) {
+                    toast(c, e);
+                  }
                 }
               },
               icon: const Icon(Icons.done_all),
@@ -814,7 +863,12 @@ class NotificationsScreen extends StatelessWidget {
 
 class MessagesScreen extends StatefulWidget {
   final Session session;
-  const MessagesScreen({super.key, required this.session});
+  final String basePath;
+  const MessagesScreen({
+    super.key,
+    required this.session,
+    this.basePath = '/api/rider',
+  });
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
@@ -835,7 +889,12 @@ class _MessagesScreenState extends State<MessagesScreen>
     WidgetsBinding.instance.addObserver(this);
     load();
     timer = Timer.periodic(const Duration(seconds: 12), (_) {
-      if (foreground && !loading && !busy) load();
+      if (foreground &&
+          !loading &&
+          !busy &&
+          (ModalRoute.of(context)?.isCurrent ?? false)) {
+        load();
+      }
     });
   }
 
@@ -857,7 +916,7 @@ class _MessagesScreenState extends State<MessagesScreen>
     loading = true;
     try {
       final r = await widget.session.api.get(
-        '/api/rider/messages',
+        '${widget.basePath}/messages',
         selected == null ? null : {'with': '$selected'},
       );
       if (mounted && v == version) {
@@ -868,27 +927,39 @@ class _MessagesScreenState extends State<MessagesScreen>
         });
       }
     } catch (e) {
-      if (mounted && v == version) setState(() => error = e);
+      if (mounted && v == version) {
+        setState(() => error = e);
+      }
     } finally {
-      if (v == version) loading = false;
+      if (v == version) {
+        loading = false;
+      }
     }
   }
 
   Future<void> send() async {
-    if (busy || selected == null || body.text.trim().isEmpty) return;
+    if (busy || selected == null || body.text.trim().isEmpty) {
+      return;
+    }
     setState(() => busy = true);
     try {
-      await widget.session.api.upload('/api/rider/messages', {
+      await widget.session.api.upload('${widget.basePath}/messages', {
         'recipient_id': '$selected',
         'body': body.text.trim(),
       }, image == null ? {} : {'attachment': image!});
       body.clear();
-      if (mounted) setState(() => image = null);
+      if (mounted) {
+        setState(() => image = null);
+      }
       await load();
     } catch (e) {
-      if (mounted) toast(context, e);
+      if (mounted) {
+        toast(context, e);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -898,7 +969,7 @@ class _MessagesScreenState extends State<MessagesScreen>
     final messages = data?['messages'] as List? ?? [];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sorting-center messages'),
+        title: const Text('Messages'),
         actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))],
       ),
       body: data == null
@@ -910,7 +981,7 @@ class _MessagesScreenState extends State<MessagesScreen>
                 if (contacts.isEmpty)
                   const InfoCard(
                     title: 'No contacts available',
-                    text: 'Your approved sorting center will appear here.',
+                    text: 'Your approved contacts will appear here.',
                   ),
                 if (contacts.isNotEmpty)
                   Padding(

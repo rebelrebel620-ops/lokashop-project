@@ -62,7 +62,27 @@ class _HomeShellState extends State<HomeShell> {
                     ),
                   ],
                 ),
-              Expanded(child: pages[index]),
+              Expanded(
+                child: index == 0
+                    ? pages[index]
+                    : DecoratedBox(
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage(
+                              'assets/images/buyer-sage-background.png',
+                            ),
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                          ),
+                        ),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            scaffoldBackgroundColor: Colors.transparent,
+                          ),
+                          child: pages[index],
+                        ),
+                      ),
+              ),
             ],
           ),
           bottomNavigationBar: wide

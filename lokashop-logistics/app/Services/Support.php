@@ -9,7 +9,7 @@ class Support {
  }
  public static function fail(string $field,string $message): never {throw ValidationException::withMessages([$field=>$message]);}
  public static function audit(string $action,string $entity,int $id,$old,$new,?string $reason=null): void {
-  DB::table('audit_logs')->insert(['actor_id'=>auth()->id(),'action'=>$action,'entity'=>$entity,'entity_id'=>$id,'old_value'=>json_encode($old),'new_value'=>json_encode($new),'reason'=>$reason,'created_at'=>now(),'updated_at'=>now()]);
+  DB::table('audit_logs')->insert(['actor_id'=>auth()->id(),'action'=>$action,'entity'=>$entity,'entity_id'=>$id,'old_value'=>json_encode(AuditData::redact($old)),'new_value'=>json_encode(AuditData::redact($new)),'reason'=>$reason,'created_at'=>now(),'updated_at'=>now()]);
  }
  public static function notify(array $ids,string $body): void {
   foreach(array_unique(array_filter($ids)) as $id)DB::table('notifications')->insert(['user_id'=>$id,'body'=>$body,'created_at'=>now(),'updated_at'=>now()]);

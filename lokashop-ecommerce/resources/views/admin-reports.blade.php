@@ -23,7 +23,7 @@
 @foreach($items->get($o->id,collect()) as $item)
 <div>
 @if($item->image)
-<img src="{{\App\Services\Support::imageUrl($item->image)}}" alt="{{$item->name}}" loading="lazy">
+<img src="{{\App\Services\Support::productImageUrl($item->image)}}" alt="{{$item->name}}" loading="lazy">
 @endif
 <span>{{$item->name}} × {{$item->quantity}}</span><strong>₱{{number_format($item->unit_price*$item->quantity,2)}}</strong></div>
 @endforeach

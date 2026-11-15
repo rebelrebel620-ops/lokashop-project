@@ -14,11 +14,11 @@
 <div class="panel-grid product-detail-grid">
  <div class="card product-gallery">
   @if(count($productPhotos))
-   <div class="product-main-photo"><img id="product-main-image" src="{{ \App\Services\Support::imageUrl($productPhotos[0]) }}" alt="{{ $p->name }}"></div>
+   <div class="product-main-photo"><img id="product-main-image" fetchpriority="high" decoding="async" src="{{ \App\Services\Support::productImageUrl($productPhotos[0],1200) }}" alt="{{ $p->name }}"></div>
    @if(count($productPhotos)>1)
    <div class="product-thumbnails" aria-label="Product photos">
     @foreach($productPhotos as $photo)
-     <button type="button" class="product-thumbnail" aria-label="View photo {{ $loop->iteration }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" data-gallery-image="{{ \App\Services\Support::imageUrl($photo) }}"><img src="{{ \App\Services\Support::imageUrl($photo) }}" alt="{{ $p->name }} — photo {{ $loop->iteration }}" loading="lazy"></button>
+     <button type="button" class="product-thumbnail" aria-label="View photo {{ $loop->iteration }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" data-gallery-image="{{ \App\Services\Support::productImageUrl($photo,1200) }}"><img src="{{ \App\Services\Support::productImageUrl($photo) }}" alt="{{ $p->name }} — photo {{ $loop->iteration }}" loading="lazy"></button>
     @endforeach
    </div>
    @endif
@@ -43,7 +43,7 @@
    @if(auth()->user()->role==='buyer')
    <form method="post" action="/cart" style="margin-top:16px" data-purchase-form data-vacation="{{$vacation?1:0}}">@csrf
     <input type="hidden" name="product_id" value="{{$p->id}}">
-    <label>Variation<select name="variation_id"><option value="">Original product</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled(min($p->stock,$v->stock)<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{min($p->stock,$v->stock)}}" data-image="{{\App\Services\Support::imageUrl($v->image)}}">{{$v->name}} · {{collect(json_decode($v->options??'{}',true)?:[])->map(fn($value,$key)=>$key.': '.$value)->implode(' / ')}} · ₱{{number_format(\App\Services\Catalog::price($p,$v),2)}} ({{min($p->stock,$v->stock)}} available)</option>@endforeach</select></label>
+    <label>Variation<select name="variation_id"><option value="">Original product</option>@foreach($variations as $v)<option value="{{$v->id}}" @disabled(min($p->stock,$v->stock)<=0) data-price="{{\App\Services\Catalog::price($p,$v)}}" data-stock="{{min($p->stock,$v->stock)}}" data-image="{{\App\Services\Support::productImageUrl($v->image,1200)}}">{{$v->name}} · {{collect(json_decode($v->options??'{}',true)?:[])->map(fn($value,$key)=>$key.': '.$value)->implode(' / ')}} · ₱{{number_format(\App\Services\Catalog::price($p,$v),2)}} ({{min($p->stock,$v->stock)}} available)</option>@endforeach</select></label>
     <label>Quantity<div class="quantity-stepper"><button type="button" data-quantity-step="-1" aria-label="Decrease quantity">−</button><input type="number" min="1" max="{{$p->stock}}" name="quantity" value="1" required aria-label="Quantity"><button type="button" data-quantity-step="1" aria-label="Increase quantity">+</button></div></label><div class="purchase-actions">
     <button class="btn lg" @disabled($vacation||$p->stock<=0)>Add to cart</button><button class="btn" formaction="/buy-now" @disabled($vacation||$p->stock<=0)>Buy now</button></div>
    </form>

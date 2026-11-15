@@ -1,3 +1,4 @@
+import '../widgets/auto_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
@@ -12,7 +13,13 @@ class EarningsScreen extends StatefulWidget {
   State<EarningsScreen> createState() => _EarningsScreenState();
 }
 
-class _EarningsScreenState extends State<EarningsScreen> {
+class _EarningsScreenState extends State<EarningsScreen>
+    with AutoRefresh<EarningsScreen> {
+  bool fetching = false;
+  @override
+  bool get autoRefreshEnabled => !_loading && !fetching;
+  @override
+  Future<void> refreshAutomatically() => _load(silent: true);
   EarningsSummary? _data;
   String? _error;
   bool _loading = true;
@@ -23,18 +30,31 @@ class _EarningsScreenState extends State<EarningsScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (fetching) {
+      return;
+    }
+    fetching = true;
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final data = await widget.session.api.earnings();
-      if (mounted) setState(() => _data = data);
+      if (mounted) {
+        setState(() => _data = data);
+      }
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && !silent) {
+        setState(() => _error = e.message);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      fetching = false;
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

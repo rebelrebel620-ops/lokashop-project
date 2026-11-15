@@ -1,3 +1,4 @@
+import '../widgets/auto_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
@@ -15,7 +16,13 @@ class CartTab extends StatefulWidget {
   State<CartTab> createState() => _CartTabState();
 }
 
-class _CartTabState extends State<CartTab> {
+class _CartTabState extends State<CartTab> with AutoRefresh<CartTab> {
+  bool changing = false, fetching = false;
+  @override
+  bool get autoRefreshEnabled =>
+      !loading && !changing && !fetching && context.read<AppState>().isLoggedIn;
+  @override
+  Future<void> refreshAutomatically() => reload(silent: true);
   bool loading = true;
   @override
   void initState() {
@@ -23,22 +30,29 @@ class _CartTabState extends State<CartTab> {
     WidgetsBinding.instance.addPostFrameCallback((_) => reload());
   }
 
-  Future<void> reload() async {
+  Future<void> reload({bool silent = false}) async {
+    if (fetching || changing) return;
+    fetching = true;
     try {
       if (context.read<AppState>().isLoggedIn) {
         await context.read<AppState>().refreshCart();
       }
     } catch (e) {
-      if (mounted) AppSnack.show(context, '$e', error: true);
+      if (mounted && !silent) AppSnack.show(context, '$e', error: true);
     }
+    fetching = false;
     if (mounted) setState(() => loading = false);
   }
 
   Future<void> change(Future<void> Function() fn) async {
+    if (changing || fetching) return;
+    changing = true;
     try {
       await fn();
     } catch (e) {
       if (mounted) AppSnack.show(context, '$e', error: true);
+    } finally {
+      changing = false;
     }
   }
 
@@ -57,13 +71,13 @@ class _CartTabState extends State<CartTab> {
             ? EmptyState(
                 icon: Icons.shopping_bag_outlined,
                 title: 'Keep your finds together',
-                subtitle: 'Sign in to save items in your bag.',
+                subtitle: 'Log in to save items in your bag.',
                 action: FilledButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const LoginScreen()),
                   ),
-                  child: const Text('Sign in'),
+                  child: const Text('Log in'),
                 ),
               )
             : loading

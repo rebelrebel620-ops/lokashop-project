@@ -79,6 +79,7 @@ class AppPhoto extends StatelessWidget {
   final double? width, height;
   final BoxFit fit;
   final bool private;
+  final int imageSize;
   const AppPhoto(
     this.url, {
     super.key,
@@ -86,13 +87,21 @@ class AppPhoto extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.private = false,
+    this.imageSize = 400,
   });
   @override
   Widget build(BuildContext context) {
     final api = context.read<AppState>().api;
+    final resolved = displayPhotoUrl(url, size: imageSize);
+    final decodeWidth = width != null && width!.isFinite && width! > 0
+        ? (width! * MediaQuery.devicePixelRatioOf(context))
+              .ceil()
+              .clamp(1, 1600)
+              .toInt()
+        : imageSize;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: mediaUrl(url).isEmpty
+      child: resolved.isEmpty
           ? Container(
               width: width,
               height: height,
@@ -105,11 +114,11 @@ class AppPhoto extends StatelessWidget {
               ),
             )
           : Image.network(
-              mediaUrl(url),
+              resolved,
               width: width,
               height: height,
               fit: fit,
-              cacheWidth: width != null ? (width! * MediaQuery.devicePixelRatioOf(context)).ceil() : 900,
+              cacheWidth: decodeWidth,
               headers: private ? api.imageHeaders(url!) : null,
               errorBuilder: (_, __, ___) => Container(
                 width: width,

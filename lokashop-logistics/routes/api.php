@@ -84,3 +84,5 @@ Route::prefix('mobile')->group(function(){
  Route::post('/wallet/transfer',[\App\Http\Controllers\MobileWalletController::class,'transfer'])->middleware('throttle:10,1');
 });
 
+
+require __DIR__.'/mobile_center.php';

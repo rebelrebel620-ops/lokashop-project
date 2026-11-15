@@ -35,7 +35,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
     WidgetsBinding.instance.addObserver(this);
     load();
     timer = Timer.periodic(const Duration(seconds: 12), (_) {
-      if (foreground) load(quiet: true);
+      if (foreground && (ModalRoute.of(context)?.isCurrent ?? false)) {
+        load(quiet: true);
+      }
     });
   }
 
@@ -45,7 +47,9 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
   }
 
   Future<void> load({bool quiet = false}) async {
-    if (fetching) return;
+    if (fetching) {
+      return;
+    }
     fetching = true;
     try {
       final data = await context.read<AppState>().api.get(
@@ -59,19 +63,27 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
       }
       if (!quiet) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (scroll.hasClients) scroll.jumpTo(scroll.position.maxScrollExtent);
+          if (scroll.hasClients) {
+            scroll.jumpTo(scroll.position.maxScrollExtent);
+          }
         });
       }
     } catch (e) {
-      if (mounted && !quiet) setState(() => error = '$e');
+      if (mounted && !quiet) {
+        setState(() => error = '$e');
+      }
     } finally {
       fetching = false;
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
   Future<void> send() async {
-    if (body.text.trim().isEmpty) return;
+    if (body.text.trim().isEmpty) {
+      return;
+    }
     setState(() => sending = true);
     try {
       await context.read<AppState>().api.postMultipart(
@@ -81,12 +93,18 @@ class _MessageThreadScreenState extends State<MessageThreadScreen>
         fileField: 'attachment',
       );
       body.clear();
-      if (mounted) setState(() => photo = null);
+      if (mounted) {
+        setState(() => photo = null);
+      }
       await load();
     } catch (e) {
-      if (mounted) AppSnack.show(context, '$e', error: true);
+      if (mounted) {
+        AppSnack.show(context, '$e', error: true);
+      }
     } finally {
-      if (mounted) setState(() => sending = false);
+      if (mounted) {
+        setState(() => sending = false);
+      }
     }
   }
 

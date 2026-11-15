@@ -9,7 +9,7 @@ class Support {
  }
  public static function fail(string $field,string $message): never {throw ValidationException::withMessages([$field=>$message]);}
  public static function audit(string $action,string $entity,int $id,$old,$new,?string $reason=null): void {
-  DB::table('audit_logs')->insert(['actor_id'=>auth()->id(),'action'=>$action,'entity'=>$entity,'entity_id'=>$id,'old_value'=>json_encode($old),'new_value'=>json_encode($new),'reason'=>$reason,'created_at'=>now(),'updated_at'=>now()]);
+  DB::table('audit_logs')->insert(['actor_id'=>auth()->id(),'action'=>$action,'entity'=>$entity,'entity_id'=>$id,'old_value'=>json_encode(AuditData::redact($old)),'new_value'=>json_encode(AuditData::redact($new)),'reason'=>$reason,'created_at'=>now(),'updated_at'=>now()]);
  }
  public static function notify(array $ids,string $body): void {
   foreach(array_unique(array_filter($ids)) as $id)DB::table('notifications')->insert(['user_id'=>$id,'body'=>$body,'created_at'=>now(),'updated_at'=>now()]);
@@ -29,6 +29,9 @@ class Support {
   $r->validate([$field=>['nullable','array','min:'.$min,'max:'.$max],$field.'.*'=>['file','mimes:jpg,jpeg,png','extensions:jpg,jpeg,png','max:5120']]);
   $files=$r->file($field,[]);if(count($files)<$min)self::fail($field,"Upload at least {$min} image(s).");
   return array_map(fn($f)=>$f->store('uploads',$disk),$files);
+ }
+ public static function productImageUrl(?string $path,int $size=400): ?string {
+  return $path ? self::imageUrl($path).'?size='.(in_array($size,ProductImages::SIZES,true)?$size:400) : null;
  }
  public static function imageUrl(?string $path): ?string{return $path?url('/media/'.$path):null;}
  public static function money($n): float{return round((float)$n,2,PHP_ROUND_HALF_UP);}

@@ -7,6 +7,7 @@ import '../widgets/common.dart';
 import 'addresses_screen.dart';
 import '../theme.dart';
 import 'home_shell.dart';
+import '../widgets/wallet_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<int>? cartIds;
@@ -20,6 +21,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Set<String> sellerIds = {};
   String? voucherError;
   int? address;
+  String paymentMethod = 'cod';
+  String? walletBalance;
+  bool walletLoading = false;
+  Future<void> loadWallet() async {
+    if (walletLoading) {
+      return;
+    }
+    setState(() => walletLoading = true);
+    try {
+      final result = await context.read<AppState>().api.get('/wallet');
+      if (mounted) {
+        setState(() => walletBalance = '${result['balance']}');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => walletBalance = null);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => walletLoading = false);
+      }
+    }
+  }
+
   Map? quote;
   bool loading = true, busy = false, quoting = false;
   String? error;
@@ -45,7 +70,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Map<String, dynamic> data() => {
     'address_id': address,
-    'payment_method': 'cod',
+    'payment_method': paymentMethod,
     'selection_required': 1,
     'cart_ids':
         widget.cartIds ?? context.read<AppState>().selectedCartIds.toList(),
@@ -66,15 +91,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         api.get('/cart'),
       ]);
       final result = results[0];
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         addresses = List.from(result);
         vouchers = List.from(results[1] ?? []);
-        voucherError = results[1] == null ? 'Vouchers could not load. Tap Refresh vouchers to try again.' : null;
-        final selected = widget.cartIds ?? context.read<AppState>().selectedCartIds.toList();
-        sellerIds = (results[2] as List).where((row) => selected.contains(int.tryParse('${row['id']}'))).map<String>((row) => '${row['seller_id']}').toSet();
+        voucherError = results[1] == null
+            ? 'Vouchers could not load. Tap Refresh vouchers to try again.'
+            : null;
+        final selected =
+            widget.cartIds ?? context.read<AppState>().selectedCartIds.toList();
+        sellerIds = (results[2] as List)
+            .where((row) => selected.contains(int.tryParse('${row['id']}')))
+            .map<String>((row) => '${row['seller_id']}')
+            .toSet();
         for (final field in [store, platform, shipping]) {
-          if (field.text.isNotEmpty && !vouchers.any((v) => v['code'] == field.text && _available(v) && (v['seller_id'] == null || sellerIds.contains('${v['seller_id']}')))) field.clear();
+          if (field.text.isNotEmpty &&
+              !vouchers.any(
+                (v) =>
+                    v['code'] == field.text &&
+                    _available(v) &&
+                    (v['seller_id'] == null ||
+                        sellerIds.contains('${v['seller_id']}')),
+              )) {
+            field.clear();
+          }
         }
         if (!addresses.any((a) => a['id'] == address)) {
           address = addresses.isEmpty ? null : addresses.first['id'];
@@ -83,7 +125,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         error = null;
         loading = false;
       });
-      if (address != null) await calculate();
+      if (address != null) {
+        await calculate();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -111,29 +155,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         setState(() => quote = Map.from(result));
       }
     } catch (e) {
-      if (mounted && version == quoteVersion) setState(() => error = '$e');
+      if (mounted && version == quoteVersion) {
+        setState(() => error = '$e');
+      }
     } finally {
-      if (mounted && version == quoteVersion) setState(() => quoting = false);
+      if (mounted && version == quoteVersion) {
+        setState(() => quoting = false);
+      }
     }
   }
 
   Future<void> place() async {
-    if (quote == null || address == null) return;
+    if (quote == null || address == null) {
+      return;
+    }
     if (!await confirmAction(
       context,
       'Place your order?',
-      'Pay ${money(quote!['total'])} by cash on delivery.',
+      'Pay ${money(quote!['total'])} ${paymentMethod == 'wallet' ? 'using your LokaShop demo wallet' : 'by cash on delivery'}.',
       label: 'Place order',
     )) {
       return;
     }
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() => busy = true);
     try {
       final app = context.read<AppState>();
       await app.api.post('/checkout', {...data(), '_request_key': key});
       await app.refreshCart();
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       AppSnack.show(context, 'Your local finds are on their way.');
       Navigator.pushAndRemoveUntil(
         context,
@@ -141,9 +195,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         (_) => false,
       );
     } catch (e) {
-      if (mounted) AppSnack.show(context, '$e', error: true);
+      if (mounted) {
+        AppSnack.show(context, '$e', error: true);
+      }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -153,10 +211,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget voucherPicker(String label, TextEditingController field, String kind) {
     final rows = vouchers.where((v) {
-      if (!_available(v)) return false;
+      if (!_available(v)) {
+        return false;
+      }
       final storeVoucher = v['seller_id'] != null;
-      if (kind == 'store') return storeVoucher && sellerIds.contains('${v['seller_id']}');
-      return !storeVoucher && (kind == 'shipping' ? v['type'] == 'shipping' : v['type'] != 'shipping');
+      if (kind == 'store') {
+        return storeVoucher && sellerIds.contains('${v['seller_id']}');
+      }
+      return !storeVoucher &&
+          (kind == 'shipping'
+              ? v['type'] == 'shipping'
+              : v['type'] != 'shipping');
     }).toList();
     final codes = <String>{};
     final choices = rows.where((v) => codes.add('${v['code']}')).toList();
@@ -165,19 +230,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       key: ValueKey('$kind:$current:${codes.join(',')}'),
       initialValue: current,
       isExpanded: true,
-      decoration: InputDecoration(labelText: label, helperText: choices.isEmpty ? 'No available claimed vouchers' : null),
+      decoration: InputDecoration(
+        labelText: label,
+        helperText: choices.isEmpty ? 'No available claimed vouchers' : null,
+      ),
       items: [
         const DropdownMenuItem<String>(value: '', child: Text('No voucher')),
-        ...choices.map((v) => DropdownMenuItem<String>(
-          value: '${v['code']}',
-          child: Text('${v['code']} · ${v['type'] == 'percent' ? '${v['value']}% off' : '${money(v['value'])} off'} · Min ${money(v['minimum_spend'])}', maxLines: 2, overflow: TextOverflow.ellipsis),
-        )),
+        ...choices.map(
+          (v) => DropdownMenuItem<String>(
+            value: '${v['code']}',
+            child: Text(
+              '${v['code']} · ${v['type'] == 'percent' ? '${v['value']}% off' : '${money(v['value'])} off'} · Min ${money(v['minimum_spend'])}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
       ],
-      onChanged: busy || quoting ? null : (value) {
-        field.text = value ?? '';
-        invalidateQuote();
-        if (address != null) calculate();
-      },
+      onChanged: busy || quoting
+          ? null
+          : (value) {
+              field.text = value ?? '';
+              invalidateQuote();
+              if (address != null) {
+                calculate();
+              }
+            },
     );
   }
 
@@ -199,28 +277,134 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           : ListView(
               padding: const EdgeInsets.all(22),
               children: [
-                const Eyebrow('SAFE CHECKOUT · CASH ON DELIVERY'),
+                const Eyebrow('SAFE CHECKOUT'),
                 const SectionHeading('Where should we deliver?'),
                 if (addresses.isEmpty)
-                  const SheetCard(child: Text('Add a delivery address in Addresses, then return here to choose it.'))
+                  const SheetCard(
+                    child: Text(
+                      'Add a delivery address in Addresses, then return here to choose it.',
+                    ),
+                  )
                 else ...[
                   DropdownButtonFormField<int>(
-                    key: ValueKey(address), initialValue: address, isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Saved delivery address', prefixIcon: Icon(Icons.location_on_outlined)),
-                    items: addresses.map((a) => DropdownMenuItem<int>(value: a['id'], child: Text('${a['recipient']} · ${a['city']}', overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: busy || quoting ? null : (value) { setState(() => address = value); calculate(); },
+                    key: ValueKey(address),
+                    initialValue: address,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Saved delivery address',
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
+                    items: addresses
+                        .map(
+                          (a) => DropdownMenuItem<int>(
+                            value: a['id'],
+                            child: Text(
+                              '${a['recipient']} · ${a['city']}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: busy || quoting
+                        ? null
+                        : (value) {
+                            setState(() => address = value);
+                            calculate();
+                          },
                   ),
                   const SizedBox(height: 12),
-                  ...addresses.where((a) => a['id'] == address).map((a) => SheetCard(child: Text('${a['street']}, ${a['barangay']}, ${a['city']}, ${a['province']} ${a['postal_code'] ?? ''}\n${a['phone']}'))),
+                  ...addresses
+                      .where((a) => a['id'] == address)
+                      .map(
+                        (a) => SheetCard(
+                          child: Text(
+                            '${a['street']}, ${a['barangay']}, ${a['city']}, ${a['province']} ${a['postal_code'] ?? ''}\n${a['phone']}',
+                          ),
+                        ),
+                      ),
                 ],
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: busy || quoting ? null : () async {
-                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesScreen()));
-                    if (mounted) await load();
-                  },
-                  icon: const Icon(Icons.edit_location_alt_outlined), label: const Text('Manage saved addresses'),
+                  onPressed: busy || quoting
+                      ? null
+                      : () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AddressesScreen(),
+                            ),
+                          );
+                          if (mounted) {
+                            await load();
+                          }
+                        },
+                  icon: const Icon(Icons.edit_location_alt_outlined),
+                  label: const Text('Manage saved addresses'),
                 ),
+                const SectionHeading('Payment method'),
+                DropdownButtonFormField<String>(
+                  initialValue: paymentMethod,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'How would you like to pay?',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'cod',
+                      child: Text('Cash on delivery'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'wallet',
+                      child: Text('LokaShop Wallet · demo currency'),
+                    ),
+                  ],
+                  onChanged: busy || quoting
+                      ? null
+                      : (value) {
+                          if (value == null) {
+                            return;
+                          }
+                          setState(() => paymentMethod = value);
+                          invalidateQuote();
+                          if (value == 'wallet') {
+                            loadWallet();
+                          }
+                          if (address != null) {
+                            calculate();
+                          }
+                        },
+                ),
+                if (paymentMethod == 'wallet') ...[
+                  Text(
+                    walletLoading
+                        ? 'Checking wallet…'
+                        : walletBalance == null
+                        ? 'Wallet balance unavailable. The server checks funds when placing your order.'
+                        : 'Available balance: ${money(walletBalance)}',
+                  ),
+                  TextButton(
+                    onPressed: busy || quoting
+                        ? null
+                        : () async {
+                            final api = context.read<AppState>().api;
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => WalletScreen(
+                                  fetch: (query) =>
+                                      api.get('/wallet', query: query),
+                                  transfer: (fields) =>
+                                      api.post('/wallet/transfer', fields),
+                                ),
+                              ),
+                            );
+                            if (mounted) {
+                              loadWallet();
+                            }
+                          },
+                    child: const Text('Open wallet'),
+                  ),
+                ],
                 const SectionHeading('Make the most of your bag'),
                 SheetCard(
                   child: Column(
@@ -231,9 +415,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       const SizedBox(height: 12),
                       voucherPicker('Shipping voucher', shipping, 'shipping'),
                       const SizedBox(height: 8),
-                      const Text('Only your claimed, available vouchers are listed. Minimum spend and final eligibility are checked when the total updates.', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-                      if (voucherError != null) Text(voucherError!, style: const TextStyle(color: AppColors.danger)),
-                      TextButton(onPressed: busy || quoting ? null : load, child: const Text('Refresh vouchers')),
+                      const Text(
+                        'Only your claimed, available vouchers are listed. Minimum spend and final eligibility are checked when the total updates.',
+                        style: TextStyle(fontSize: 11, color: AppColors.muted),
+                      ),
+                      if (voucherError != null)
+                        Text(
+                          voucherError!,
+                          style: const TextStyle(color: AppColors.danger),
+                        ),
+                      TextButton(
+                        onPressed: busy || quoting ? null : load,
+                        child: const Text('Refresh vouchers'),
+                      ),
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: address == null || quoting || busy
@@ -262,9 +456,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         row('Products', money(quote!['merchandise_total'])),
                         row('Shipping', money(quote!['shipping_total'])),
                         row('Discounts', '−${money(quote!['discount_total'])}'),
+                        if ((double.tryParse(
+                                  '${quote!['cod_rounding_adjustment']}',
+                                ) ??
+                                0) !=
+                            0)
+                          row(
+                            'COD rounding',
+                            money(quote!['cod_rounding_adjustment']),
+                          ),
                         const Divider(height: 28),
                         row(
-                          'Cash on delivery',
+                          paymentMethod == 'wallet'
+                              ? 'Wallet payment'
+                              : 'Cash on delivery',
                           money(quote!['total']),
                           bold: true,
                         ),

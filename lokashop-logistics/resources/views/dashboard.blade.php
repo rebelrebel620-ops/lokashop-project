@@ -12,10 +12,15 @@
 <link rel="stylesheet" href="{{asset('css/avatar-courier-fixes.css')}}">
 <link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
 <link rel="stylesheet" href="{{asset('css/center-refresh.css')}}">
+<link rel="stylesheet" href="{{ asset('css/navigation-polish.css').'?v=3' }}">
 </head>
 <body class="logi {{in_array(auth()->user()->role,['sorting_center','rider'])?'operations-redesign':''}}">
 @php
   $roleLabel = auth()->user()->role==='rider'?'Logistics '.ucfirst(auth()->user()->courier_type):ucfirst(str_replace('_',' ',auth()->user()->role));
+  $navLinks = ['Overview' => '/dashboard'] + $links;
+  if (!array_key_exists('Messages', $navLinks)) $navLinks['Messages'] = '/messages';
+  if (!array_key_exists('Account', $navLinks)) $navLinks['Account'] = '/profile';
+  $active = function($url) { $path = trim(parse_url($url, PHP_URL_PATH) ?? $url, '/'); return request()->is($path) || request()->is($path.'/*'); };
   $initials = collect(explode(' ', auth()->user()->name))->map(fn($p)=>mb_substr($p,0,1))->join('');
   $iconFor = function(string $label) {
     $l = strtolower($label);
@@ -37,16 +42,7 @@
       <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="44" height="44" style="width:44px;height:44px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
       <span>LokaShop<br><small>{{ $roleLabel }} portal</small></span>
     </a>
-    <nav>
-      <a href="/dashboard" class="{{ request()->is('dashboard') ? 'active' : '' }}"><x-icon name="home"/> Overview</a>
-      @foreach($links as $label => $url)
-        <a href="{{ $url }}" class="{{ request()->is(trim($url,'/').'*') && $url !== '/' ? 'active' : '' }}">
-          <x-icon :name="$iconFor($label)"/> {{ $label }}
-        </a>
-      @endforeach
-      <a href="/messages" class="{{ request()->is('messages') ? 'active' : '' }}"><x-icon name="chat"/> Messages</a>
-      <a href="/profile" class="{{ request()->is('profile') ? 'active' : '' }}"><x-icon name="gear"/> Account</a>
-    </nav>
+    @include('navigation-groups')
     <div class="sidebar-foot">&copy; {{ date('Y') }} LokaShop Logistics</div>
   </aside>
 

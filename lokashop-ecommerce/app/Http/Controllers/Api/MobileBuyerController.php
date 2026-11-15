@@ -8,7 +8,7 @@ use App\Services\{Commerce,Catalog,Support,Registration};
 
 class MobileBuyerController extends Controller
 {
- public static function productCard($p){$p->effective_price=Catalog::price($p);$images=json_decode($p->images??'[]',true)?:[];$p->image_urls=array_values(array_filter(array_map(fn($x)=>Support::imageUrl($x),$images)));return $p;}
+ public static function productCard($p,int $imageSize=400){$p->effective_price=Catalog::price($p);$images=json_decode($p->images??'[]',true)?:[];$p->image_urls=array_values(array_filter(array_map(fn($x)=>Support::productImageUrl($x,$imageSize),$images)));return $p;}
  public function categories(){return response()->json(['main_categories'=>config('registration.categories'),'subcategories'=>DB::table('categories')->whereNotNull('category_code')->orderBy('id')->get()]);}
  public function quote(Request $r){return response()->json(Commerce::checkout($r,true));}
  public function wishlist(){return response()->json(Commerce::catalog(DB::table('products'))->join('wishlists as w','w.product_id','=','products.id')->where('w.buyer_id',auth()->id())->select('products.*')->get()->map(fn($p)=>self::productCard($p)));}

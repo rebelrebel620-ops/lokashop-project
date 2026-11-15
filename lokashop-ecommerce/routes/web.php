@@ -3,7 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{CommonController as C,ShopController as S,SellerController as V,AdminController as A};
 Route::get('/',[S::class,'landing']);Route::get('/shop',[S::class,'home']);Route::get('/product/{id}',[S::class,'product']);
 Route::get('/track/{code}',[C::class,'track']);
-Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login']);Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register'])->middleware('throttle:5,1');
+Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login'])->middleware('login.throttle');Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register'])->middleware('throttle:5,1');
 Route::post('/logout',[C::class,'logout'])->middleware('auth');
 Route::middleware(['auth','role:buyer|seller|admin'])->group(function(){Route::get('/dashboard',[C::class,'dashboard']);Route::get('/profile',[C::class,'profile']);Route::post('/profile',[C::class,'updateProfile']);Route::get('/messages',[C::class,'messages']);Route::post('/messages',[C::class,'sendMessage']);});
 Route::middleware(['auth','role:buyer'])->group(function(){Route::get('/cart',[S::class,'cart']);Route::post('/cart',[S::class,'add']);Route::post('/addresses',[S::class,'address']);Route::post('/checkout',[S::class,'checkout']);Route::get('/orders',[S::class,'orders']);Route::post('/orders/{id}/confirm',[S::class,'confirm']);Route::post('/orders/{id}/rating',[S::class,'rating']);});
@@ -84,8 +84,13 @@ Route::middleware(['auth','role:admin'])->group(function(){Route::get('/admin/ap
 // Uploaded images: restricted to image directories and safe raster formats.
 Route::get('/media/{path}',function(string $path){
  abort_unless(preg_match('~^(uploads|stores|profiles|variants)/[A-Za-z0-9_./-]+\.(jpg|jpeg|png)$~i',$path)&&!str_contains($path,'..'),404);
- $disk=\Illuminate\Support\Facades\Storage::disk('public');$file=$disk->exists($path)?$disk->path($path):public_path('storage/'.$path);abort_unless(is_file($file),404);
- return response()->file($file,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'public, max-age=3600']);
+ $file=\App\Services\ProductImages::source($path);abort_unless($file,404);
+ $size=request()->query('size');
+ if($size!==null){abort_unless(is_string($size)&&in_array($size,['400','1200'],true),404);$file=\App\Services\ProductImages::optimized($file,(int)$size);}
+ $response=response()->file($file,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'public, max-age=3600']);
+ $response->setLastModified((new \DateTimeImmutable())->setTimestamp(filemtime($file)));
+ $response->isNotModified(request());
+ return $response;
 })->where('path','.*');
 
 

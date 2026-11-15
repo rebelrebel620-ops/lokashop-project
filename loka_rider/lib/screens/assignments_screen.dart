@@ -37,14 +37,22 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
     WidgetsBinding.instance.addObserver(this);
     load();
     timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (foreground && !loading) load(silent: true);
+      if (foreground &&
+          !loading &&
+          (ModalRoute.of(context)?.isCurrent ?? false)) {
+        load(silent: true);
+      }
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
     foreground = s == AppLifecycleState.resumed;
-    if (foreground && !loading) load(silent: true);
+    if (foreground &&
+        !loading &&
+        (ModalRoute.of(context)?.isCurrent ?? false)) {
+      load(silent: true);
+    }
   }
 
   @override
@@ -56,7 +64,9 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
 
   Future<void> load({bool silent = false}) async {
     final v = ++version;
-    if (!silent) setState(() => loading = true);
+    if (!silent) {
+      setState(() => loading = true);
+    }
     try {
       final data = await widget.session.api.get('/api/rider/assignments', {
         'filter': filter,
@@ -72,9 +82,13 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
         });
       }
     } catch (e) {
-      if (mounted && v == version) setState(() => error = e);
+      if (mounted && v == version) {
+        setState(() => error = e);
+      }
     } finally {
-      if (mounted && v == version) setState(() => loading = false);
+      if (mounted && v == version) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -89,7 +103,9 @@ class _AssignmentsScreenState extends State<AssignmentsScreen>
         ),
       ),
     );
-    if (mounted) await load(silent: true);
+    if (mounted) {
+      await load(silent: true);
+    }
   }
 
   @override

@@ -1,3 +1,4 @@
+import '../widgets/auto_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
@@ -10,7 +11,12 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen>
+    with AutoRefresh<NotificationsScreen> {
+  @override
+  bool get autoRefreshEnabled => !loading;
+  @override
+  Future<void> refreshAutomatically() => _load(silent: true);
   bool loading = true;
   List items = [];
 
@@ -20,15 +26,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => loading = true);
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => loading = true);
     try {
       final res = await context.read<AppState>().api.get('/notifications');
       if (!mounted) return;
       setState(() => items = List.from(res));
       await context.read<AppState>().api.post('/notifications/read');
     } catch (_) {
-      if (mounted) {
+      if (mounted && !silent) {
         AppSnack.show(context, 'Could not load notifications.', error: true);
       }
     } finally {

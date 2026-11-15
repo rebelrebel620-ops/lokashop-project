@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="{{asset('css/avatar-courier-fixes.css')}}">
 <link rel="stylesheet" href="{{asset('css/admin-user-details.css')}}">
 <link rel="stylesheet" href="{{asset('css/role-backgrounds.css')}}">
+<link rel="stylesheet" href="{{ asset('css/navigation-polish.css').'?v=3' }}">
 </head>
 <body class="@yield('body-class')" data-workspace-role="{{auth()->user()->role}}">
 @php
@@ -27,6 +28,12 @@
  };
  $icon = function($label){
   $map = [
+   'Wallet'=>'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18M16 13h5M16 16h.01"/>',
+   'Notifications'=>'<path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5l-2 3ZM10 21h4"/>',
+   'Wishlist'=>'<path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 22l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',
+   'Returns'=>'<path d="m8 3-5 5 5 5M3 8h12a6 6 0 0 1 0 12h-4"/>',
+   'Reviews'=>'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
+
    'Overview'=>'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
    'Shop'=>'<path d="M4 8h16l-1.5 11H5.5L4 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/>',
    'Cart'=>'<circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.2A2 2 0 0 0 9.16 17H17a2 2 0 0 0 1.96-1.6L20.5 8H6"/>',
@@ -87,11 +94,7 @@
    <span>LokaShop<small>{{$roleLabel}}</small></span>
   </a>
   @endunless
-  <nav>
-   @foreach($navLinks as $label => $url)
-   <a href="{{$url}}" class="{{$active($url) ? 'active' : ''}}">{!! $icon($label) !!}<span>{{$label}}</span></a>
-   @endforeach
-  </nav>
+  @include('navigation-groups')
   <hr>
   <form method="post" action="/logout">@csrf<button class="btn alt" style="width:100%">Log out</button></form>
   @if(!$isBuyer)
