@@ -8,6 +8,7 @@ class SellerController extends Controller {
  private function list($title,$query){return view('list',['title'=>$title,'links'=>app(CommonController::class)->links(),'records'=>$query->orderByDesc('id')->paginate(20)]);}
  public function stock(){return response()->json(DB::table('products')->where('seller_id',auth()->id())->whereNull('deleted_at')->get(['id','stock']));}
  public function products(){
+  request()->validate(['q'=>'nullable|string']);
   $categories=\App\Services\ProductCategories::seller(auth()->id())->get();
   $shopCategory=DB::table('seller_businesses')->where('user_id',auth()->id())->value('category');
   $defaultCategory=$categories->first(fn($c)=>mb_strtolower($c->name)===mb_strtolower((string)$shopCategory));
@@ -18,6 +19,7 @@ class SellerController extends Controller {
  public function updateProduct(Request $r,int $id){$v=$r->validate(['name'=>'required|max:180','price'=>'required|numeric|min:0.01','stock'=>'required|integer|min:0','discount_percent'=>'required|numeric|between:0,100']);abort_unless(DB::table('products')->where('id',$id)->where('seller_id',auth()->id())->exists(),403);DB::table('products')->where('id',$id)->update($v+['updated_at'=>now()]);return back()->with('success','Product updated. Existing approval is retained.');}
  public function addVariation(Request $r,int $id){$r->merge(['product_id'=>$id]);return app(MarketController::class)->variant($r);}
  public function orders(){
+  request()->validate(['q'=>'nullable|string','tab'=>'nullable|string']);
   \App\Services\PickupRequests::refresh(null,auth()->id());
   $tab=(string)request('tab','pending');if(!in_array($tab,['pending','receive','completed','returns'],true))$tab='pending';
   $base=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->leftJoin('users as b','b.id','=','o.buyer_id')->where('o.seller_id',auth()->id());

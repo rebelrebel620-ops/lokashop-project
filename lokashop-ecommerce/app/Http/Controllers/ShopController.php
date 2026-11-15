@@ -10,6 +10,7 @@ class ShopController extends Controller {
  private function links(){return app(CommonController::class)->links();}
  public function landing(){$b=fn()=>\App\Services\Commerce::catalog(DB::table('products'));return view('landing',['featured'=>$b()->join('categories','categories.id','=','products.category_id')->select('products.*','categories.name as category')->orderByDesc('products.id')->limit(8)->get(),'categories'=>collect(config('registration.categories'))->map(fn($name)=>(object)['name'=>$name]),'stats'=>['products'=>$b()->count(),'sellers'=>DB::table('users')->where('role','seller')->where('approval_status','approved')->where('active',1)->count(),'orders'=>DB::table('orders')->whereIn('status',['DELIVERED','COMPLETED'])->count()],'notice'=>DB::table('announcements')->orderByDesc('id')->first()]);}
  public function home(Request $r){
+  $r->validate(['category'=>'nullable|integer','main_category'=>'nullable|string']);
   // Old subcategory links still open their corresponding main category.
   if(!$r->filled('main_category')&&$r->filled('category')&&ctype_digit((string)$r->input('category'))){$main=DB::table('categories')->where('id',$r->input('category'))->value('main_category');if(in_array($main,config('registration.categories'),true))$r->merge(['main_category'=>$main]);}
   $products=\App\Services\Catalog::query($r)->paginate(12)->withQueryString();

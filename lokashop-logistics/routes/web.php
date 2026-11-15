@@ -1,5 +1,9 @@
 <?php
 use Illuminate\Support\Facades\Route;
+// Record identifiers must be numeric before invoking typed controller arguments.
+Route::pattern('id', '[0-9]+');
+Route::pattern('index', '[0-9]+');
+Route::pattern('userId', '[0-9]+');
 use App\Http\Controllers\{CommonController as C,LogisticsController as L,LogisticsAdminController as A};
 Route::get('/',[L::class,'landing']);Route::get('/track',[L::class,'track']);
 Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login'])->middleware('login.throttle');Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register']);

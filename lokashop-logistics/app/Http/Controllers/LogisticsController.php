@@ -39,6 +39,7 @@ class LogisticsController extends Controller
 
     public function track(Request $r)
     {
+        $r->validate(['code'=>'nullable|string|max:120']);
         $code = trim((string) $r->query('code'));
         $parcel = null;
         $events = collect();

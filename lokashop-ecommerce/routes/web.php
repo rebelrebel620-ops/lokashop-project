@@ -1,5 +1,9 @@
 <?php
 use Illuminate\Support\Facades\Route;
+// Record identifiers must be numeric before invoking typed controller arguments.
+Route::pattern('id', '[0-9]+');
+Route::pattern('index', '[0-9]+');
+Route::pattern('userId', '[0-9]+');
 use App\Http\Controllers\{CommonController as C,ShopController as S,SellerController as V,AdminController as A};
 Route::get('/',[S::class,'landing']);Route::get('/shop',[S::class,'home']);Route::get('/product/{id}',[S::class,'product']);
 Route::get('/track/{code}',[C::class,'track']);

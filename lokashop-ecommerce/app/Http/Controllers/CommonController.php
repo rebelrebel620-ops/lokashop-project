@@ -26,7 +26,7 @@ class CommonController extends Controller {
   $r->session()->regenerate(); $r->session()->put('pending_registration_id',$id);
   return redirect('/verify-email')->with('success','Check your email for the verification code.');
  }
- public function login(Request $r){
+ public function login(Request $r){$r->validate(['email'=>'required|string','password'=>'required|string']);
   $r->merge(['email'=>mb_strtolower(trim((string)$r->input('email')))]);
   $v=$r->validate(['email'=>'required|email','password'=>'required']);
   $candidate=DB::table('users')->whereRaw('LOWER(TRIM(email)) = ?',[$v['email']])->first();

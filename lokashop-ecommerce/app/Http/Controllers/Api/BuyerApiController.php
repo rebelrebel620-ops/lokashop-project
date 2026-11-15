@@ -22,6 +22,7 @@ class BuyerApiController extends Controller
 
     public function login(Request $r)
     {
+        $r->validate(['email'=>'required|string','password'=>'required|string']);
         $r->merge(['email'=>mb_strtolower(trim((string)$r->input('email')))]);
         $v = $r->validate(['email' => 'required|email', 'password' => 'required']);
         $user = DB::table('users')->where('email', $v['email'])->first();
