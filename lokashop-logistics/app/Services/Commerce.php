@@ -104,7 +104,7 @@ class Commerce {
   DB::table('orders')->where('id',$o->id)->update(['stock_restored_at'=>now()]);
  }
  public static function cancel(int $id,string $reason,?int $actor=null):void {
-  DB::transaction(function()use($id,$reason,$actor){$o=DB::table('orders')->where('id',$id)->lockForUpdate()->first();abort_unless($o,404);$u=$actor?DB::table('users')->find($actor):null;
+  DB::transaction(function()use($id,$reason,$actor){$o=DB::table('orders')->where('id',$id)->lockForUpdate()->first();abort_unless($o,404);if(!empty(DB::table('parcels')->where('order_id',$id)->first()->return_request_id))Support::fail('order','An approved return follows the return pickup workflow and cannot be cancelled as a new order.');$u=$actor?DB::table('users')->find($actor):null;
    if($u)abort_unless($u->id==$o->buyer_id||$u->id==$o->seller_id,403);
    if($o->status==='CANCELLED')return;
    $allowed=$u&&$u->role==='seller'?['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP']:['PLACED','CONFIRMED','PREPARING'];
@@ -122,7 +122,7 @@ class Commerce {
   if($p&&$p->status==='paid')DB::table('refunds')->updateOrInsert(['order_id'=>$o->id],['amount'=>$o->total,'method'=>$p->method,'status'=>'pending','created_at'=>now(),'updated_at'=>now()]);
  }
  public static function available(int $seller):float {
-  $earned=DB::table('orders')->where('seller_id',$seller)->where('status','COMPLETED')->whereNull('refunded_at')->whereExists(fn($q)=>$q->selectRaw('1')->from('payments')->whereColumn('payments.order_id','orders.id')->where('payments.status','paid'))->whereNotIn('id',DB::table('payments')->where('method','wallet')->select('order_id'))->whereNotIn('id',DB::table('wallet_entries')->where('kind','sale')->whereNotNull('order_id')->select('order_id'))->selectRaw('COALESCE(SUM(merchandise_total-store_discount-commission),0) n')->value('n');
+  $earned=CodSettlement::eligible(DB::table('orders'))->where('seller_id',$seller)->where('status','COMPLETED')->whereNull('refunded_at')->whereExists(fn($q)=>$q->selectRaw('1')->from('payments')->whereColumn('payments.order_id','orders.id')->where('payments.status','paid'))->whereNotIn('id',DB::table('payments')->where('method','wallet')->select('order_id'))->whereNotIn('id',DB::table('wallet_entries')->where('kind','sale')->whereNotNull('order_id')->select('order_id'))->selectRaw('COALESCE(SUM(merchandise_total-store_discount-commission),0) n')->value('n');
   $paid=DB::table('payouts')->where('seller_id',$seller)->whereIn('status',['pending','paid'])->sum('amount');return Support::money($earned-$paid);
  }
 }

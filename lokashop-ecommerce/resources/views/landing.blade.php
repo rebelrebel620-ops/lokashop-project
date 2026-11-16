@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="{{ asset('css/landing-responsive.css') }}">
 <link rel="stylesheet" href="{{ asset('css/landing-product-row.css') }}">
 <script src="{{ asset('js/landing-product-row.js') }}" defer></script>
+<link rel="stylesheet" href="{{asset('css/category-carousel.css')}}">
+<script src="{{asset('js/category-carousel.js')}}" defer></script>
 
 <style>
 body.landing-page {
@@ -145,7 +147,7 @@ body.landing-page::before {
 </section>
 
 <section class="sec">
-    <h2>Shop by category</h2>
+    <div class="category-carousel-heading"><h2 id="category-carousel-title">Shop by category</h2><div class="category-carousel-controls" data-category-controls hidden><button type="button" data-category-prev aria-label="Previous categories" aria-controls="category-carousel">‹</button><button type="button" data-category-next aria-label="Next categories" aria-controls="category-carousel">›</button></div></div>
 
     @php
         $categoryIcons = [
@@ -164,7 +166,7 @@ body.landing-page::before {
         ];
     @endphp
 
-    <div class="cat-grid">
+    <div class="cat-grid category-carousel" id="category-carousel" role="region" aria-labelledby="category-carousel-title" tabindex="0">
         @foreach($categories as $c)
             @php
                 $categorySlug = \Illuminate\Support\Str::slug(
@@ -203,10 +205,8 @@ body.landing-page::before {
             </a>
         @endforeach
 
-        <a class="category-all-link" href="/shop">
-            View all products &rarr;
-        </a>
     </div>
+    <div class="category-carousel-footer"><a class="category-all-link" href="/shop">View all products &rarr;</a></div>
 </section>
 
 <section class="sec">

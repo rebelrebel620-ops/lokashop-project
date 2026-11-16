@@ -15,9 +15,9 @@ ok(DB::table('products')->find($product)->stock===7,'Five ordered units deducted
 ok(DB::table('notifications')->where('user_id',$buyer)->where('body',"Order #{$testOrder} placed.")->count()===1,'One order placed notification for five items');
 $order=DB::table('orders')->find($testOrder);
 ok((float)$order->shipping_fee===50.0,'Standard shipping stays PHP 50');
-ok((float)$order->shipping_commission===10.0,'Logistics gets 20 percent of PHP 50');
+ok((float)$order->shipping_commission===0.0,'Modern shipping has no extra logistics-admin commission');
 ok(ShippingEarnings::amount($testOrder,'pickup')===0.0,'Seller pickup costs and earns zero');
-ok(ShippingEarnings::amount($testOrder,'delivery')===40.0,'Delivery rider gets PHP 40');
+ok(ShippingEarnings::amount($testOrder,'delivery')===12.5,'Delivery rider receives the 25 percent shipping share');
 $parcel=DB::table('parcels')->where('order_id',$testOrder)->first();
 loginAs($seller);Workflow::move($parcel->id,'CONFIRMED',$seller);Workflow::move($parcel->id,'PREPARING',$seller);
 PickupRequests::request($testOrder,$seller,999999); // Seller cannot force a rider ID, including one supplied by an older client.

@@ -1,70 +1,273 @@
-# LokaShop — two Laravel websites, one MySQL database
+# LokaShop
 
-This source package follows the attached ERP flow and component PDFs. It targets Laravel 12, PHP 8.2+, MySQL, Windows 10, XAMPP, Composer, and npm.
+LokaShop consists of two Laravel websites and two Flutter mobile applications. The websites share one MySQL database and shared upload storage. Mobile applications connect to the corresponding website APIs.
 
-## Folder structure and implementation plan
+## Projects and roles
 
-```text
-LokaShop-package/
-├── lokashop-ecommerce/     buyer, seller, admin; database migration owner
-│   ├── database/schema/lokashop_schema.sql
-│   ├── database/migrations/
-│   └── lokashop_db.sql      one-step phpMyAdmin import, with demo users
-├── lokashop-logistics/     sorting center and courier; no migrations
-└── README.md
+| Folder | Application | Users |
+| --- | --- | --- |
+| `lokashop-ecommerce` | Marketplace website and buyer API | Buyer, seller, ecommerce admin |
+| `lokashop-logistics` | Logistics website and logistics APIs | Logistics admin, sorting center, rider, driver |
+| `lokashop_buyer_mobile` | Flutter buyer application | Buyer |
+| `loka_rider` | Flutter logistics application | Rider, driver, sorting center |
+| `lokashop-shared` | Shared public and private uploads | Used by both Laravel applications |
+
+The logistics mobile app serves three operational roles; its folder name does not mean it is limited to riders. Sellers and administrators use the web portals.
+
+## Requirements
+
+- Websites: PHP 8.2+, Composer, MySQL, and Node.js/npm. The source requires Laravel 12.
+- Mobile: Flutter 3.35+ with Dart 3.9+, as declared in both mobile projects, plus the Android SDK for Android builds.
+- Windows development: VS Code and XAMPP can provide the editor, MySQL, PHP, and phpMyAdmin.
+- PHP must have the extensions required by Composer and the application, including MySQL database support, file information, and multibyte strings. GD is needed for image-processing features and tests that generate images.
+
+## Local website setup
+
+Keep the two Laravel folders beside each other. Their default upload paths resolve to the same sibling `lokashop-shared` directory.
+
+### 1. Configure the applications
+
+Start MySQL in XAMPP. Apache is needed for XAMPP phpMyAdmin; the commands below use Laravel's development server to host the websites.
+
+In each Laravel folder, copy `.env.example` to `.env`. In PowerShell:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-The e-commerce app owns the schema. Both apps use `lokashop_db` and the same IDs, tables, parcels, and status history. Separate file sessions and different cookies prevent accidental cross-site login. The local URLs are `http://127.0.0.1:8000` (e-commerce) and `http://127.0.0.1:8001` (logistics).
+Use the same database connection in both applications:
 
-**Initial database setup: choose ONE option.** The easiest is importing `lokashop-ecommerce/lokashop_db.sql` in phpMyAdmin. It includes every table, the migration ledger, and demo records. Do not follow that import with `migrate:fresh` or another SQL import. Alternatively, create an empty `lokashop_db`, then run `php artisan migrate` and `php artisan db:seed` **only inside `lokashop-ecommerce`**. Never migrate from the logistics folder. If a table already exists, stop: you likely imported SQL and attempted a second schema creation. Keep data by not dropping anything; check the `migrations` table before deciding what to do.
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=lokashop_db
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-## Windows local installation, step by step
+Use the actual MySQL password and port on your computer. Set `APP_URL=http://127.0.0.1:8000` for ecommerce and `APP_URL=http://127.0.0.1:8001` for logistics. Keep application keys separate. Local HTTP development uses `SESSION_SECURE_COOKIE=false`.
 
-1. Install PHP 8.2 or newer (XAMPP's PHP version matters), Composer, and Node/npm. Open XAMPP Control Panel and start **Apache** and **MySQL**. Open `http://localhost/phpmyadmin` in your browser.
-2. Create a database named `lokashop_db` in phpMyAdmin, click its **Import** tab, choose `lokashop-ecommerce/lokashop_db.sql`, and click **Import**. The SQL also creates the database, so you can import at the server level if your phpMyAdmin allows it. Run the import once.
-3. Extract the folders somewhere on your PC, for example `C:\Users\YourName\Documents\LokaShop-package`. Open the package in VS Code. In each app folder, copy `.env.example` to `.env` (PowerShell: `Copy-Item .env.example .env`). Both must contain `DB_DATABASE=lokashop_db`, `DB_HOST=127.0.0.1`, `DB_USERNAME=root`, and the actual XAMPP root password (`DB_PASSWORD=` when empty). Use `DB_PORT=3306` normally, or `DB_PORT=3307` if your XAMPP MySQL server uses 3307. Both apps must use the same MySQL port.
-4. In **each** app folder, run `composer install`, `php artisan key:generate`, `npm install`, then `npm run build`. Composer downloads Laravel into `vendor`; the key command writes the app encryption key into that app's `.env`; npm builds the CSS assets. Keep each app's `APP_KEY` separate. If Laravel says a directory is missing, ensure `storage/framework/{cache/data,sessions,views}` and `bootstrap/cache` exist and are writable.
-5. In terminal 1, inside `lokashop-ecommerce`, run `php artisan serve --host=127.0.0.1 --port=8000`. In terminal 2, inside `lokashop-logistics`, run `php artisan serve --host=127.0.0.1 --port=8001`. Leave both terminals open. Open `http://127.0.0.1:8000` and `http://127.0.0.1:8001`. XAMPP Apache is used for phpMyAdmin in this local setup; Laravel's two `artisan serve` processes host the websites.
-6. To inspect routes use `php artisan route:list` inside each folder. To confirm database access use `php artisan migrate:status` **in e-commerce**. For the SQL import it should show the existing migration as completed.
+In **each** Laravel folder:
 
-If you get **Access denied** or **Connection refused**, check that MySQL is green in XAMPP, both `.env` files have the correct password and MySQL port, then run `php artisan config:clear` in both folders. If CSS is missing, run `npm run build` again. If you get **table already exists**, do not keep importing or repeatedly run migrations; use one of the two initial database options above. The demo password hash is bcrypt.
+```powershell
+composer install
+php artisan key:generate
+npm install
+npm run build
+```
 
-## Demo accounts
+Generate keys during initial installation. Do not regenerate an existing application's key as a routine update step.
 
-All five accounts have password **`Password123!`**; change it before any public deployment.
+### 2. Initialize the shared database once
 
-| Role | Email | Website |
-| --- | --- | --- |
-| Buyer | `buyer@lokashop.test` | E-commerce, port 8000 |
-| Seller | `seller@lokashop.test` | E-commerce, port 8000 |
-| Admin | `admin@lokashop.test` | E-commerce, port 8000 |
-| Sorting center | `sorting_center@lokashop.test` | Logistics, port 8001 |
-| Rider | `rider@lokashop.test` | Logistics, port 8001 |
+The ecommerce project is the schema migration owner. Choose one initial installation method:
 
-The demo buyer has a Santa Cruz, Laguna address. Demo product #1 is a reusable bag from demo seller. Delivery Area A matches Santa Cruz and is assigned to rider #5. Buyer, seller, and center registrations require approval; courier registration requires sorting center approval. Uploaded documents are stored privately and can be viewed by the corresponding reviewer. Registration captures the essential identity and permit fields; detailed sex/birthday and a province/barangay address dropdown from an API are not included.
+- Import the supplied `lokashop-ecommerce/lokashop_db.sql` into MySQL using phpMyAdmin; or
+- Create an empty `lokashop_db`, then run the following **inside ecommerce only**:
 
-## Full order test
+```powershell
+php artisan migrate
+php artisan db:seed
+```
 
-1. At port **8000**, sign in as buyer, open the demo product, pick a variation and quantity, and add it to the cart. At `/cart`, choose the existing address, optionally use voucher `GREEN10`, select **Cash on delivery**, and place the order. You will see **PLACED** in My orders. One checkout with multiple sellers creates one order per seller.
-2. Sign out and sign in as seller at port **8000**. Open **Orders**. Click **CONFIRMED**, then **PREPARING**. Request pickup from rider #5. Open the printable shipping label.
-3. Sign in as the sorting center at port **8001**. Open **Pickups** and verify the request. This binds the parcel to this center and offers the rider the pickup assignment.
-4. Return to the seller's **Orders** and click **READY_FOR_PICKUP**. Sign in as rider at port **8001**, open **Assignments**, accept the pickup, and click **Scan pickup from seller**. Status becomes **PICKED_UP**.
-5. As the sorting center at port **8001**, open **Parcels**, click **Scan received**, select Area A to **Sort by area**, and **Assign area rider**. The center checks that the selected area's city and province match the buyer address.
-6. As rider, accept the delivery assignment, click **Collect from center / out for delivery**, and click **Delivered**. For a failed delivery, enter a reason and click **Delivery failed**; the center can reschedule the assigned rider or return the parcel.
-7. As buyer at port **8000**, open **My orders**, click **Confirm received**, then leave a rating. The final status is **COMPLETED**. Order, parcel, and dated `status_history` records share the same MySQL database, including which user made each change.
+Do not combine a full SQL import with a second schema creation. Do not use `migrate:fresh` on an existing database you want to keep. Logistics uses the same tables; do not independently initialize or migrate a second schema there.
 
-Role middleware blocks buyers from admin/seller/courier routes. Passwords use Laravel hashing; forms use CSRF protection and server-side validation. Order and stock creation use a database transaction and row locks. The sample payment method COD is a local workflow; manual payment is recorded as awaiting confirmation and does **not** charge anyone or prove payment. Do not accept payment based on that field without adding a verified provider and settlement checks.
+For an existing installation, back up the shared database, inspect `php artisan migrate:status` in ecommerce, and apply outstanding migrations from ecommerce. Run migrations only when the supplied change requires them. Copying CSS, views, or route fixes alone does not require a new database import.
 
-## Cloudflare domain and optional services
+### 3. Configure shared uploads
 
-For deployment, put `APP_URL=https://lokashop.trade` in the e-commerce `.env` and `APP_URL=https://logistics.lokashop.trade` in the logistics `.env`. Set `APP_ENV=production`, `APP_DEBUG=false`, secure cookies, a strong MySQL password, and production-safe credentials. Keep the local `.env` URLs and local ports when working on your PC. No local IP is hardcoded in application code.
+Both projects default to:
 
-For a Cloudflare Tunnel on the computer hosting both apps, configure two **Public Hostnames** in the same tunnel: `lokashop.trade` → `http://127.0.0.1:8000`, and `logistics.lokashop.trade` → `http://127.0.0.1:8001`. Cloudflare manages the public hostname/DNS records and HTTPS edge certificates for the tunnel. For a VPS without Tunnel, point the apex and logistics DNS records to the server and configure HTTPS plus two separate web server virtual hosts whose document roots are each Laravel app's `public` folder. Do not expose the full project directory as the web root. A tunnel connected to your own PC only works while that PC, the two Laravel processes, MySQL, and `cloudflared` remain running. For reliable availability use an always-on server. Check your current Cloudflare dashboard instructions before changing DNS or tunnel configuration.
+```text
+lokashop-shared/public
+lokashop-shared/private
+```
 
-Optional province/municipality/barangay API, real email approval notifications, SMS, online payments, live chat, barcode hardware, and a shipment carrier integration require separate providers or credentials. The local fallback uses manual address fields, in-app status notifications on Account, internal messages, printable text shipping labels, COD, and status buttons as scans. This is a starter implementation and has not been executed end-to-end in the authoring environment, which has no PHP, Composer, or MySQL installed. Check functionality on your Windows setup before public deployment.
+For separate server locations, configure both applications to use the same accessible storage locations:
 
-## Current implementation scope
+```dotenv
+LOKASHOP_PUBLIC_STORAGE=C:/path/to/lokashop-shared/public
+LOKASHOP_PRIVATE_STORAGE=C:/path/to/lokashop-shared/private
+```
 
-Implemented in source: two Laravel apps; logo assets, responsive pages and favicon; shared SQL schema and migration owner; buyer product search, variation/cart/checkout/address/receipt/rating; seller product creation/editing, variations, vouchers, orders, shipping labels, pickup requests and sales records; admin account approval, product approval, account activation, complaints, announcements and 10% commission fields; center rider approval, pickup verification, area assignment, parcel sorting and reports; rider pickup/delivery assignments, failed delivery reasons and earnings; role checks, messages, and status history.
+Keep private uploads outside the public web root. Product media, return evidence, identity documents, and delivery proof have different access rules; do not make every uploaded file publicly accessible.
 
-Still needs work for production or a fully complete ERP: seller product archiving UI, editing delivery areas, policy editing, detailed financial charts/date filters and profit costs, seller responses to reviews, email notices, real-time messaging, proof-of-delivery media, online payment verification/refunds, warehouse scanning devices, fine-grained center-to-rider membership checks, and deployment hardening. See the actual forms and routes before representing any of these as a working feature.
+### 4. Run the websites
+
+Terminal 1, inside `lokashop-ecommerce`:
+
+```powershell
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+Terminal 2, inside `lokashop-logistics`:
+
+```powershell
+php artisan serve --host=127.0.0.1 --port=8001
+```
+
+Open ecommerce at `http://127.0.0.1:8000` and logistics at `http://127.0.0.1:8001`. Keep both processes and MySQL running.
+
+### 5. Create administrator accounts and configure email
+
+There is no universal demo password guaranteed for the current database. Use existing authorized accounts or create an administrator in each project's terminal:
+
+```powershell
+php artisan lokashop:create-admin admin@example.com
+```
+
+Use a different intended email in each project. The command prompts for a password and creates the administrator role corresponding to that project.
+
+The example environment uses `MAIL_MAILER=log`; this writes mail to the application log instead of sending it. Configure a real mail transport for email verification, activation, and recovery on a deployed installation. Accounts must complete the verification and approval steps required by their role before operational access is available.
+
+### 6. Run scheduled maintenance
+
+For local development, run the scheduler from ecommerce in another terminal:
+
+```powershell
+php artisan schedule:work
+```
+
+Scheduled work handles time-dependent workflows such as stale offers and eligible automatic receipt completion. A deployed installation needs a persistent scheduler arrangement. Use one designated scheduler against the shared database rather than unintentionally running duplicate jobs from both applications.
+
+## Main features in the source
+
+### Ecommerce website
+
+- Public shopping pages, category carousel, search/filtering, product variations, stock, wishlist, and store following.
+- Product image/video gallery, cart, vouchers, addresses, checkout, and tracking.
+- Buyer and seller order tabs, including **Returns & Cancelled**, with matching counts and filters.
+- Seller listings, variations, promotions, pickup requests, labels, sales, and review replies.
+- Buyer return requests and escalation; seller decisions and returned-item receipt confirmation.
+- Account review, product review, complaints, announcements, reports, and financial views for administrators.
+- Role-scoped charts, notifications, internal messages, profile settings, and wallets.
+
+### Logistics website
+
+- Courier applications, approval/rejection, activation, approved courier lists, and area assignments.
+- Pickup verification, parcel receipt, sorting, local delivery, and transfers between centers.
+- Driver bulk trips, handover and receiving steps, tracking history, and proof-related workflows.
+- Rider availability, assignment acceptance, delivery attempts, earnings, and COD remittance.
+- Center financial reports, role-scoped charts, messages, notifications, and account management.
+
+Rider pickup/delivery capacity is configured at 20 active assignments under the current dispatch rules. This is not a promise that every parcel will list a rider: approval, activation, availability, area coverage, existing workload, and assignment state also affect eligibility. Driver/trip rules are separate.
+
+### Mobile applications
+
+The buyer app includes catalog/cart/checkout, orders and tracking, return evidence, messages, notifications, wallet/account features, and **Account → Stats**. Its product detail media uses one horizontal thumbnail carousel for photos and video.
+
+The logistics app contains rider, driver, and sorting-center workspaces, with role-specific operations, account/stats, financial and communication features. Available actions depend on the signed-in role and backend permissions.
+
+These features exist in source. Device builds and real-device behavior still require testing; feature presence is not a certification that every mobile flow works.
+
+## Order, return, and money rules
+
+### Normal order flow
+
+1. A buyer selects a product/variation, chooses an address and payment method, and checks out. A checkout involving several sellers creates separate seller orders.
+2. The seller accepts/prepares the order and requests pickup. The sorting center selects an eligible area rider; the seller does not choose an arbitrary rider.
+3. The rider accepts and follows the pickup/scan workflow. The center receives and sorts the parcel.
+4. For another municipality, the relevant transfer/trip and destination-center handover steps occur before local delivery.
+5. The assigned rider records delivery, including the required proof and exact COD amount when applicable.
+6. The buyer confirms receipt, or eligible delivered orders reach automatic completion after seven full days. An active return blocks receipt settlement.
+
+### Returns
+
+- Return requests must meet the current eligibility window and order-state rules. The buyer supplies a reason, description, and supporting evidence.
+- After a request is submitted, the buyer order card shows **View my return** instead of the receipt action, delivery-photo action, and receipt reminder. The delivery proof remains stored in the system.
+- Sellers review pending requests using approve/reject actions and confirm receipt when the returned items arrive. Buyers can escalate eligible rejected requests.
+- Seller approval alone is not confirmation that the goods have arrived or that the refund has completed. Follow the request's current actions and status.
+- Return evidence remains private and is not compressed by the product-video workflow.
+
+### Wallet, COD, and shipping
+
+- COD collection records cash collected by the rider. Remittance records cash handed to the responsible sorting center; center confirmation is a separate step.
+- Seller COD earnings and the associated platform commission require eligible order completion and confirmed COD remittance. Receipt confirmation alone does not release unremitted COD funds.
+- Remittance references are generated automatically when omitted. The interface includes **Remit all**; shortage top-ups and center confirmation retain their own validation rules. Center confirmation does not require a reason field.
+- Current shipping distribution uses a single fee pool: **50% sorting centers, 25% drivers, and 25% delivery riders**. A missing driver's share remains unallocated. Historical credited shipments retain legacy treatment where the implementation requires it.
+- COD order totals round to whole pesos; wallet payments retain centavos. These are local application ledgers, not proof of an external bank or payment-provider transfer.
+- Public cash-in and manual earnings-claim controls have been removed. Do not restore removed cash-in methods just to satisfy obsolete tests.
+
+## Product videos and responsive design
+
+Seller product video uploads target approximately **420p**, preserve aspect ratio, and must be **three minutes or shorter**. The browser upload flow accepts source MP4/WebM files up to 100 MB and targets an output of at most 20 MB. Larger resolutions are reduced without upscaling smaller videos. Browser recording support is required for client-side conversion; output codec support still varies by browser/device.
+
+Server-side FFmpeg optimization is optional and separate. The maintenance command `php artisan lokashop:optimize-product-videos` requires FFmpeg when used; configure `FFMPEG_BINARY` if it is not on the system path. Browser resizing does not require a server FFmpeg installation. Existing videos are not automatically converted merely by copying a view or stylesheet patch.
+
+Phone layout density changes are scoped to widths up to 600px. Authenticated phone/tablet navigation drawers use a 1024px breakpoint, with a menu toggle, close button, and backdrop. Larger desktop layouts retain their existing navigation. Ecommerce and logistics use different dark-green sidebar pictures.
+
+## Run the mobile apps
+
+Run these commands inside the corresponding Flutter project:
+
+```powershell
+flutter pub get
+flutter analyze
+```
+
+For an Android emulator using the local Laravel servers:
+
+Buyer:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+```
+
+Logistics:
+
+```powershell
+flutter run --dart-define=LOGISTICS_BASE_URL=http://10.0.2.2:8001
+```
+
+The buyer URL includes `/api`; the logistics URL is the server root. For a physical phone, use the computer's reachable LAN address instead of `127.0.0.1` or `10.0.2.2`, bind the development server to an accessible interface, and permit the chosen development ports through the firewall.
+
+The source defaults target `https://lokashop.trade/api` for buyers and `https://logistics.lokashop.trade` for logistics. A default address does not establish that the server is online. Use your actual environment. Prefer HTTPS for deployed/release builds; do not assume debug HTTP allowances also apply to release APKs.
+
+After device validation, an Android release build can be produced with the matching environment value:
+
+```powershell
+flutter build apk --release --dart-define=API_BASE_URL=https://your-ecommerce-host/api
+```
+
+For logistics, replace the define with `LOGISTICS_BASE_URL=https://your-logistics-host`. Configure release signing and deployment credentials for the intended distribution.
+
+## Applying changed-file ZIPs
+
+Copy files into the matching project folders while preserving their relative paths. Back up files before replacing them. A changed-file ZIP is a patch, not a complete replacement installation.
+
+After replacing Laravel files, run in each affected project:
+
+```powershell
+php artisan optimize:clear
+```
+
+If `resources/css`, JavaScript build inputs, or package dependencies changed, rebuild with `npm run build`. Hard-refresh the browser after public asset changes. For mobile source/dependency changes, run `flutter pub get` and rebuild the app; copying Dart files does not update an installed APK.
+
+## Verification status and known test limitations
+
+The latest automated web checks used disposable SQLite fixtures and Laravel's HTTP kernel. After the supplied fixes, 562 requests across both projects completed without server errors, including invalid-input and missing-record cases. Expected validation/authorization/not-found responses were included; this does not mean every request returned HTTP 200.
+
+Confirmed fixes include malformed search/login input handling, malformed record URL handling, and the ecommerce phone/tablet drawer close controls. Drawer behavior was checked with scripted DOM mocks rather than physical-device visual testing.
+
+The stricter PHP regression run reported **71 of 90 suites passing** before the two later record-route suites were added. The remaining 19 stop on obsolete methods, outdated controller calls, incomplete fixture tables, wrong-project references, a registration-session fixture, or the missing GD extension in the audit runtime. The later record-route checks passed separately. Do not describe this as a completely passing test suite or restore retired application features to silence old tests.
+
+Real MySQL concurrency, external email/SMS/payment integrations, complete cross-site handoffs, physical browser/device behavior, Flutter analysis/builds, and actual mobile video codec playback have not been certified by these checks. Validate those against the intended deployment before release.
+
+Useful commands:
+
+```powershell
+php artisan route:list
+php artisan migrate:status
+php tests/workflow_checks.php
+php tests/malformed_web_input_checks.php
+php tests/record_route_checks.php
+```
+
+Use `migrate:status` from ecommerce. The supplied integration fixtures use isolated databases; inspect any unfamiliar test before running it. Laravel can print a test exception while exiting with code zero, so inspect exception output and final assertions instead of trusting the process exit status alone.
+
+## Deployment notes
+
+Serve each Laravel application's `public` directory as its web root. Set correct HTTPS `APP_URL` values, separate application/session configuration, `APP_ENV=production`, `APP_DEBUG=false`, secure cookies, appropriate database credentials, shared storage permissions, and an active scheduler.
+
+Keep `.env`, database backups, private documents, and tokens out of public downloads and version control. Configure and test mail transport, backups, upload limits, TLS, and any external integrations. A tunnel to a personal computer works only while that computer and its required services remain running.

@@ -15,9 +15,9 @@ ok(DB::table('products')->find($product)->stock===7,'Five ordered units deducted
 ok(DB::table('notifications')->where('user_id',$buyer)->where('body',"Order #{$testOrder} placed.")->count()===1,'One order placed notification for five items');
 $order=DB::table('orders')->find($testOrder);
 ok((float)$order->shipping_fee===50.0,'Standard shipping stays PHP 50');
-ok((float)$order->shipping_commission===10.0,'Logistics gets 20 percent of PHP 50');
+ok((float)$order->shipping_commission===0.0,'Modern shipping has no extra logistics-admin commission');
 ok(ShippingEarnings::amount($testOrder,'pickup')===0.0,'Seller pickup costs and earns zero');
-ok(ShippingEarnings::amount($testOrder,'delivery')===40.0,'Delivery rider gets PHP 40');
+ok(ShippingEarnings::amount($testOrder,'delivery')===12.5,'Delivery rider receives the 25 percent shipping share');
 $parcel=DB::table('parcels')->where('order_id',$testOrder)->first();
 loginAs($seller);Workflow::move($parcel->id,'CONFIRMED',$seller);Workflow::move($parcel->id,'PREPARING',$seller);
 PickupRequests::request($testOrder,$seller,999999); // Seller cannot force a rider ID, including one supplied by an older client.
@@ -42,7 +42,7 @@ if(config('app.site_kind')==='logistics'){
  ok(DB::table('parcels')->find($parcel->id)->status==='SORTED','Sort action becomes available and advances parcel');
  Dispatch::offer($parcel->id,$company,$rider);
  $delivery=DB::table('assignments')->where('parcel_id',$parcel->id)->where('kind','delivery')->first();
- ok((float)$delivery->earnings===40.0,'Delivery offer quotes 80 percent only once');
+ ok((float)$delivery->earnings===12.5,'Delivery offer quotes the 25 percent pool share once');
  // Area validation rejects another barangay at sorting.
  DB::table('parcels')->where('id',$parcel->id)->update(['status'=>'AT_SORTING_CENTER']);
  $wrong=DB::table('delivery_areas')->insertGetId(['center_id'=>$center,'name'=>'Wrong barangay','barangay'=>'Other barangay','city'=>'Quezon City','province'=>'Metro Manila','rider_id'=>$rider]);
@@ -55,8 +55,8 @@ if(config('app.site_kind')==='logistics'){
  $otherCenter=user('sorting_center','othercenteroct23');loginAs($otherCenter);
  try{$review->approve(requestFor(['decision'=>'approved']),$pending);throw new RuntimeException('Foreign center approved rider');}catch(Symfony\Component\HttpKernel\Exception\HttpException $e){ok($e->getStatusCode()===403,'Other center cannot approve rider');}
  loginAs($company);$review->approve(requestFor(['decision'=>'approved']),$pending);ok(DB::table('users')->find($pending)->approval_status==='approved','Own municipality center approves rider');
- $html=(new App\Http\Controllers\LogisticsAdminController())->approvals()->render();ok(str_contains($html,'Review rider applications'),'Center approval page renders');
- loginAs($adminId);$html=(new App\Http\Controllers\LogisticsAdminController())->commissions()->render();ok(str_contains($html,'Shipping commission'),'Admin commission report renders');
+ $html=(new App\Http\Controllers\LogisticsAdminController())->approvals()->render();ok(str_contains($html,'Applications awaiting review'),'Center approval page renders');
+ loginAs($adminId);$html=(new App\Http\Controllers\LogisticsAdminController())->commissions()->render();ok(str_contains($html,'Shipping fee distribution'),'Admin commission report renders');
 }else{
  loginAs($buyer);DB::table('users')->where('id',$buyer)->update(['profile_photo'=>'profiles/test.png']);loginAs($buyer);
  Cart::add(requestFor(['product_id'=>$product,'quantity'=>5]));

@@ -8,7 +8,7 @@ import '../widgets/common.dart';
 import '../widgets/design.dart';
 import '../widgets/product_card.dart';
 import 'product_detail_screen.dart';
-import 'notifications_screen.dart';
+import '../widgets/notification_bell.dart';
 import 'buyer_features.dart';
 import 'login_screen.dart';
 
@@ -203,16 +203,7 @@ class _ShopTabState extends State<ShopTab> with AutoRefresh<ShopTab> {
                                 icon: const Icon(Icons.favorite_border),
                               ),
                             if (context.watch<AppState>().isLoggedIn)
-                              IconButton(
-                                tooltip: 'Notifications',
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const NotificationsScreen(),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.notifications_none),
-                              ),
+                              const NotificationBell(),
                           ],
                         ),
                         const SizedBox(height: 22),

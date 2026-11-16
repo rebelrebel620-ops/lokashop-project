@@ -65,9 +65,9 @@ class ApiService {
     throw ApiException.fromBody(response.statusCode, body);
   }
 
-  Future<dynamic> _send(Future<http.Response> Function() send) async {
+  Future<dynamic> _send(Future<http.Response> Function() send, {Duration timeout = const Duration(seconds: 30)}) async {
     try {
-      return _decode(await send().timeout(const Duration(seconds: 30)));
+      return _decode(await send().timeout(timeout));
     } on TimeoutException {
       throw ApiException(
         'Connection timed out. Check your connection and try again.',
@@ -113,8 +113,6 @@ class ApiService {
         await http.MultipartFile.fromPath(filesField, image.path),
       );
     }
-    return _send(
-      () async => http.Response.fromStream(await client.send(request)),
-    );
+    return _send(() async => http.Response.fromStream(await client.send(request)), timeout: const Duration(minutes: 3));
   }
 }

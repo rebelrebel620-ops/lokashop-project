@@ -7,7 +7,7 @@ class WalletEarnings {
   DB::transaction(function()use($assignment){
    $a=DB::table('assignments')->where('id',$assignment)->lockForUpdate()->first();
    if(!$a||$a->status!=='completed'||$a->kind!=='delivery')return;
-   $p=DB::table('parcels')->find($a->parcel_id);$o=DB::table('orders')->where('id',$p->order_id)->lockForUpdate()->first();
+   $p=DB::table('parcels')->find($a->parcel_id);if(!empty($p->return_request_id))return;$o=DB::table('orders')->where('id',$p->order_id)->lockForUpdate()->first();
    if(ShippingDistribution::modern($o)){ShippingDistribution::finalize($o->id);return;}
    $payment=DB::table('payments')->where('order_id',$o->id)->orderByDesc('id')->first();if(!$payment||$payment->status!=='paid')return;
    $center=self::centerUser($a);if(!$center)return;
@@ -25,6 +25,7 @@ class WalletEarnings {
   DB::transaction(function()use($assignment){
    $a=DB::table('assignments')->where('id',$assignment)->lockForUpdate()->first();
    if(!$a||$a->status!=='completed'||!in_array($a->kind,['delivery','transfer'],true))return;
+   if(!empty(DB::table('parcels')->find($a->parcel_id)->return_request_id))return;
    $order=DB::table('orders')->where('id',DB::table('parcels')->where('id',$a->parcel_id)->value('order_id'))->first();
    if(ShippingDistribution::modern($order)){ShippingDistribution::finalize($order->id);return;}
    $center=self::centerUser($a);if(!$center)return;
@@ -52,7 +53,7 @@ class WalletEarnings {
   });
  }
  public static function availableAdmin(){
-  return DB::table('orders')->where('status','COMPLETED')->whereNull('refunded_at')->whereExists(function($q){$q->selectRaw('1')->from('payments')->whereColumn('payments.order_id','orders.id')->where('payments.status','paid');})->whereNotIn('id',DB::table('wallet_entries')->where('kind','commission')->whereNotNull('order_id')->select('order_id'));
+  return CodSettlement::eligible(DB::table('orders'))->where('status','COMPLETED')->whereNull('refunded_at')->whereExists(function($q){$q->selectRaw('1')->from('payments')->whereColumn('payments.order_id','orders.id')->where('payments.status','paid');})->whereNotIn('id',DB::table('wallet_entries')->where('kind','commission')->whereNotNull('order_id')->select('order_id'));
  }
  public static function collectAdmin(int $admin): int {
   abort_unless(DB::table('users')->where('id',$admin)->where('role','admin')->where('active',1)->where('account_status','active')->where('approval_status','approved')->exists(),403);

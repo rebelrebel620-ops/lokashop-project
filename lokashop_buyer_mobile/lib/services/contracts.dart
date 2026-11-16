@@ -24,7 +24,7 @@ String mediaUrl(String? raw) {
         .toString();
   }
   if (!['http', 'https'].contains(uri.scheme)) return '';
-  if (['localhost', '127.0.0.1', '10.0.2.2'].contains(uri.host)) {
+  if (['localhost', '127.0.0.1', '10.0.2.2'].contains(uri.host) || uri.host.toLowerCase() == base.host.toLowerCase()) {
     return Uri(
       scheme: base.scheme,
       host: base.host,

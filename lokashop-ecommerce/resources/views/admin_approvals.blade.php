@@ -27,7 +27,7 @@ Not recorded
 @endif
 </dd></div></dl><aside class="admin-documents"><h4>Supporting documents <span>{{$documents->count()}}</span></h4><p class="admin-help">Open each document to check the registration details.</p><div class="admin-document-links">
 @forelse($documents as $doc)
-<a href="/admin/documents/{{$doc->id}}" target="_blank" rel="noopener">{{ucwords(str_replace('_',' ',$doc->kind))}} <small>Open document</small></a>
+<a href="/admin/documents/{{$doc->id}}" target="_blank" rel="noopener">{{\App\Services\DocumentLabels::label($doc->kind)}} · {{$u->name}} · #{{$doc->id}} <small>Open document</small></a>
 @empty
 <p class="admin-notice">No supporting documents found. Review the account details before deciding.</p>
 @endforelse

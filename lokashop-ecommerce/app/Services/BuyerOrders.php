@@ -5,10 +5,12 @@ use Illuminate\Support\Facades\DB;
 
 class BuyerOrders
 {
-    public const CLOSED = ['DELIVERED','COMPLETED','CANCELLED','REFUNDED','RETURN_RECEIVED'];
+    public const CLOSED = ['DELIVERED','COMPLETED'];
+    public const RETURNS = ['CANCELLED','REFUNDED','RETURN_TO_SENDER','RETURNED','RETURN_RECEIVED'];
 
-    public static function bucket(string $status): string
+    public static function bucket(string $status, bool $hasReturn = false): string
     {
+        if ($hasReturn || in_array($status, self::RETURNS, true)) return 'returns';
         if ($status === 'PLACED') return 'pending';
         return in_array($status, self::CLOSED, true) ? 'completed' : 'receive';
     }
@@ -40,6 +42,9 @@ class BuyerOrders
 
     public static function filter($query, string $tab)
     {
+        $returnQuery = fn($q)=>$q->selectRaw('1')->from('return_requests as rr')->whereColumn('rr.order_id','o.id');
+        if ($tab === 'returns') return $query->where(fn($q)=>$q->whereIn('o.status',self::RETURNS)->orWhereExists($returnQuery));
+        $query->whereNotIn('o.status',self::RETURNS)->whereNotExists($returnQuery);
         if ($tab === 'pending') return $query->where('o.status','PLACED');
         if ($tab === 'completed') return $query->whereIn('o.status',self::CLOSED);
         return $query->where('o.status','!=','PLACED')->whereNotIn('o.status',self::CLOSED);

@@ -185,7 +185,7 @@ class RiderApiController extends Controller
             ->where('s.rider_id', $riderId)
             ->select(
                 's.handed_over_at','s.handed_over_by','s.id', 's.parcel_id', 's.kind', 's.status', 's.earnings', 's.created_at', 's.expires_at',
-                'p.tracking_code', 'p.status as parcel_status', 'p.failure_reason',
+                'p.return_request_id', 'p.tracking_code', 'p.status as parcel_status', 'p.failure_reason',
                 'o.id as order_id','o.address_snapshot',
                 'a.recipient', 'a.phone as recipient_phone', 'a.street', 'a.barangay', 'a.city', 'a.province', 'a.postal_code',
                 'sel.name as seller_name', 'sel.phone as seller_phone',
@@ -206,14 +206,14 @@ class RiderApiController extends Controller
         if ($r->kind === 'transfer' && $r->parcel_status === 'TRANSFER_OFFERED') return [['type'=>'transfer_depart','endpoint'=>'/api/rider/transfers/'.$r->parcel_id.'/depart','label'=>'Depart for destination sorting center']];
         if($r->kind==='pickup'&&$r->parcel_status==='PICKED_UP')return [['type'=>'status','status'=>'AT_SORTING_CENTER','label'=>'Complete pickup — returned to center','needs_reason'=>false]];
         if ($r->kind === 'pickup' && $r->parcel_status === 'READY_FOR_PICKUP') {
-            return [['type' => 'status', 'status' => 'PICKED_UP', 'label' => 'Confirm pickup from seller', 'needs_reason' => false]];
+            return [['type' => 'status', 'status' => 'PICKED_UP', 'label' => (!empty($r->return_request_id)?'Confirm return pickup from buyer':'Confirm pickup from seller'), 'needs_reason' => false]];
         }
         if ($r->kind === 'delivery' && $r->parcel_status === 'ASSIGNED_TO_RIDER') {
             return [['type' => 'status', 'status' => 'OUT_FOR_DELIVERY', 'label' => 'Out for delivery', 'needs_reason' => false]];
         }
         if ($r->kind === 'delivery' && $r->parcel_status === 'OUT_FOR_DELIVERY') {
             return [
-                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => false, 'needs_cod_amount' => ($r->pay_method === 'cod'), 'default_cod_amount' => $r->pay_method==='cod'&&isset($r->pay_amount)?(float)$r->pay_amount:null, 'proof_field' => 'proof'],
+                ['type' => 'status', 'status' => 'DELIVERED', 'label' => 'Mark delivered', 'needs_reason' => false, 'needs_proof' => true, 'needs_otp' => false, 'needs_cod_amount' => (empty($r->return_request_id)&&$r->pay_method === 'cod'), 'default_cod_amount' => empty($r->return_request_id)&&$r->pay_method==='cod'&&isset($r->pay_amount)?(float)$r->pay_amount:null, 'proof_field' => 'proof'],
                 ['type' => 'status', 'status' => 'DELIVERY_FAILED', 'label' => 'Delivery failed', 'needs_reason' => true],
             ];
         }
@@ -234,7 +234,7 @@ class RiderApiController extends Controller
 
         return $rows->map(function ($r) use ($items) {
             if($r->kind==='transfer'){$parcel=DB::table('parcels')->find($r->parcel_id);$centers=DB::table('sorting_centers')->whereIn('id',array_filter([$parcel->center_id,$parcel->destination_center_id]))->get();$out=['id'=>$r->id,'parcel_id'=>$r->parcel_id,'order_id'=>$r->order_id,'expires_at'=>$r->expires_at,'earnings'=>(float)$r->earnings,'shipping_split_note'=>'Drivers share one 25% pool after parcel delivery; this is not a fixed per-leg fee.','created_at'=>$r->created_at,'kind'=>'transfer','status'=>$r->status,'parcel_status'=>$r->parcel_status,'tracking_code'=>$r->tracking_code,'actions'=>$this->actions($r),'centers'=>$centers->map(fn($c)=>['stage'=>$c->id==$parcel->center_id?'Origin':'Destination','name'=>$c->name,'city'=>$c->city,'province'=>$c->province,'address'=>Municipalities::address($c->user_id)])->all()];return $out;}
-            $snapshot=json_decode($r->address_snapshot??'null',true);if($snapshot){$r->recipient=$snapshot['recipient'];$r->recipient_phone=$snapshot['phone'];foreach(['street','barangay','city','province','postal_code'] as $field)$r->$field=$snapshot[$field]??null;}
+            $parcel=DB::table('parcels')->find($r->parcel_id);$snapshot=(array)\App\Services\ReturnRouting::destination($parcel);if($snapshot){$r->recipient=$snapshot['recipient'];$r->recipient_phone=$snapshot['phone'];foreach(['street','barangay','city','province','postal_code'] as $field)$r->$field=$snapshot[$field]??null;}
             $actions = $this->actions($r);
             $detail = $r->status === 'accepted' && !empty($actions);
 
@@ -265,14 +265,14 @@ class RiderApiController extends Controller
                     ->map(fn ($i) => ['name' => $i->name, 'quantity' => (int) $i->quantity])->values()->all();
 
                 if ($r->kind === 'pickup') {
-                    $pickupAddress=DB::table('addresses')->where('user_id',DB::table('orders')->where('id',$r->order_id)->value('seller_id'))->orderByDesc('is_default')->first();$out['seller'] = ['name' => $r->seller_name, 'phone' => $r->seller_phone,'pickup_address'=>$pickupAddress];
+                    $pickupAddress=\App\Services\ReturnRouting::pickup($parcel);$out['seller'] = ['name' => !empty($r->return_request_id)?($pickupAddress->recipient??'Buyer'):$r->seller_name,'phone'=>!empty($r->return_request_id)?($pickupAddress->phone??''):$r->seller_phone,'pickup_address'=>$pickupAddress];
                 } else {
                     $out['recipient'] = [
                         'name' => $r->recipient, 'phone' => $r->recipient_phone, 'street' => $r->street,
                         'barangay' => $r->barangay, 'postal_code' => $r->postal_code,
                     ];
                     if ($r->pay_method !== null) {
-                        $out['payment'] = ['method' => $r->pay_method, 'status' => $r->pay_status, 'amount' => (float) $r->pay_amount];
+                        $out['payment'] = ['method' => !empty($r->return_request_id)?'return_no_collection':$r->pay_method, 'status' => $r->pay_status, 'amount' => !empty($r->return_request_id)?0:(float)$r->pay_amount];
                     }
                 }
             }

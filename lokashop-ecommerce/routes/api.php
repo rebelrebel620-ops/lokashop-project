@@ -78,3 +78,8 @@ Route::middleware('api.buyer')->group(function(){
  Route::get('/wallet',[\App\Http\Controllers\WalletController::class,'index']);
  Route::post('/wallet/transfer',[\App\Http\Controllers\WalletController::class,'transfer'])->middleware('throttle:10,1');
 });
+
+Route::get('/products/{id}/video',[\App\Http\Controllers\ProductVideoController::class,'show'])->whereNumber('id');
+Route::middleware('api.buyer')->group(function(){Route::get('/returns/{id}/video',[\App\Http\Controllers\Api\MobileBuyerController::class,'returnVideo'])->whereNumber('id');Route::get('/overview/charts',[\App\Http\Controllers\Api\MobileBuyerController::class,'charts']);});
+
+Route::middleware('api.buyer')->get('/notifications/count',[\App\Http\Controllers\NotificationController::class,'count']);

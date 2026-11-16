@@ -1,0 +1,17 @@
+/* New control is absent from layout above the phone breakpoint. */
+.phone-nav-toggle{display:none!important}
+@media screen and (max-width:600px){
+ body .topribbon{font-size:10px;line-height:1.35;padding:5px 10px;text-align:center}
+ body header.site{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:9px 5%;min-height:60px;box-sizing:border-box}
+ body header.site .brand{display:flex;align-items:center;gap:8px;font-size:17px;line-height:1.2;flex-shrink:1;min-width:0;margin:0}
+ body header.site .brand img{width:34px;height:34px;flex:0 0 34px;object-fit:contain}
+ body header.site .brand small{display:none!important}
+ body header.site .hsearch{display:none!important}
+ body.phone-nav-ready header.site .phone-nav-toggle{display:inline-flex!important;align-items:center;justify-content:center;gap:7px;margin:0 0 0 auto;padding:7px 11px;min-height:40px;border:1px solid #ccdfce;border-radius:9px;background:#f4f8ef;color:#15472c;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+ body.phone-nav-ready header.site .hnav{display:none!important}
+ body.phone-nav-ready.phone-menu-open header.site .hnav{display:flex!important}
+ body header.site .hnav{flex-basis:100%;width:100%;margin:0;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-start;padding:8px 0 2px;border-top:1px solid #e0eadf}
+ body header.site .hnav a,body header.site .hnav button{min-height:40px;font-size:13px;padding:8px 12px;margin:0;box-sizing:border-box}
+ body header.site .hnav form{margin:0}
+ body header.site .phone-nav-toggle:focus-visible,body header.site .hnav a:focus-visible{outline:3px solid #79ad7d;outline-offset:2px}
+}

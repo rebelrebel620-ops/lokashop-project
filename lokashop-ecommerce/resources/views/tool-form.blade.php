@@ -13,6 +13,7 @@
 @elseif($type==='textarea')<textarea name="{{$field}}" @required(!$optional)>{{old($field)}}</textarea>
 @elseif($type==='select')<select name="{{$field}}" @required(!$optional)>@foreach(explode(',',$parts[2]??'') as $choice)<option value="{{$choice}}" @selected(old($field)===$choice)>{{$field==='courier_type'?($choice==='rider'?'Logistics rider — motorcycle/tricycle':'Logistics driver — trucks'):ucfirst(str_replace('_',' ',$choice))}}</option>@endforeach</select>
 @elseif($type==='checkbox')<input type="hidden" name="{{$field}}" value="0"><input type="checkbox" name="{{$field}}" value="1" @checked(old($field,in_array($field,['active','visible'])))>
+@elseif($field==='video')<input type="file" name="video" accept="video/mp4,video/webm" required><small>Video proof showing the product and issue. MP4/WebM, up to 50 MB.</small>
 @else<input type="{{$type}}" name="{{$field}}{{$multiple?'[]':''}}" @if($type!=='file'&&$type!=='password') value="{{old($field)}}" @endif @if($type==='number') step="any" @endif @if($multiple) multiple @endif @required(!$optional)>
 @endif
 @error($field)<small style="color:#b91c1c">{{$message}}</small>@enderror

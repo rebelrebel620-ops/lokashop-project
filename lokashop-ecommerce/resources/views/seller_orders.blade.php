@@ -5,21 +5,22 @@
 <div class="page-head"><div><small>SELLER WORKSPACE</small><h1>Orders</h1><p>Review purchases, prepare parcels and request pickup.</p></div></div>
 <section class="seller-order-workspace">
 <nav class="seller-order-tabs" aria-label="Order status">
-@foreach(['pending'=>'New Orders','receive'=>'Processing & Delivery','completed'=>'Closed Orders'] as $key=>$label)
+@foreach(['pending'=>'New Orders','receive'=>'Processing & Delivery','completed'=>'Closed Orders','returns'=>'Returns & Cancelled'] as $key=>$label)
 <a href="{{url('/seller/orders').'?'.http_build_query(['tab'=>$key,'q'=>$search])}}" @if($tab===$key) aria-current="page" @endif>{{$label}} <span>{{$counts[$key]}}</span></a>
 @endforeach
 </nav>
-<p class="seller-action-hint">{{['pending'=>'Orders waiting for your acceptance.','receive'=>'Accepted orders being prepared, picked up or delivered to buyers.','completed'=>'Delivered and closed orders. Cancelled and refunded orders retain their status.'][$tab]}}</p>
+<p class="seller-action-hint">{{['pending'=>'Orders waiting for your acceptance.','receive'=>'Accepted orders being prepared, picked up or delivered to buyers.','completed'=>'Delivered and completed orders.','returns'=>'Return requests, cancelled orders and refunds. Manage return decisions and receipt in Returns.'][$tab]}}</p>
 <form method="get" class="seller-order-search"><input type="hidden" name="tab" value="{{$tab}}"><label>Find an order<input name="q" value="{{$search}}" maxlength="120" placeholder="Order number, buyer, product or tracking code"></label><button class="btn">Search</button><a class="btn alt" href="/seller/orders?tab={{$tab}}">Clear</a><small>{{$orders->total()}} matching orders</small></form>
 <div class="seller-order-grid">
 @forelse($orders as $o)
 @php
- $pickup=$pickups->get($o->parcel_id);$pickupOpen=$pickup && in_array($pickup->status,['requested','offered','accepted']);
+ $returnRequest=($returnsByOrder??collect())->get($o->id);$hasReturn=(bool)$returnRequest;
+ $isReturn=!empty(\Illuminate\Support\Facades\DB::table('parcels')->find($o->parcel_id)->return_request_id);$pickup=$pickups->get($o->parcel_id);$pickupOpen=$pickup && in_array($pickup->status,['requested','offered','accepted']);
  $items=$orderItems->get($o->id,collect());
  $next=['PLACED'=>['CONFIRMED','Accept order'],'CONFIRMED'=>['PREPARING','Start packing'],'PREPARING'=>['READY_FOR_PICKUP','Mark ready for pickup']][$o->status]??null;
 @endphp
 <article class="seller-purchase-card">
-<header><div><small>ORDER #{{$o->id}} · {{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y g:i A')}}</small><h2>{{$o->buyer_name??'Buyer'}}</h2></div><span class="order-status {{in_array($o->status,['CANCELLED','REFUNDED'])?'muted':''}}">{{ucfirst(strtolower(str_replace('_',' ',$o->status)))}}</span></header>
+<header><div><small>ORDER #{{$o->id}} · {{\Illuminate\Support\Carbon::parse($o->created_at)->format('M j, Y g:i A')}}</small><h2>{{$o->buyer_name??'Buyer'}}</h2></div><span class="order-status {{in_array($o->status,['CANCELLED','REFUNDED'])?'muted':''}}">{{$hasReturn?'Return '.ucfirst($returnRequest->status):ucfirst(strtolower(str_replace('_',' ',$o->status)))}}</span></header>
 <div class="seller-purchase-items">
 @foreach($items as $item)
 <div class="seller-purchase-item">
@@ -37,17 +38,20 @@
 @elseif(in_array($pickup->status,['expired','declined','failed','reassigned']))<p>Pickup was unsuccessful. Request another pickup below.</p>
 @endif</div>
 @endif
+@if($isReturn)<p class="seller-action-hint"><strong>Return to seller:</strong> Pickup is from the buyer. Follow progress in <a href="/tools/returns">Returns</a>; confirm receipt after the rider delivers it back.</p>@endif
 <footer class="seller-order-actions">
+@if($hasReturn)<a class="btn" href="/tools/returns?return_status=all">View return</a>@else
 <a class="btn alt" href="/seller/orders/{{$o->id}}/label" target="_blank" rel="noopener">{{ $tab === 'pending' ? 'Print label' : 'View label' }}</a>
-@if($next && ($next[0]!=='READY_FOR_PICKUP'||($pickup&&in_array($pickup->status,['offered','accepted']))))
+@if(!$hasReturn && !$isReturn && $next && ($next[0]!=='READY_FOR_PICKUP'||($pickup&&in_array($pickup->status,['offered','accepted']))))
 <form method="post" action="/seller/orders/{{$o->id}}/status">@csrf<input type="hidden" name="status" value="{{$next[0]}}"><button class="btn">{{$next[1]}}</button></form>
 @endif
-@if(in_array($o->status,['PREPARING','READY_FOR_PICKUP'])&&!$pickupOpen)
+@if(!$hasReturn && !$isReturn && in_array($o->status,['PREPARING','READY_FOR_PICKUP'])&&!$pickupOpen)
 <form method="post" action="/seller/orders/{{$o->id}}/pickup">@csrf<button class="btn">{{$pickup?'Request pickup again':'Request pickup'}}</button></form>
 @endif
+@endif
 </footer>
-@if(in_array($o->status,['PREPARING','READY_FOR_PICKUP']))<p class="seller-action-hint">Your sorting center assigns the pickup rider. Mark ready after a rider is offered or has accepted.</p>@endif
-@if(in_array($o->status,['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP']))
+@if(!$hasReturn && !$isReturn && in_array($o->status,['PREPARING','READY_FOR_PICKUP']))<p class="seller-action-hint">Your sorting center assigns the pickup rider. Mark ready after a rider is offered or has accepted.</p>@endif
+@if(!$hasReturn && !$isReturn && in_array($o->status,['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP']))
 <details class="seller-cancel-order"><summary>Cancel this order</summary><form method="post" action="/seller/orders/{{$o->id}}/cancel">@csrf<label>Cancellation reason<textarea name="reason" minlength="10" maxlength="300" rows="3" required placeholder="Explain why this order must be cancelled (10–300 characters)"></textarea></label><button class="btn danger" onclick="return confirm('Cancel this order?')">Confirm cancellation</button></form></details>
 @endif
 </article>

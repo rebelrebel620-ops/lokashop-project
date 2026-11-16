@@ -1,3 +1,4 @@
+import '../widgets/simple_video.dart';
 import '../widgets/auto_refresh.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -620,15 +621,17 @@ class ReturnsScreen extends StatelessWidget {
                         )
                         .toList(),
                   ),
+                  if (r['video_url'] != null) Padding(padding: const EdgeInsets.only(top: 12), child: SimpleVideo(url: '${r['video_url']}', headers: context.read<AppState>().api.imageHeaders('${r['video_url']}'))),
                   if (r['status'] == 'rejected')
                     TextButton(
-                      onPressed: () => runAction(context, () async {
-                        await context.read<AppState>().api.post(
-                          '/returns/escalate',
-                          {'id': r['id']},
-                        );
-                        await reload();
-                      }, success: 'Dispute sent for review.'),
+                      onPressed: () async {
+                        if (!await confirmAction(context, 'Escalate rejected return', 'Ask LokaShop to review the rejection for order #${r['order_id']}?', label: 'Escalate return')) return;
+                        if (!context.mounted) return;
+                        await runAction(context, () async {
+                          await context.read<AppState>().api.post('/returns/escalate', {'id': r['id']});
+                          await reload();
+                        }, success: 'Dispute sent for review.');
+                      },
                       child: const Text('Ask LokaShop to review'),
                     ),
                 ],
@@ -639,6 +642,13 @@ class ReturnsScreen extends StatelessWidget {
       ],
     ),
   );
+}
+
+Future<void> showReturnRequest(BuildContext context, int orderId) async {
+  await showDialog<void>(context: context, barrierDismissible: false, builder: (c) => Dialog(
+    insetPadding: const EdgeInsets.all(16), clipBehavior: Clip.antiAlias,
+    child: SizedBox(width: 640, height: MediaQuery.sizeOf(c).height * .88, child: ReturnEditor(orderId: orderId)),
+  ));
 }
 
 class ReturnEditor extends StatefulWidget {
@@ -652,6 +662,7 @@ class _ReturnEditorState extends State<ReturnEditor> {
   String reason = 'Damaged';
   final description = TextEditingController();
   List<File> photos = [];
+  File? video;
   bool busy = false;
   final key = requestKey();
   @override
@@ -661,14 +672,19 @@ class _ReturnEditorState extends State<ReturnEditor> {
   }
 
   Future<void> save() async {
-    if (description.text.trim().length < 10 || photos.isEmpty) {
+    if (description.text.trim().length < 10 || photos.isEmpty || video == null) {
       AppSnack.show(
         context,
-        'Describe the issue in at least 10 characters and add a photo.',
+        'Describe the issue in at least 10 characters, add photos and a proof video.',
         error: true,
       );
       return;
     }
+    if (await video!.length() > 50 * 1024 * 1024 || (await Future.wait(photos.map((p) => p.length()))).any((size) => size > 5 * 1024 * 1024)) {
+      if (mounted) AppSnack.show(context, 'Video limit: 50 MB. Each photo: 5 MB.', error: true);
+      return;
+    }
+    if (!mounted) return;
     setState(() => busy = true);
     try {
       await context.read<AppState>().api.postMultipart('/returns', {
@@ -676,7 +692,7 @@ class _ReturnEditorState extends State<ReturnEditor> {
         'reason': reason,
         'description': description.text.trim(),
         '_request_key': key,
-      }, files: photos);
+      }, files: photos, file: video, fileField: 'video');
       if (mounted) {
         AppSnack.show(context, 'Return requested.');
         Navigator.pop(context);
@@ -756,6 +772,16 @@ class _ReturnEditorState extends State<ReturnEditor> {
                       )
                       .toList(),
                 ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(onPressed: busy ? null : () async {
+                  final pick = await ImagePicker().pickVideo(source: ImageSource.gallery);
+                  if (pick == null || !mounted) return;
+                  final extension = pick.path.toLowerCase();
+                  if (!extension.endsWith('.mp4') && !extension.endsWith('.webm')) { AppSnack.show(context, 'Choose an MP4 or WebM video.', error: true); return; }
+                  if (await File(pick.path).length() > 50 * 1024 * 1024) { if (mounted) AppSnack.show(context, 'Proof video must be 50 MB or smaller.', error: true); return; }
+                  if (mounted) setState(() => video = File(pick.path));
+                }, icon: const Icon(Icons.videocam_outlined), label: Text(video == null ? 'Add video proof (required)' : 'Video proof selected · Change')),
+                const Text('MP4/WebM, up to 50 MB. Return evidence keeps its original quality.'),
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: busy ? null : save,

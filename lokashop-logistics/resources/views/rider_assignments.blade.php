@@ -13,13 +13,13 @@
 </section>
 @forelse($assignments as $a)
 @php
- $snapshot=json_decode($a->address_snapshot??'null');
+ $parcel=\Illuminate\Support\Facades\DB::table('parcels')->find($a->parcel_id);$isReturn=!empty($parcel->return_request_id);$snapshot=\App\Services\ReturnRouting::destination($parcel);
  $matched=(int)session('scanned_parcel')===(int)$a->parcel_id;
  $scanValue=$matched?session('scanned_code'):'';
  $recipient=$snapshot?:$a;
 @endphp
 <article class="panel-card courier-job" id="assignment-{{$a->id}}" data-parcel="{{$a->parcel_id}}">
- <div class="page-head"><div><h2>{{ucfirst($a->kind)}} · {{$a->tracking_code}}</h2><p>Order #{{$a->order_id}} · Assignment {{ucfirst($a->status)}}</p></div><x-badge :status="$a->parcel_status" /></div>
+ <div class="page-head"><div><h2>{{ucfirst($a->kind)}} · {{$a->tracking_code}}</h2><p>Order #{{$a->order_id}} · Assignment {{ucfirst($a->status)}} {{$isReturn?'· Return to seller':''}}</p></div><x-badge :status="$a->parcel_status" /></div>
  <p>{{$a->city}}, {{$a->province}}</p>
  @if($matched)<p class="notice">Parcel label matched. Check the details below.</p>@endif
  @if($a->kind==='pickup' && $a->status==='offered')<p>Accept before: {{\App\Services\PickupRequests::deadline($a)->format('M j, Y g:i A')}} (3 hours from center assignment).</p>@endif
@@ -32,21 +32,21 @@
  @if($a->status==='accepted')
   @if(($a->kind==='pickup' && $a->parcel_status==='READY_FOR_PICKUP') || ($a->kind==='delivery' && $a->parcel_status==='OUT_FOR_DELIVERY'))<button type="button" onclick="document.getElementById('assignment-scanner').hidden=false;document.getElementById('assignment-scanner').scrollIntoView({behavior:'smooth'})">Scan this parcel label</button>@endif
   @if($a->kind==='pickup')
-   @php $pickupAddress=\App\Services\Municipalities::address(\Illuminate\Support\Facades\DB::table('orders')->where('id',$a->order_id)->value('seller_id')); @endphp
-   <p>Seller pickup: {{$pickupAddress->street ?? ''}}, {{$pickupAddress->barangay ?? ''}}, {{$pickupAddress->city ?? ''}}</p>
+   @php $pickupAddress=\App\Services\ReturnRouting::pickup($parcel); @endphp
+   <p>{{$isReturn?'Return pickup from buyer':'Seller pickup'}}: {{$pickupAddress->street ?? ''}}, {{$pickupAddress->barangay ?? ''}}, {{$pickupAddress->city ?? ''}}</p>
   @endif
   @if($a->kind==='pickup' && $a->parcel_status==='PICKED_UP')<p>Parcel collected. Return it to your sorting center, then complete pickup.</p><form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<button name="status" value="AT_SORTING_CENTER">Complete pickup — returned to center</button></form>@endif
   @if($a->kind==='transfer' && $a->parcel_status==='TRANSFER_OFFERED')<form method="post" action="/rider/transfers/{{$a->parcel_id}}/depart">@csrf<button>Depart for destination sorting center</button></form>@endif
   @if($a->kind==='transfer' && $a->parcel_status==='IN_TRANSIT_CENTER')@if(!$a->handed_over_at)<form method="post" action="/rider/transfers/{{$a->parcel_id}}/handover">@csrf<label class="acknowledge"><input type="checkbox" name="confirm_handover" value="1" required> I handed this parcel to the destination center.</label><button>Confirm handover at destination</button></form>@else<p class="handover-state waiting">Handover confirmed. Waiting for destination staff to confirm receipt.</p>@endif
 @endif
   @if($a->kind==='pickup' && $a->parcel_status==='READY_FOR_PICKUP')
-  <form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<input type="hidden" name="status" value="PICKED_UP"><label>Scanned label or printed tracking code<input name="scanned_code" value="{{$scanValue}}" required maxlength="2000" placeholder="Scan above, or type the label code"></label><button>Confirm pickup from seller</button></form>
+  <form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<input type="hidden" name="status" value="PICKED_UP"><label>Scanned label or printed tracking code<input name="scanned_code" value="{{$scanValue}}" required maxlength="2000" placeholder="Scan above, or type the label code"></label><button>Confirm pickup from {{$isReturn?'buyer':'seller'}}</button></form>
   @endif
   @if($a->kind==='delivery')
    <p><strong>Recipient:</strong> {{$recipient->recipient}} · {{$recipient->phone}}</p>
    <p>{{$recipient->street}}, {{$recipient->barangay}}, {{$recipient->city}}, {{$recipient->province}}</p>
-   @php $walletPrepaid=\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$a->order_id)->where('method','wallet')->where('status','paid')->exists(); @endphp
-   <p><strong>{{$walletPrepaid?'Prepaid wallet · collect ₱0 · Order total':'Order total / COD'}}: ₱{{$walletPrepaid?number_format($a->cod_total,2):\App\Services\CodAmount::format($a->cod_total)}}</strong></p>
+   @php $walletPrepaid=$isReturn||\Illuminate\Support\Facades\DB::table('payments')->where('order_id',$a->order_id)->where('method','wallet')->where('status','paid')->exists(); @endphp
+   <p><strong>{{$walletPrepaid?($isReturn?'Return shipment · collect ₱0 · Original order total':'Prepaid wallet · collect ₱0 · Order total'):'Order total / COD'}}: ₱{{$walletPrepaid?number_format($a->cod_total,2):\App\Services\CodAmount::format($a->cod_total)}}</strong></p>
    @if($a->parcel_status==='ASSIGNED_TO_RIDER')<form method="post" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf<button name="status" value="OUT_FOR_DELIVERY">Out for delivery</button></form>@endif
    @if($a->parcel_status==='OUT_FOR_DELIVERY')
    <form class="delivery-form" method="post" enctype="multipart/form-data" action="/rider/parcels/{{$a->parcel_id}}/status">@csrf

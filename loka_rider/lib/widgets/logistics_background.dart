@@ -3,9 +3,9 @@ import '../models.dart';
 
 /// Decorative local assets only; never captures gestures or adds navigation.
 class LogisticsBackground extends StatelessWidget {
-  static const sortingCenter = 'assets/backgrounds/sorting_center.png';
-  static const driver = 'assets/backgrounds/driver.png';
-  static const rider = 'assets/backgrounds/rider.png';
+  static const sortingCenter = 'assets/backgrounds/sorting-center-v2.webp';
+  static const driver = 'assets/backgrounds/transport-driver-v2.webp';
+  static const rider = 'assets/backgrounds/delivery-rider-v2.webp';
   static const login = 'assets/backgrounds/login.png';
   static const register = 'assets/backgrounds/register.png';
   static const loginBanner = 'assets/backgrounds/login_banner.png';

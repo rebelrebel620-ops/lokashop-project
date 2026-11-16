@@ -212,14 +212,6 @@ class OverviewScreen extends StatelessWidget {
               ),
             ),
           ),
-          if (driver && count(data['legacy_open']) > 0)
-            InfoCard(
-              title: 'Individual transfer assignments',
-              text:
-                  '${count(data['legacy_open'])} older parcel assignments. Open the Individual transfers option on the Trips page.',
-              icon: Icons.inventory_outlined,
-              onTap: () => onJobs('progress'),
-            ),
           const SizedBox(height: 12),
           if (!driver)
             OutlinedButton.icon(

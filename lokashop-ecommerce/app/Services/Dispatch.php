@@ -14,7 +14,7 @@ class Dispatch {
    if($a->status!=='offered'||($a->expires_at&&now()->gte($a->expires_at)))Support::fail('assignment','This offer has expired or is no longer available.');
    if(!$u->active||!$u->online||$u->approval_status!=='approved'||!$u->last_seen_at||now()->diffInMinutes($u->last_seen_at,true)>=30)Support::fail('online','Go Online to accept jobs.');
    $center=DB::table('parcels')->where('id',$a->parcel_id)->value('center_id');$company=DB::table('sorting_centers')->where('id',$center)->value('user_id');abort_unless($u->company_id==$company,403);
-   $jobs=BulkTrips::workload($rider,['accepted']);if($jobs>=3)Support::fail('assignment','You already have 3 active jobs.');
+   $jobs=BulkTrips::workload($rider,['accepted']);if($jobs>=CourierCapacity::limit($u))Support::fail('assignment','You already have '.CourierCapacity::limit($u).' active jobs.');
    DB::table('assignments')->where('id',$id)->update(['status'=>'accepted','expires_at'=>$a->kind==='pickup'?null:$a->expires_at,'updated_at'=>now()]);
    ParcelTracking::note($a->parcel_id,$rider,match($a->kind){'pickup'=>'Rider accepted the pickup assignment.','transfer'=>'Driver accepted the sorting center transfer.',default=>'Rider accepted the final delivery assignment.'});
   });
@@ -29,7 +29,7 @@ class Dispatch {
    if($rider)$cq->where('id',$rider);
    // Prefer nearest rider when both locations are supplied; otherwise use workload.
    $tried=DB::table('assignments')->where('parcel_id',$p->id)->where('kind',$kind)->whereIn('status',['declined','expired'])->pluck('rider_id');if(!$rider)$cq->whereNotIn('id',$tried);$candidates=$cq->orderBy('id')->lockForUpdate()->get();$chosen=null;$least=INF;$origin=DB::table('users')->find($company);
-   foreach($candidates as $u){try{Municipalities::courier($u,$p,$kind);}catch(\Illuminate\Validation\ValidationException $e){continue;}$n=DB::table('assignments')->where('rider_id',$u->id)->whereIn('status',['offered','accepted'])->count();$distance=($origin->latitude!==null&&$origin->longitude!==null&&$u->latitude!==null&&$u->longitude!==null)?self::distance($origin->latitude,$origin->longitude,$u->latitude,$u->longitude):1000000+$n;if($n<3&&$distance<$least){$chosen=$u;$least=$distance;}}
+   foreach($candidates as $u){try{Municipalities::courier($u,$p,$kind);}catch(\Illuminate\Validation\ValidationException $e){continue;}$n=DB::table('assignments')->where('rider_id',$u->id)->whereIn('status',['offered','accepted'])->count();$distance=($origin->latitude!==null&&$origin->longitude!==null&&$u->latitude!==null&&$u->longitude!==null)?self::distance($origin->latitude,$origin->longitude,$u->latitude,$u->longitude):1000000+$n;if($n<CourierCapacity::limit($u)&&$distance<$least){$chosen=$u;$least=$distance;}}
    if(!$chosen)Support::fail('rider_id','No Online rider with capacity is available in this company.');
    DB::table('assignments')->where('parcel_id',$p->id)->where('kind',$kind)->whereIn('status',['offered','accepted','requested'])->update(['status'=>'reassigned','updated_at'=>now()]);
    DB::table('assignments')->insert(['parcel_id'=>$p->id,'rider_id'=>$chosen->id,'kind'=>$kind,'status'=>'offered','expires_at'=>$kind==='delivery'?now()->addHours(12):now()->addSeconds(60),'earnings'=>ShippingEarnings::amount($p->order_id,$kind),'created_at'=>now(),'updated_at'=>now()]);

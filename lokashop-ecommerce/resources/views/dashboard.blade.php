@@ -13,6 +13,7 @@
   <div class="stat-card"><div class="ic warn">&#127991;&#65039;</div><div><div class="val">{{$stat_vouchers}}</div><div class="lbl">Saved vouchers</div></div></div>
  </div>
 
+ @include('overview-charts')
  <div class="panel-grid">
   <div>
    <div class="section-card">
@@ -88,6 +89,7 @@
   <div class="stat-card"><div class="ic">&#11088;</div><div><div class="val">{{$store_rating}}</div><div class="lbl">Store rating &middot; {{$store_reviews}} reviews</div></div></div>
  </div>
 
+ @include('overview-charts')
  <div class="panel-grid">
   <div>
    <div class="table-card">
@@ -144,6 +146,7 @@
   <div class="stat-card"><div class="ic red">&#9888;&#65039;</div><div><div class="val">{{$stat_complaints}}</div><div class="lbl">Open complaints</div></div></div>
  </div>
 
+ @include('overview-charts')
  <div class="panel-grid">
   <div>
    <div class="table-card">

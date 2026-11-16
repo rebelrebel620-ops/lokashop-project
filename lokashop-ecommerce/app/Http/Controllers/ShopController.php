@@ -10,6 +10,7 @@ class ShopController extends Controller {
  private function links(){return app(CommonController::class)->links();}
  public function landing(){$b=fn()=>\App\Services\Commerce::catalog(DB::table('products'));return view('landing',['featured'=>$b()->join('categories','categories.id','=','products.category_id')->select('products.*','categories.name as category')->orderByDesc('products.id')->limit(8)->get(),'categories'=>collect(config('registration.categories'))->map(fn($name)=>(object)['name'=>$name]),'stats'=>['products'=>$b()->count(),'sellers'=>DB::table('users')->where('role','seller')->where('approval_status','approved')->where('active',1)->count(),'orders'=>DB::table('orders')->whereIn('status',['DELIVERED','COMPLETED'])->count()],'notice'=>DB::table('announcements')->orderByDesc('id')->first()]);}
  public function home(Request $r){
+  $r->validate(['category'=>'nullable|integer','main_category'=>'nullable|string']);
   // Old subcategory links still open their corresponding main category.
   if(!$r->filled('main_category')&&$r->filled('category')&&ctype_digit((string)$r->input('category'))){$main=DB::table('categories')->where('id',$r->input('category'))->value('main_category');if(in_array($main,config('registration.categories'),true))$r->merge(['main_category'=>$main]);}
   $products=\App\Services\Catalog::query($r)->paginate(12)->withQueryString();
@@ -22,12 +23,12 @@ class ShopController extends Controller {
  public function address(Request $r){$v=$r->validate(['recipient'=>'required|max:150','phone'=>'required|max:40','street'=>'required|max:200','barangay'=>'required|max:120','city'=>'required|max:120','province'=>'required|max:120','postal_code'=>'nullable|max:20']);DB::table('addresses')->insert($v+['user_id'=>auth()->id(),'created_at'=>now(),'updated_at'=>now()]);return back()->with('success','Address saved.');}
  public function checkout(Request $r){$ids=\App\Services\Commerce::checkout($r);return redirect('/orders')->with('success','Orders placed: '.implode(', ',$ids));}
  public function orders(Request $r){
-  $tab=in_array($r->query('tab'),['pending','receive','completed'],true)?$r->query('tab'):'pending';
+  $tab=in_array($r->query('tab'),['pending','receive','completed','returns'],true)?$r->query('tab'):'pending';
   $base=\App\Services\BuyerOrders::orders(auth()->id());$counts=[];
-  foreach(['pending','receive','completed'] as $key)$counts[$key]=\App\Services\BuyerOrders::filter(clone $base,$key)->count();
+  foreach(['pending','receive','completed','returns'] as $key)$counts[$key]=\App\Services\BuyerOrders::filter(clone $base,$key)->count();
   $orders=\App\Services\BuyerOrders::filter($base,$tab)->paginate(12)->withQueryString();
   $items=DB::table('order_items')->whereIn('order_id',$orders->pluck('id'))->get()->groupBy('order_id');
-  return view('orders',['links'=>$this->links(),'orders'=>$orders,'orderItems'=>$items,'tab'=>$tab,'counts'=>$counts]);
+  return view('orders',['links'=>$this->links(),'orders'=>$orders,'orderItems'=>$items,'returnsByOrder'=>DB::table('return_requests')->where('buyer_id',auth()->id())->whereIn('order_id',$orders->pluck('id'))->get()->keyBy('order_id'),'tab'=>$tab,'counts'=>$counts]);
  }
  public function confirm(Request $r,int $id){$p=DB::table('parcels')->where('order_id',$id)->first();abort_unless($p,404);Workflow::move($p->id,'COMPLETED',auth()->id());return back()->with('success','Order completed.');}
  public function rating(Request $r,int $id){$o=\App\Services\Support::ownsOrder($id);abort_unless($o->buyer_id==auth()->id(),403);if(!$r->filled('order_item_id')){$items=DB::table('order_items')->where('order_id',$id)->get();if($items->count()!==1)\App\Services\Support::fail('order_item_id','Select an order item to review on the Reviews page.');$r->merge(['order_item_id'=>$items[0]->id]);}abort_unless(DB::table('order_items')->where('id',$r->order_item_id)->where('order_id',$id)->exists(),403);return app(MarketController::class)->review($r);}

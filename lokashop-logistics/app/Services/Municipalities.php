@@ -8,7 +8,7 @@ class Municipalities {
  public static function centerFor($a){if(!$a)return null;return DB::table('sorting_centers as c')->join('users as u','u.id','=','c.user_id')->where('c.municipality_key',self::key($a->province,$a->city))->where('u.active',1)->where('u.account_status','active')->where('u.approval_status','approved')->select('c.*')->first();}
  public static function matches($a,$b):bool{return $a&&$b&&self::key($a->province,$a->city)===self::key($b->province,$b->city);}
  public static function pickupRiders($p) {
-  $o=DB::table('orders')->find($p->order_id);$address=self::address($o->seller_id);$center=self::centerFor($address);
+  $o=DB::table('orders')->find($p->order_id);$address=ReturnRouting::pickup($p);$center=self::centerFor($address);
   if(!$address||!$center)return collect();
   $areas=DB::table('delivery_areas')->where('center_id',$center->id)->get()->filter(fn($a)=>self::normalize((string)$a->barangay)===self::normalize((string)$address->barangay));
   return DB::table('users')->whereIn('id',$areas->pluck('rider_id')->filter())->where('role','rider')->where('courier_type','rider')->where('company_id',$center->user_id)->where('active',1)->where('account_status','active')->where('approval_status','approved')->get()->filter(fn($u)=>self::matches(self::address($u->id),$address));
@@ -21,7 +21,7 @@ class Municipalities {
   if($kind==='pickup'&&!self::pickupRiders($p)->contains('id',$u->id))Support::fail('rider_id','Pickup rider must be assigned to an area covering the seller barangay.');
   if($kind==='transfer'){if($u->courier_type!=='driver')Support::fail('rider_id','Only logistics drivers may transfer between sorting centers.');return;}
   if($u->courier_type!=='rider')Support::fail('rider_id','Only motorcycle/tricycle riders may pick up or deliver to customers.');
-  $o=DB::table('orders')->find($p->order_id);$address=$kind==='pickup'?self::address($o->seller_id):($o->address_snapshot?json_decode($o->address_snapshot):DB::table('addresses')->find($o->address_id));
+  $o=DB::table('orders')->find($p->order_id);$address=$kind==='pickup'?ReturnRouting::pickup($p):ReturnRouting::destination($p);
   $c=DB::table('sorting_centers')->where('user_id',$u->company_id)->first();$own=self::address($u->id)??$c;
   if(!self::matches($own,$c)||!self::matches($own,$address))Support::fail('rider_id','Riders serve only their registered municipality. Use a driver for inter-center transfers.');
  }

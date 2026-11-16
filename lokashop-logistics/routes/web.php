@@ -1,5 +1,9 @@
 <?php
 use Illuminate\Support\Facades\Route;
+// Record identifiers must be numeric before invoking typed controller arguments.
+Route::pattern('id', '[0-9]+');
+Route::pattern('index', '[0-9]+');
+Route::pattern('userId', '[0-9]+');
 use App\Http\Controllers\{CommonController as C,LogisticsController as L,LogisticsAdminController as A};
 Route::get('/',[L::class,'landing']);Route::get('/track',[L::class,'track']);
 Route::get('/login',[C::class,'authForm'])->name('login');Route::post('/login',[C::class,'login'])->middleware('login.throttle');Route::get('/register',[C::class,'authForm']);Route::post('/register',[C::class,'register']);
@@ -115,3 +119,7 @@ Route::middleware(['auth','role:sorting_center|rider|logistics_admin'])->group(f
 Route::middleware(['auth','role:sorting_center'])->get('/center/financial-report',[\App\Http\Controllers\CenterFinancialController::class,'index']);
 
 Route::get('/live/state',[\App\Http\Controllers\LiveUpdatesController::class,'state'])->middleware('throttle:120,1');
+
+Route::middleware(['auth','role:sorting_center|rider|logistics_admin'])->group(function(){Route::get('/notifications',[\App\Http\Controllers\NotificationController::class,'index']);Route::get('/notifications/count',[\App\Http\Controllers\NotificationController::class,'count']);Route::post('/notifications/read',[\App\Http\Controllers\NotificationController::class,'read']);});
+
+Route::middleware(['auth','role:sorting_center|rider|logistics_admin'])->group(function(){Route::post('/tools/password',[\App\Http\Controllers\AccountSecurityController::class,'password']);Route::post('/tools/contact/request',[\App\Http\Controllers\AccountSecurityController::class,'contactRequest']);Route::post('/tools/contact/verify',[\App\Http\Controllers\AccountSecurityController::class,'contactVerify']);});

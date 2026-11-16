@@ -9,7 +9,7 @@ class LogisticsAdminController extends Controller
 {
     public function commissions() {
         abort_unless(auth()->user()->role==='logistics_admin',403);
-        $records=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->leftJoin('shipping_distributions as d','d.order_id','=','o.id')->whereIn('o.status',['DELIVERED','COMPLETED'])->select('o.id','p.tracking_code','o.status','o.shipping_fee','o.shipping_split_version','o.shipping_commission as legacy_shipping_commission','d.center_cents','d.driver_cents','d.rider_cents','d.unallocated_cents')->orderByDesc('o.id')->paginate(12);
+        $records=DB::table('orders as o')->join('parcels as p','p.order_id','=','o.id')->leftJoin('shipping_distributions as d','d.order_id','=','o.id')->whereIn('o.status',['DELIVERED','COMPLETED'])->select('o.id','p.tracking_code','o.status','o.shipping_fee','o.shipping_split_version','d.center_cents','d.driver_cents','d.rider_cents','d.unallocated_cents')->orderByDesc('o.id')->paginate(12);
         $records->getCollection()->transform(function($o){foreach(['center','driver','rider','unallocated'] as $role){$key=$role.'_cents';$o->{$role.'_share'}=$o->$key===null?'Legacy / pending':number_format($o->$key/100,2);unset($o->$key);}return $o;});
         return view('list',['title'=>'Shipping fee distribution — centers 50%, drivers 25%, delivery riders 25%','links'=>app(CommonController::class)->links(),'records'=>$records]);
     }
@@ -19,22 +19,47 @@ class LogisticsAdminController extends Controller
         return DB::table('users')->whereIn('role', ['sorting_center', 'rider']);
     }
 
-    private function applications() {
+    private function applications()
+    {
         $u=auth()->user();
         abort_unless(in_array($u->role,['logistics_admin','sorting_center']),403);
         $q=DB::table('users');
         if($u->role==='logistics_admin')return $q->where('role','sorting_center');
         $center=DB::table('sorting_centers')->where('user_id',$u->id)->first();
-        return $q->where('role','rider')->where('company_id',$u->id)->whereIn('id',DB::table('addresses')->where('city',$center->city)->where('province',$center->province)->select('user_id'));
+        abort_unless($center,403);
+        $members=DB::table('users')->where('role','rider')->where('company_id',$u->id)->pluck('id');
+        $addresses=DB::table('addresses')->whereIn('user_id',$members)->orderByDesc('is_default')->orderBy('id')->get()->unique('user_id');
+        $ids=$addresses->filter(fn($a)=>\App\Services\Municipalities::matches($a,$center))->pluck('user_id');
+        return $q->where('role','rider')->where('company_id',$u->id)->whereIn('id',$ids);
     }
 
     public function approvals()
     {
-        $users = $this->applications()->where('approval_status', 'pending')->orderBy('id')->paginate(12)->withQueryString();
-        return view('admin_approvals', [
-            'links' => app(CommonController::class)->links(), 'users' => $users,
-            'approvalBase' => auth()->user()->role==='sorting_center'?'/center':'/admin',
-            'docs' => DB::table('registration_documents')->whereIn('user_id', $users->pluck('id'))->get()->groupBy('user_id'),
+        $v=request()->validate(['status'=>'nullable|in:pending,approved,rejected','q'=>'nullable|string|max:150','courier_type'=>'nullable|in:rider,driver']);
+        $status=$v['status']??'pending';$search=trim($v['q']??'');$type=$v['courier_type']??'';
+        $isCenter=auth()->user()->role==='sorting_center';
+        $base=$this->applications();
+        $counts=(clone $base)->whereIn('approval_status',['pending','pending_activation','approved','rejected'])->selectRaw('approval_status, COUNT(*) as total')->groupBy('approval_status')->pluck('total','approval_status');
+        $counts->put('pending',(int)$counts->get('pending',0)+(int)$counts->get('pending_activation',0));
+        $query=(clone $base)->whereIn('approval_status',$status==='pending'?['pending','pending_activation']:[$status]);
+        if($type!==''&&$isCenter)$query->where('courier_type',$type);
+        if($search!==''){
+            // Treat wildcard characters as literal input in both MySQL and SQLite.
+            $term='%'.str_replace(['!','%','_'],['!!','!%','!_'],$search).'%';
+            $query->where(function($q)use($term,$search){
+                foreach(['name','email','phone','plate_number','license_number'] as $field)$q->orWhereRaw($field." LIKE ? ESCAPE '!'",[$term]);
+                $q->orWhereIn('id',DB::table('sorting_centers')->whereRaw("name LIKE ? ESCAPE '!'",[$term])->select('user_id'));
+                if(ctype_digit(ltrim($search,'#')))$q->orWhere('id',(int)ltrim($search,'#'));
+            });
+        }
+        $users=$query->orderByDesc('created_at')->orderByDesc('id')->paginate(12)->withQueryString();
+        return view('admin_approvals',[
+            'links'=>app(CommonController::class)->links(),'users'=>$users,
+            'status'=>$status,'counts'=>$counts,'filters'=>['q'=>$search,'courier_type'=>$isCenter?$type:''],
+            'isCenter'=>$isCenter,'approvalBase'=>$isCenter?'/center':'/admin',
+            'addresses'=>DB::table('addresses')->whereIn('user_id',$users->pluck('id'))->orderByDesc('is_default')->orderBy('id')->get()->unique('user_id')->keyBy('user_id'),
+            'centers'=>DB::table('sorting_centers')->whereIn('user_id',$users->pluck('id'))->get()->keyBy('user_id'),
+            'docs'=>DB::table('registration_documents')->whereIn('user_id',$users->pluck('id'))->orderByDesc('id')->get()->groupBy('user_id'),
         ]);
     }
 

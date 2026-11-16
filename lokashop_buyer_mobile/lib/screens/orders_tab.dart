@@ -70,18 +70,9 @@ class _OrdersTabState extends State<OrdersTab> with AutoRefresh<OrdersTab> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     String bucket(dynamic o) {
-      if (o['status'] == 'PLACED') {
-        return 'My Orders';
-      }
-      if ([
-        'DELIVERED',
-        'COMPLETED',
-        'CANCELLED',
-        'REFUNDED',
-        'RETURN_RECEIVED',
-      ].contains(o['status'])) {
-        return 'Completed';
-      }
+      if (o['bucket'] == 'returns' || o['return_request_id'] != null || ['CANCELLED','REFUNDED','RETURN_TO_SENDER','RETURNED','RETURN_RECEIVED'].contains(o['status'])) return 'Returns & Cancelled';
+      if (o['status'] == 'PLACED') return 'My Orders';
+      if (['DELIVERED','COMPLETED'].contains(o['status'])) return 'Completed';
       return 'To Receive';
     }
 
@@ -115,7 +106,7 @@ class _OrdersTabState extends State<OrdersTab> with AutoRefresh<OrdersTab> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ['My Orders', 'To Receive', 'Completed']
+                        children: ['My Orders', 'To Receive', 'Completed', 'Returns & Cancelled']
                             .map(
                               (f) => Padding(
                                 padding: const EdgeInsets.only(right: 8),

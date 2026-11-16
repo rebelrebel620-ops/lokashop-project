@@ -4,7 +4,7 @@ $optionPairs=json_decode($optionSource->options??'{}',true)?:[];
 $types=array_keys($optionPairs);$values=$variant?array_values($optionPairs):[];
 @endphp
 <form method="post" enctype="multipart/form-data" action="/tools/variant" class="variant-editor">
-@csrf<input type="hidden" name="_request_key" value="{{(string)\Illuminate\Support\Str::uuid()}}"><input type="hidden" name="product_id" value="{{$p->id}}">
+@csrf<input type="hidden" name="_product_dialog" value="variations-product-{{$p->id}}"><input type="hidden" name="_request_key" value="{{(string)\Illuminate\Support\Str::uuid()}}"><input type="hidden" name="product_id" value="{{$p->id}}">
 @if($variant)<input type="hidden" name="id" value="{{$variant->id}}"><input type="hidden" name="original_stock" value="{{$variant->stock}}">@endif
 <div class="option-pair"><label>Option type<input name="option_types[]" value="{{$types[0]??''}}" placeholder="e.g. Color" maxlength="50" required></label><label>Option value<input name="option_values[]" value="{{$values[0]??''}}" placeholder="e.g. Black" maxlength="100" required></label></div>
 <div class="option-pair"><label>Second type (optional)<input name="option_types[]" value="{{$types[1]??''}}" placeholder="e.g. Size" maxlength="50"></label><label>Second value (optional)<input name="option_values[]" value="{{$values[1]??''}}" placeholder="e.g. Medium" maxlength="100"></label></div>

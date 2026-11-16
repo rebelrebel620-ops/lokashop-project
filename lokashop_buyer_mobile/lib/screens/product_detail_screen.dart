@@ -1,3 +1,4 @@
+import '../widgets/simple_video.dart';
 import 'package:flutter/material.dart';
 import '../widgets/auto_refresh.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +22,9 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen>
     with AutoRefresh<ProductDetailScreen> {
+  final galleryController = PageController();
+  @override
+  void dispose() { galleryController.dispose(); super.dispose(); }
   bool polling = false;
   @override
   bool get autoRefreshEnabled => !loading && !busy && !polling;
@@ -168,31 +172,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         child: ListView(
           padding: const EdgeInsets.all(22),
           children: [
-            SizedBox(
-              height: 320,
-              child: photos.isEmpty
-                  ? AppPhoto(productPhoto(p), imageSize: 1200)
-                  : PageView(
-                      key: ValueKey(variant?['id'] ?? 0),
-                      onPageChanged: (index) =>
-                          setState(() => photoIndex = index),
-                      children: photos
-                          .map(
-                            (url) => AppPhoto(
-                              '$url',
-                              fit: BoxFit.contain,
-                              imageSize: 1200,
-                            ),
-                          )
-                          .toList(),
-                    ),
-            ),
-            if (photos.isNotEmpty)
-              Center(
-                child: Text(
-                  '${photoIndex + 1} / ${photos.length} · Swipe to see photos',
-                ),
-              ),
+            AspectRatio(aspectRatio: 1, child: PageView(
+              controller: galleryController,
+              onPageChanged: (index) => setState(() => photoIndex = index),
+              children: [
+                if (photos.isEmpty) AppPhoto(productPhoto(p), imageSize: 1200),
+                ...photos.map((url) => AppPhoto('$url', fit: BoxFit.contain, imageSize: 1200)),
+                if (p['video_url'] != null) SimpleVideo(key: ValueKey('product-video-${p['id']}'), url: '${p['video_url']}', active: photoIndex == (photos.isEmpty ? 1 : photos.length)),
+              ],
+            )),
+            const SizedBox(height: 12),
+            SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+              for (var i = 0; i < (photos.isEmpty ? 1 : photos.length); i++)
+                Padding(padding: const EdgeInsets.only(right: 8), child: InkWell(onTap: () => galleryController.animateToPage(i, duration: const Duration(milliseconds: 200), curve: Curves.easeOut), child: Container(
+                  padding: const EdgeInsets.all(3), decoration: BoxDecoration(border: Border.all(color: photoIndex == i ? AppColors.primary : Colors.transparent, width: 2), borderRadius: BorderRadius.circular(10)),
+                  child: AppPhoto(photos.isEmpty ? productPhoto(p) : '${photos[i]}', width: 54, height: 54),
+                ))),
+              if (p['video_url'] != null) Padding(padding: const EdgeInsets.only(right: 8), child: InkWell(onTap: () => galleryController.animateToPage(photos.isEmpty ? 1 : photos.length, duration: const Duration(milliseconds: 200), curve: Curves.easeOut), child: Container(
+                padding: const EdgeInsets.all(3), decoration: BoxDecoration(border: Border.all(color: photoIndex == (photos.isEmpty ? 1 : photos.length) ? AppColors.primary : Colors.transparent, width: 2), borderRadius: BorderRadius.circular(10)),
+                child: Stack(alignment: Alignment.center, children: [
+                  AppPhoto(photos.isEmpty ? productPhoto(p) : '${photos.first}', width: 54, height: 54),
+                  const CircleAvatar(radius: 16, backgroundColor: AppColors.primary, child: Icon(Icons.play_arrow, color: Colors.white, size: 22)),
+                ]),
+              ))),
+            ])),
             const SizedBox(height: 24),
             Eyebrow('${p['category'] ?? 'LOCAL FIND'}'),
             const SizedBox(height: 10),
@@ -269,6 +272,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     ? null
                     : (id) => setState(() {
                         photoIndex = 0;
+                        if (galleryController.hasClients) galleryController.jumpToPage(0);
                         variant = id == null || id == 0
                             ? null
                             : Map.from(

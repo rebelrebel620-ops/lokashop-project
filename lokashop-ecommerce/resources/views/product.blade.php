@@ -3,9 +3,9 @@
 @section('title',$p->name.' - LokaShop')
 @section('body-class','product-page')
 @section('content')
-<link rel="stylesheet" href="{{ asset('css/product-detail.css') }}">
+<link rel="stylesheet" href="{{ asset('css/product-detail.css').'?v=9' }}">
 <link rel="stylesheet" href="{{asset('css/product-reviews.css')}}">
-<div class="product-detail">
+<div class="product-detail" data-product-live-url="{{url('/product/'.$p->id.'/state')}}">
 <a class="product-back" href="{{ '/shop'.(is_string(request('shop_query')) && request('shop_query') !== '' ? '?'.request('shop_query') : '') }}">&larr; Back to shop</a>
 @php
  $productPhotos = json_decode($p->images ?? '[]', true);
@@ -14,12 +14,21 @@
 <div class="panel-grid product-detail-grid">
  <div class="card product-gallery">
   @if(count($productPhotos))
-   <div class="product-main-photo"><img id="product-main-image" fetchpriority="high" decoding="async" src="{{ \App\Services\Support::productImageUrl($productPhotos[0],1200) }}" alt="{{ $p->name }}"></div>
-   @if(count($productPhotos)>1)
+   <div class="product-main-photo" data-product-media-frame>
+    <img id="product-main-image" fetchpriority="high" decoding="async" src="{{ \App\Services\Support::productImageUrl($productPhotos[0],1200) }}" alt="{{ $p->name }}">
+    @if(!empty($p->video_path))<div class="product-video-player" data-product-player hidden>
+     <video id="product-main-video" playsinline preload="metadata" controlslist="nodownload nofullscreen noplaybackrate" disablepictureinpicture disableremoteplayback poster="{{\App\Services\Support::productImageUrl($productPhotos[0],1200)}}" src="{{url('/product-videos/'.$p->id)}}"></video>
+     <button type="button" class="product-video-overlay" data-video-toggle aria-label="Play product video"><span aria-hidden="true">▶</span></button>
+     <div class="product-video-controls"><button type="button" data-video-toggle aria-label="Play product video">Play</button><button type="button" data-video-mute aria-label="Mute product video" aria-pressed="false">Mute</button></div>
+     <p class="product-video-message" data-video-message role="status" hidden></p>
+    </div>@endif
+   </div>
+   @if(count($productPhotos)>1 || !empty($p->video_path))
    <div class="product-thumbnails" aria-label="Product photos">
     @foreach($productPhotos as $photo)
      <button type="button" class="product-thumbnail" aria-label="View photo {{ $loop->iteration }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" data-gallery-image="{{ \App\Services\Support::productImageUrl($photo,1200) }}"><img src="{{ \App\Services\Support::productImageUrl($photo) }}" alt="{{ $p->name }} — photo {{ $loop->iteration }}" loading="lazy"></button>
     @endforeach
+    @if(!empty($p->video_path))<button type="button" class="product-thumbnail product-video-thumbnail" data-product-video aria-pressed="false" aria-label="Play product video"><video muted playsinline preload="metadata" tabindex="-1" aria-hidden="true" poster="{{\App\Services\Support::productImageUrl($productPhotos[0])}}" src="{{url('/product-videos/'.$p->id)}}#t=0.1"></video><span class="video-thumbnail-play" aria-hidden="true">▶</span></button>@endif
    </div>
    @endif
   @else
@@ -64,5 +73,5 @@
 
 </div>
 
-<script src="{{asset('js/product-selection.js')}}" defer></script>
+<script src="{{asset('js/product-selection.js').'?v=11'}}" defer></script><script src="{{asset('js/product-video.js').'?v=9'}}" defer></script>
 @endsection

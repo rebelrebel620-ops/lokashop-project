@@ -11,6 +11,9 @@
 <link rel="stylesheet" href="{{ asset('css/workspace-design.css') }}">
 <script src="{{ asset('js/workspace-design.js') }}" defer></script>
 @if(session('mobile_workspace'))<link rel="stylesheet" href="{{ asset('css/mobile-workspace.css') }}">@endif
+<link rel="stylesheet" href="{{asset('css/phone-header.css')}}">
+<script src="{{asset('js/phone-header.js')}}" defer></script>
+<link rel="stylesheet" href="{{asset('css/phone-density.css')}}">
 </head>
 <body class="logi logistics-public @yield('body-class')">
 <header class="m-header">
@@ -18,7 +21,8 @@
     <img src="{{ asset('images/logistics-logo.png') }}" alt="LokaShop Logistics logo" width="44" height="44" style="width:44px;height:44px;object-fit:contain;border-radius:10px;flex-shrink:0;display:block">
     LokaShop <small>Logistics</small>
   </a>
-  <nav class="m-nav">
+  <button type="button" class="phone-nav-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="logistics-header-nav"><span aria-hidden="true">☰</span> Menu</button>
+  <nav class="m-nav" id="logistics-header-nav" aria-label="Main navigation">
     <a href="/">Home</a>
     <a href="/track">Track parcel</a>
     @auth

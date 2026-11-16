@@ -1,0 +1,5 @@
+<?php
+require __DIR__.'/workflow_checks.php';
+use Illuminate\Support\Facades\{DB,Auth};
+use App\Http\Controllers\ProductStateController;
+$before=$n;Auth::forgetUser();$controller=new ProductStateController();$response=$controller->show($p);$state=$response->getData(true);ok($state['available']===true,'Guest can poll published product price and stock');ok(str_contains($response->headers->get('Cache-Control'),'no-store'),'Product state is not stale-cached');DB::table('products')->where('id',$p)->update(['stock'=>17,'price'=>321,'discount_percent'=>0]);$state=$controller->show($p)->getData(true);ok($state['stock']===17&&(float)$state['price']===321.0,'Product state reflects changed stock and price');ok(!isset($state['seller_id'],$state['video_path']),'Product state does not expose private storage or seller fields');DB::table('products')->where('id',$p)->update(['approved'=>0]);ok($controller->show($p)->getData(true)['available']===false,'Withdrawn product becomes unavailable without a page redirect');echo 'PASS: '.($n-$before)." in-place product state checks.\n";
